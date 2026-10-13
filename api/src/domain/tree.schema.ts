@@ -18,6 +18,7 @@ export const ViewerContextSchema = z.object({
   role: ViewerRoleSchema,
   departmentId: z.number().int().positive().optional(),
   employeeId: z.number().int().positive().optional(),
+  companyId: z.number().int().positive().optional(),
 });
 
 // ─── Règles de visibilité ──────────────────────────────────────────────────────
@@ -71,6 +72,7 @@ export const TextFieldSchema = z.object({
   label: z.string(),
   value: z.union([z.string(), z.number()]).nullable(),
   visibleIf: VisibleIfSchema,
+  editableIf: VisibleIfSchema.optional(),
   editable: z.boolean(),
 });
 
@@ -81,6 +83,7 @@ export const SelectFieldSchema = z.object({
   value: z.string().nullable(),
   options: z.array(z.object({ value: z.string(), label: z.string() })),
   visibleIf: VisibleIfSchema,
+  editableIf: VisibleIfSchema.optional(),
   editable: z.boolean(),
 });
 
@@ -90,6 +93,7 @@ export const Many2OneFieldSchema = z.object({
   label: z.string(),
   value: RefSchema.nullable(),
   visibleIf: VisibleIfSchema,
+  editableIf: VisibleIfSchema.optional(),
   editable: z.boolean(),
 });
 
@@ -110,6 +114,7 @@ export const GroupNodeSchema: z.ZodType<GroupNode> = z.lazy(() =>
     label: z.string(),
     children: z.array(FormNodeSchemaLazy),
     visibleIf: VisibleIfSchema,
+    editableIf: VisibleIfSchema.optional(),
   })
 );
 

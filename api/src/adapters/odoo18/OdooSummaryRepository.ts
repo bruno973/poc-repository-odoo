@@ -18,8 +18,9 @@ import {
 } from "../../domain/summary.js";
 import { SummaryGroupSchema, SummaryLineSchema } from "../../domain/summary.schema.js";
 import type { HoursStatus } from "../../domain/attendance.js";
-import type { ViewerContext, ViewerRole } from "../../domain/tree.js";
-import { type OdooClient, fromOdooDatetime } from "./client.js";
+import type { ViewerContext } from "../../domain/tree.js";
+import { fromOdooDatetime } from "./client.js";
+import type { OdooTransportFactory } from "./transport.js";
 import type { Ref } from "../../domain/tree.js";
 
 /** Many2one Odoo ([id, "Libellé"]) ou rien. Ne pas utiliser m2o() ici : les axes
@@ -59,11 +60,11 @@ export const TOTAL_FIELDS: Record<keyof SummaryTotals, string> = {
 type Row = Record<string, unknown>;
 
 export class OdooSummaryRepository implements SummaryRepository {
-  constructor(private readonly clientsByRole: Record<ViewerRole, OdooClient>) {}
+  constructor(private readonly transports: OdooTransportFactory) {}
 
   async getGroups(params: SummaryGroupsParams, viewer: ViewerContext): Promise<SummaryGroup[]> {
     const field = DIMENSION_FIELDS[params.dimension];
-    const rows = await this.clientsByRole[viewer.role].callKw<Row[]>({
+    const rows = await this.transports.for(viewer).callKw<Row[]>({
       model: MODEL,
       method: "read_group",
       args: [],
@@ -92,7 +93,7 @@ export class OdooSummaryRepository implements SummaryRepository {
   }
 
   async getLines(params: SummaryLinesParams, viewer: ViewerContext): Promise<SummaryLine[]> {
-    const rows = await this.clientsByRole[viewer.role].callKw<(Row & { id: number })[]>({
+    const rows = await this.transports.for(viewer).callKw<(Row & { id: number })[]>({
       model: MODEL,
       method: "search_read",
       args: [buildDomain(params.path, params.status)],

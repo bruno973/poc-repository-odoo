@@ -361,3 +361,32 @@ En mode `odoo-session`, `extractViewer` lit **uniquement** le cookie ; les en-t�
 | Trancher Q-02 (groupes manager / admin RH) | Bruno | Lot 3 |
 | Créer les 5 profils de test et constater les résultats attendus (T-03) | Bruno | [DATE] |
 | Démarrer le lot 1 (transport) | [Dev] | [DATE] |
+
+---
+
+## Avancement (13/10/2026)
+
+Lots 1 à 6 implémentés côté code et vérifiés **contre un faux serveur Odoo** (`api/test/fake-odoo.ts`) et le mock. Rien n'a encore tourné contre `amg` : l'environnement de développement n'a pas accès au tailnet.
+
+| Lot | État | Où |
+|---|---|---|
+| 0 — Prérequis | **À faire (Bruno)** : sauvegarde `amg`, 5 profils, constats T-03 | — |
+| 1 — Transport | Fait | `adapters/odoo18/transport.ts` (`SharedAccounts`, `SessionTransport`, `UserSessions`) ; `odoo-protocol.test.ts` |
+| 2 — Identité | Fait | `domain/identity.ts`, `OdooSessionIdentity`, `app/sessions.ts`, `routes/auth.ts`, `FakeJwtIdentity` ; `identity.test.ts`, `security.test.ts` |
+| 3 — Viewer constaté | Fait, table de groupes **à vérifier sur `amg`** (Q-02) | `app/roles.ts`, `ROLE_GROUPS` ; filtre par département limité au mode `shared` |
+| 4 — Capacités | Fait | `adapters/odoo18/capabilities.ts`, `editableIf` (mécanisme, aucune règle déclarée), mock F-10, Q-03 (T-46) |
+| 5 — Front | Fait | `web/src/middleware.ts`, `/login`, `/logout`, proxy cookies, `AppNav`, Gestion et fiche pilotées par les capacités |
+| 6 — Preuve | Banc prêt, **exécution sur `amg` à faire** | `test/rights-matrix.ts` (S-01…S-12, deux modes), `scripts/rapport-identite.ts` |
+| 7 — Décision | À faire après le lot 6 sur `amg` | — |
+
+Choix faits pendant l'implémentation, à valider :
+
+- **`has_access` par lot** : Odoo répond pour l'ensemble des ids. Un appel par page quand tout est autorisé ; sinon un appel par pointage pour savoir lesquels. Le cas « manager sur une page mélangée » coûte donc jusqu'à 81 appels : à mesurer (S-5, R-07).
+- **Employé lié** lu dans `hr.employee.public` (lisible par tout utilisateur interne, mêmes ids que `hr.employee`).
+- **`canApprove`** = `canEdit` ∧ groupe `APPROVAL_GROUP` (défaut `hr_attendance.group_hr_attendance_officer`, vide = `canEdit` seul). À confirmer avec les règles de validation de leila_hr (S-04).
+- **`editableIf`** : mécanisme en place et testé, mais aucune règle dans le squelette, pour tenir S-3 = 0.
+- **Mock** : les droits y sont simulés (`adapters/mock/rights.ts` ; équipe = subordonnés directs). Ce n'est pas un recodage dans Leila : c'est le faux moteur.
+- **`AUTH_MODE=fake-jwt`** (mock seulement) permet de faire la démo de la connexion sans Odoo.
+- **Limitation des tentatives** : par IP vue par l'API ; derrière le front, `TRUST_PROXY=1` est nécessaire pour compter par navigateur.
+
+Pour lancer le lot 6 sur `amg`, voir le README, section « Vérifications ».

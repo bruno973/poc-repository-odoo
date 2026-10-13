@@ -7,6 +7,8 @@ import type { SummaryRepository } from "../domain/SummaryRepository.js";
 import type { ViewerRole } from "../domain/tree.js";
 import { ZodError } from "zod";
 import { DomainError } from "../domain/errors.js";
+import type { IdentityProvider } from "../domain/identity.js";
+import { parseRoleGroups } from "./roles.js";
 import { Tracer } from "./trace.js";
 
 /**
@@ -34,10 +36,18 @@ export function driftGuard<T extends object>(portName: string, repo: T): T {
   });
 }
 
+/** Mode d'identité : comptes partagés (en-têtes x-viewer-*) ou session utilisateur. */
+export type AuthMode = "shared" | "odoo-session" | "fake-jwt";
+
+export type AuthSetup =
+  | { mode: "shared" }
+  | { mode: "odoo-session" | "fake-jwt"; identity: IdentityProvider };
+
 export interface Repositories {
   /** Libellé affiché dans l'interface (« Mock », « Odoo, base X »). */
   label: string;
   adapter: "mock" | "odoo";
+  auth: AuthSetup;
   employees: EmployeeRepository;
   attendances: AttendanceRepository;
   summary: SummaryRepository;
@@ -49,18 +59,33 @@ const ROLE_ENV: Record<ViewerRole, { user: string; password: string }> = {
   hr_admin: { user: "ODOO_USER_HR_ADMIN", password: "ODOO_PASSWORD_HR_ADMIN" },
 };
 
+export function authModeOf(env: NodeJS.ProcessEnv): AuthMode {
+  const raw = env["AUTH_MODE"] ?? "shared";
+  if (raw === "shared" || raw === "odoo-session" || raw === "fake-jwt") return raw;
+  throw new Error(`AUTH_MODE inconnu : ${raw} (shared | odoo-session | fake-jwt)`);
+}
+
 export async function createRepositories(env: NodeJS.ProcessEnv, tracer: Tracer): Promise<Repositories> {
   const adapter = env["ADAPTER"] === "odoo" ? "odoo" : "mock";
-  let raw: Omit<Repositories, "employees" | "attendances" | "summary"> &
-    Pick<Repositories, "employees" | "attendances" | "summary">;
+  const authMode = authModeOf(env);
+  let raw: Repositories;
 
   if (adapter === "odoo") {
+    if (authMode === "fake-jwt") throw new Error("AUTH_MODE=fake-jwt n'existe qu'avec ADAPTER=mock.");
     const { OdooClient } = await import("../adapters/odoo18/client.js");
+    const { SharedAccounts, UserSessions } = await import("../adapters/odoo18/transport.js");
+    const { OdooSessionIdentity, DEFAULT_ROLE_GROUPS } = await import("../adapters/odoo18/OdooSessionIdentity.js");
     const { OdooEmployeeRepository } = await import("../adapters/odoo18/OdooEmployeeRepository.js");
-    const { OdooAttendanceRepository } = await import("../adapters/odoo18/OdooAttendanceRepository.js");
+    const { OdooAttendanceRepository, DEFAULT_APPROVAL_GROUP } = await import(
+      "../adapters/odoo18/OdooAttendanceRepository.js"
+    );
     const { OdooSummaryRepository } = await import("../adapters/odoo18/OdooSummaryRepository.js");
 
-    const required = ["ODOO_URL", "ODOO_DB", ...Object.values(ROLE_ENV).flatMap((r) => [r.user, r.password])];
+    const required = [
+      "ODOO_URL",
+      "ODOO_DB",
+      ...(authMode === "shared" ? Object.values(ROLE_ENV).flatMap((r) => [r.user, r.password]) : []),
+    ];
     const missing = required.filter((k) => !env[k]);
     if (missing.length > 0) throw new Error(`Variables manquantes : ${missing.join(", ")} (voir api/.env.example)`);
 
@@ -70,35 +95,57 @@ export async function createRepositories(env: NodeJS.ProcessEnv, tracer: Tracer)
       ...(env["ODOO_LANG"] ? { lang: env["ODOO_LANG"] } : {}),
       ...(env["ODOO_TZ"] ? { tz: env["ODOO_TZ"] } : {}),
     };
-    const clientFor = (role: ViewerRole) =>
-      new OdooClient(
-        { ...base, user: env[ROLE_ENV[role].user] as string, password: env[ROLE_ENV[role].password] as string },
-        tracer,
-      );
-    const clientsByRole: Record<ViewerRole, InstanceType<typeof OdooClient>> = {
-      employee: clientFor("employee"),
-      manager: clientFor("manager"),
-      hr_admin: clientFor("hr_admin"),
-    };
-    console.log("🔐 Authentification Odoo (3 comptes)…");
-    await Promise.all(Object.values(clientsByRole).map((c) => c.authenticate()));
-    console.log("✅ Comptes Odoo authentifiés");
 
+    let transports: InstanceType<typeof SharedAccounts> | InstanceType<typeof UserSessions>;
+    let auth: AuthSetup;
+    if (authMode === "shared") {
+      const clientFor = (role: ViewerRole) =>
+        new OdooClient(
+          { ...base, user: env[ROLE_ENV[role].user] as string, password: env[ROLE_ENV[role].password] as string },
+          tracer,
+        );
+      const clientsByRole = {
+        employee: clientFor("employee"),
+        manager: clientFor("manager"),
+        hr_admin: clientFor("hr_admin"),
+      };
+      console.log("🔐 Authentification Odoo (3 comptes partagés)…");
+      await Promise.all(Object.values(clientsByRole).map((c) => c.authenticate()));
+      console.log("✅ Comptes Odoo authentifiés");
+      transports = new SharedAccounts(clientsByRole);
+      auth = { mode: "shared" };
+    } else {
+      // Aucun compte partagé : chaque appel part avec la session Odoo de l'utilisateur.
+      const sessions = new UserSessions();
+      transports = sessions;
+      const rules = parseRoleGroups(env["ROLE_GROUPS"] || DEFAULT_ROLE_GROUPS);
+      auth = { mode: "odoo-session", identity: new OdooSessionIdentity(base, sessions, rules, tracer) };
+    }
+
+    const approvalGroup = env["APPROVAL_GROUP"] === undefined ? DEFAULT_APPROVAL_GROUP : env["APPROVAL_GROUP"] || null;
     raw = {
-      label: `Odoo, base ${base.db}`,
+      label: `Odoo, base ${base.db}${authMode === "odoo-session" ? " · identité réelle" : " · comptes partagés"}`,
       adapter,
-      employees: new OdooEmployeeRepository(clientsByRole),
-      attendances: new OdooAttendanceRepository(clientsByRole),
-      summary: new OdooSummaryRepository(clientsByRole),
+      auth,
+      employees: new OdooEmployeeRepository(transports),
+      attendances: new OdooAttendanceRepository(transports, { approvalGroup }),
+      summary: new OdooSummaryRepository(transports),
     };
   } else {
+    if (authMode === "odoo-session") throw new Error("AUTH_MODE=odoo-session exige ADAPTER=odoo.");
     const { MockEmployeeRepository, MockTimeStore, MockAttendanceRepository, MockSummaryRepository } = await import(
       "../adapters/mock/index.js"
     );
     const store = new MockTimeStore();
+    let auth: AuthSetup = { mode: "shared" };
+    if (authMode === "fake-jwt") {
+      const { createMockIdentity } = await import("../adapters/fake/mockUsers.js");
+      auth = { mode: "fake-jwt", identity: createMockIdentity(env) };
+    }
     raw = {
-      label: "Mock (données en mémoire)",
+      label: `Mock (données en mémoire)${authMode === "fake-jwt" ? " · faux JWT" : ""}`,
       adapter,
+      auth,
       employees: new MockEmployeeRepository(),
       attendances: new MockAttendanceRepository(store),
       summary: new MockSummaryRepository(store),

@@ -14,10 +14,18 @@ export type ViewerRole = "employee" | "manager" | "hr_admin";
 
 /** Contexte du viewer injecté pour les règles de visibilité. */
 export interface ViewerContext {
+  /** Identifiant de l'utilisateur (constaté par le fournisseur d'identité, ou déclaré en mode partagé). */
   id: number;
+  /** Présentation uniquement (squelette, libellés) : les décisions d'accès viennent du moteur. */
   role: ViewerRole;
   departmentId?: number;
   employeeId?: number;
+  companyId?: number;
+  /**
+   * Poignée opaque vers la session moteur de l'utilisateur (mode identité réelle).
+   * Posée par le serveur à partir du cookie ; jamais sérialisée vers le client.
+   */
+  backendHandle?: string;
 }
 
 // ─── Règles de visibilité ──────────────────────────────────────────────────────
@@ -69,7 +77,12 @@ export interface TextField {
   label: string;
   value: string | number | null;
   visibleIf: VisibleIf;
-  /** Calculé à l'hydratation selon les droits réels du viewer (fields_get). */
+  /** Règle Leila optionnelle qui restreint encore `editable` (jamais ne l'ouvre). */
+  editableIf?: VisibleIf | undefined;
+  /**
+   * Calculé à l'hydratation : champ modifiable pour le moteur (lecture seule ou non)
+   * ∧ fiche modifiable par ce viewer (droits + règles d'enregistrement) ∧ editableIf.
+   */
   editable: boolean;
 }
 
@@ -81,6 +94,7 @@ export interface SelectField {
   value: string | null;
   options: ReadonlyArray<{ value: string; label: string }>;
   visibleIf: VisibleIf;
+  editableIf?: VisibleIf | undefined;
   editable: boolean;
 }
 
@@ -91,6 +105,7 @@ export interface Many2OneField {
   label: string;
   value: Ref | null;
   visibleIf: VisibleIf;
+  editableIf?: VisibleIf | undefined;
   editable: boolean;
 }
 
@@ -101,6 +116,8 @@ export interface GroupNode {
   label: string;
   children: FormNode[];
   visibleIf: VisibleIf;
+  /** S'applique à tous les descendants (combinée en « et » avec la leur). */
+  editableIf?: VisibleIf | undefined;
 }
 
 export type FormNode = TextField | SelectField | Many2OneField | GroupNode;

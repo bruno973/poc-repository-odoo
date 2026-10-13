@@ -5,7 +5,7 @@
 // champs non lisibles (confirmé empiriquement — pas d'AccessError sur
 // fields_get lui-même, contrairement à read() avec un champ interdit).
 
-import type { OdooClient } from "./client.js";
+import type { OdooTransport } from "./transport.js";
 
 interface FieldMeta {
   readonly: boolean;
@@ -21,12 +21,16 @@ export interface FieldAccess {
 }
 
 // fields_get décrit le schéma du modèle pour un COMPTE : le résultat ne dépend
-// pas de la fiche consultée. On le garde donc en cache par client (= par rôle)
-// au lieu de le redemander à chaque ouverture de fiche.
-const cache = new WeakMap<OdooClient, Map<string, Promise<FieldAccess>>>();
+// pas de la fiche consultée. On le garde donc en cache par transport (= par rôle
+// en mode partagé, par session utilisateur en mode identité réelle) au lieu de
+// le redemander à chaque ouverture de fiche. Le cache meurt avec la session.
+//
+// fields_get ne dit pas si CETTE fiche est modifiable (droits du modèle et règles
+// d'enregistrement) : c'est le rôle de capabilities.ts (has_access).
+const cache = new WeakMap<OdooTransport, Map<string, Promise<FieldAccess>>>();
 
 export function getFieldAccess(
-  client: OdooClient,
+  client: OdooTransport,
   candidateFields: readonly string[],
   model = "hr.employee"
 ): Promise<FieldAccess> {
@@ -47,7 +51,7 @@ export function getFieldAccess(
 }
 
 async function loadFieldAccess(
-  client: OdooClient,
+  client: OdooTransport,
   candidateFields: readonly string[],
   model: string
 ): Promise<FieldAccess> {

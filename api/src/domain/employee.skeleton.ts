@@ -3,6 +3,10 @@
 // Déclaratif pur : aucun terme Odoo, aucun appel réseau.
 // `editable: false` par défaut ici — surchargé à l'hydratation par l'adapter
 // (api/src/adapters/odoo18/mapping.ts) selon les droits réels du viewer.
+//
+// `editableIf` (optionnel, sur une feuille ou un groupe) peut restreindre encore
+// l'édition. Aucune règle n'est déclarée : les droits viennent du moteur (critère
+// S-3 du cahier de dev : 0 règle de droit recodée dans Leila).
 
 import type { GroupNode, VisibleIf } from "./tree.js";
 
@@ -13,13 +17,7 @@ const SELF_OR_ADMIN: VisibleIf = {
   conditions: [{ kind: "self" }, { kind: "role", roles: ["hr_admin"] }],
 };
 
-const SELF_OR_MANAGER_PLUS: VisibleIf = {
-  kind: "or",
-  conditions: [
-    { kind: "self" },
-    { kind: "role", roles: ["manager", "hr_admin"] },
-  ],
-};
+// Contact et téléphone d'urgence : SELF_OR_ADMIN (décision Q-03, les managers ne les voient pas).
 
 const HR_ADMIN_ONLY: VisibleIf = { kind: "role", roles: ["hr_admin"] };
 
@@ -86,8 +84,8 @@ export const EMPLOYEE_SKELETON: GroupNode[] = [
       { kind: "text",     key: "infoPrivee.privatePhone",      label: "Tél. privé",             value: null, visibleIf: SELF_OR_ADMIN, editable: false },
       { kind: "text",     key: "infoPrivee.kmHomeWork",        label: "Km domicile-travail",    value: null, visibleIf: SELF_OR_ADMIN, editable: false },
       { kind: "text",     key: "infoPrivee.privateCar",        label: "Immatriculation",        value: null, visibleIf: SELF_OR_ADMIN, editable: false },
-      { kind: "text",     key: "infoPrivee.emergencyContact",  label: "Contact urgence",        value: null, visibleIf: SELF_OR_MANAGER_PLUS, editable: false },
-      { kind: "text",     key: "infoPrivee.emergencyPhone",    label: "Tél. urgence",           value: null, visibleIf: SELF_OR_MANAGER_PLUS, editable: false },
+      { kind: "text",     key: "infoPrivee.emergencyContact",  label: "Contact urgence",        value: null, visibleIf: SELF_OR_ADMIN, editable: false },
+      { kind: "text",     key: "infoPrivee.emergencyPhone",    label: "Tél. urgence",           value: null, visibleIf: SELF_OR_ADMIN, editable: false },
       { kind: "many2one", key: "infoPrivee.nationality",       label: "Nationalité",            value: null, visibleIf: SELF_OR_ADMIN, editable: false },
       { kind: "text",     key: "infoPrivee.identNumber",       label: "N° pièce d'identité",    value: null, visibleIf: SELF_OR_ADMIN, editable: false },
       { kind: "text",     key: "infoPrivee.ssnId",             label: "N° sécurité sociale",    value: null, visibleIf: SELF_OR_ADMIN, editable: false },

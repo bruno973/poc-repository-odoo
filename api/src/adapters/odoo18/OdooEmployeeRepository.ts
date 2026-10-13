@@ -1,11 +1,13 @@
 // adapters/odoo18/OdooEmployeeRepository.ts
 // Implémente le port EmployeeRepository via Odoo 18 JSON-RPC.
-// Un OdooClient distinct par rôle (employee/manager/hr_admin) — Odoo applique
-// les droits réels du compte utilisé. fields_get détermine, avant tout read(),
-// quels champs sont sûrs à demander — évite toute AccessError.
+// Le transport est choisi par viewer (compte partagé par rôle, ou session Odoo de
+// l'utilisateur) — Odoo applique les droits réels du compte utilisé. fields_get
+// détermine, avant tout read(), quels champs sont sûrs à demander ; has_access
+// dit si CETTE fiche est modifiable par ce compte.
 
 import type { EmployeeRepository } from "../../domain/EmployeeRepository.js";
 import { DomainError } from "../../domain/errors.js";
+import { applyEditableIf, editableKeys } from "../../domain/visibility.js";
 import { DOMAIN_KEY_TO_ODOO_FIELD } from "./mapping.js";
 
 import type {
@@ -14,7 +16,6 @@ import type {
   EmployeeFormRecord,
   DepartmentNode,
   ViewerContext,
-  ViewerRole,
 } from "../../domain/tree.js";
 import {
   EmployeeListResultSchema,
@@ -22,8 +23,9 @@ import {
   DepartmentNodeSchema,
 } from "../../domain/tree.schema.js";
 
-import type { OdooClient } from "./client.js";
+import { recordAccess } from "./capabilities.js";
 import { getFieldAccess } from "./permissions.js";
+import type { OdooTransport, OdooTransportFactory } from "./transport.js";
 import {
   EMPLOYEE_FIELDS_LISTING,
   EMPLOYEE_FIELDS_FULL,
@@ -41,10 +43,10 @@ interface OdooRawDepartment {
 }
 
 export class OdooEmployeeRepository implements EmployeeRepository {
-  constructor(private readonly clientsByRole: Record<ViewerRole, OdooClient>) {}
+  constructor(private readonly transports: OdooTransportFactory) {}
 
-  private clientFor(viewer: ViewerContext): OdooClient {
-    return this.clientsByRole[viewer.role];
+  private clientFor(viewer: ViewerContext): OdooTransport {
+    return this.transports.for(viewer);
   }
 
   async listEmployees(
@@ -54,11 +56,10 @@ export class OdooEmployeeRepository implements EmployeeRepository {
     const client = this.clientFor(viewer);
     const domain: unknown[] = [["active", "=", true]];
 
-    // TEMPORAIRE : ce filtre refait côté API un droit qu'Odoo devrait appliquer.
-    // Il existe parce que les comptes Odoo sont partagés par rôle (les règles
-    // d'Odoo voient le compte « manager », pas le vrai manager). À supprimer
-    // quand l'identité réelle de l'utilisateur arrivera jusqu'à Odoo (Keycloak).
-    if (viewer.role === "employee" || viewer.role === "manager") {
+    // Mode partagé UNIQUEMENT : ce filtre refait côté API un droit qu'Odoo devrait
+    // appliquer, parce que les règles d'Odoo voient le compte « manager », pas le
+    // vrai manager. En identité réelle (odoo-session), Odoo filtre seul (T-33).
+    if (this.transports.mode === "shared" && (viewer.role === "employee" || viewer.role === "manager")) {
       if (viewer.departmentId !== undefined) {
         domain.push(["department_id", "=", viewer.departmentId]);
       }
@@ -111,14 +112,22 @@ export class OdooEmployeeRepository implements EmployeeRepository {
     //    pour ce compte (ex. employee lisant la fiche d'un collègue).
     const access = await getFieldAccess(client, EMPLOYEE_FIELDS_FULL);
 
-    // 2. Lire uniquement les champs autorisés.
+    // 2. Lire uniquement les champs autorisés ; en parallèle, demander si la fiche
+    //    est modifiable (droits du modèle + règles d'enregistrement).
     const readableFields = Array.from(access.readable);
-    const rawList = await client.callKw<OdooRawEmployee[]>({
-      model: "hr.employee",
-      method: "read",
-      args: [[id]],
-      kwargs: { fields: readableFields },
-    });
+    const [rawList, writable] = await Promise.all([
+      client.callKw<OdooRawEmployee[]>({
+        model: "hr.employee",
+        method: "read",
+        args: [[id]],
+        kwargs: { fields: readableFields },
+      }),
+      recordAccess(client, "hr.employee", [id], "write").catch((error: unknown) => {
+        // Fiche inexistante : read() renvoie [] ou MissingError, on laisse read() trancher.
+        if (error instanceof DomainError && error.code === "not_found") return new Map<number, boolean>();
+        throw error;
+      }),
+    ]);
 
     const raw = rawList[0];
     if (!raw) return null;
@@ -136,8 +145,8 @@ export class OdooEmployeeRepository implements EmployeeRepository {
       });
     }
 
-    const record = mapFormRecord(raw, [raw, ...subordinates], access);
-    return EmployeeFormRecordSchema.parse(record);
+    const record = mapFormRecord(raw, [raw, ...subordinates], access, writable.get(id) === true);
+    return EmployeeFormRecordSchema.parse({ ...record, formTree: applyEditableIf(record.formTree, viewer, id) });
   }
 
   async getDepartmentsTree(viewer: ViewerContext): Promise<DepartmentNode[]> {
@@ -180,7 +189,6 @@ export class OdooEmployeeRepository implements EmployeeRepository {
     viewer: ViewerContext
   ): Promise<EmployeeFormRecord> {
     const client = this.clientFor(viewer);
-    const access = await getFieldAccess(client, EMPLOYEE_FIELDS_FULL);
 
     const odooPatch: Record<string, unknown> = {};
     for (const [domainKey, value] of Object.entries(patch)) {
@@ -188,12 +196,20 @@ export class OdooEmployeeRepository implements EmployeeRepository {
       if (!odooField) {
         throw new DomainError(`Champ inconnu : ${domainKey}`, "invalid");
       }
-      // On refuse avant d'appeler Odoo : même règle que l'affichage (editable),
-      // et un message clair plutôt qu'une AccessError brute.
-      if (!access.editable.has(odooField)) {
-        throw new DomainError(`Champ non modifiable pour ce profil : ${domainKey}`, "forbidden");
-      }
       odooPatch[odooField] = value;
+    }
+
+    // F-05 : exactement la règle de l'affichage. On réévalue la fiche telle que
+    // ce viewer la verrait (fields_get ∧ has_access ∧ editableIf) et on refuse
+    // AVANT d'appeler write : message clair plutôt qu'une AccessError brute.
+    if (Object.keys(odooPatch).length > 0) {
+      const current = await this.getEmployeeById(id, viewer);
+      if (!current) throw new DomainError(`Employé ${id} introuvable.`, "not_found");
+      const editable = editableKeys(current.formTree);
+      const refused = Object.keys(patch).filter((key) => !editable.has(key));
+      if (refused.length > 0) {
+        throw new DomainError(`Champ non modifiable pour ce profil : ${refused.join(", ")}`, "forbidden");
+      }
     }
 
     if (Object.keys(odooPatch).length > 0) {

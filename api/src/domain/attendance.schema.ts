@@ -23,6 +23,7 @@ export const AttendanceSchema = z.object({
   workedHours: z.number().nonnegative(),
   movements: MovementsSchema,
   hoursStatus: HoursStatusSchema.nullable(),
+  capabilities: z.object({ canEdit: z.boolean(), canApprove: z.boolean() }),
 });
 
 export const AttendancePageSchema = z.object({

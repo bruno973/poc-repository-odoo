@@ -9,6 +9,8 @@ export interface BackendCall {
   call: string;
   ms: number;
   ok: boolean;
+  /** Utilisateur du moteur qui a porté l'appel (preuve F-03 : compte partagé ou vraie personne) */
+  uid?: number;
 }
 
 export interface TraceEntry {
@@ -23,7 +25,7 @@ export interface TraceEntry {
 
 /** Ce que les adapters voient du journal : une seule méthode, aucune dépendance. */
 export interface BackendRecorder {
-  recordBackend(call: string, ms: number, ok: boolean): void;
+  recordBackend(call: string, ms: number, ok: boolean, uid?: number): void;
 }
 
 const storage = new AsyncLocalStorage<TraceEntry>();
@@ -66,8 +68,8 @@ export class Tracer implements BackendRecorder {
     });
   }
 
-  recordBackend(call: string, ms: number, ok: boolean): void {
-    storage.getStore()?.backend.push({ call, ms: Math.round(ms), ok });
+  recordBackend(call: string, ms: number, ok: boolean, uid?: number): void {
+    storage.getStore()?.backend.push({ call, ms: Math.round(ms), ok, ...(uid !== undefined ? { uid } : {}) });
   }
 
   recent(limit = 60): TraceEntry[] {

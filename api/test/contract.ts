@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { before, describe, it } from "node:test";
 import type { Repositories } from "../src/app/repositories.js";
 import { DomainError } from "../src/domain/errors.js";
-import type { ViewerContext } from "../src/domain/tree.js";
+import type { FormNode, ViewerContext } from "../src/domain/tree.js";
 
 export interface ContractOptions {
   viewer: ViewerContext;
@@ -30,6 +30,28 @@ export function runContract(name: string, make: () => Promise<Repositories>, opt
       assert.ok(page.total >= page.items.length);
     });
 
+    it("garde la même règle pour l'affichage et l'enregistrement d'une fiche", async () => {
+      const first = (await repos.employees.listEmployees({ limit: 1 }, viewer)).items[0];
+      assert.ok(first);
+      const record = await repos.employees.getEmployeeById(first.id, viewer);
+      assert.ok(record);
+      const flat = (n: FormNode): FormNode[] => (n.kind === "group" ? n.children.flatMap(flat) : [n]);
+      const leaves = record.formTree.flatMap(flat);
+      const locked = leaves.find((n) => n.kind !== "group" && !n.editable);
+      if (locked) {
+        await assert.rejects(
+          repos.employees.updateEmployee(first.id, { [locked.key]: "x" }, viewer),
+          (e: unknown) => e instanceof DomainError && (e.code === "forbidden" || e.code === "invalid"),
+        );
+      }
+      // Réécrire la valeur actuelle d'un champ modifiable : idempotent, donc sans risque
+      const open = leaves.find((n) => n.kind === "text" && n.editable && typeof n.value === "string");
+      if (open && open.kind === "text" && options.writes) {
+        const updated = await repos.employees.updateEmployee(first.id, { [open.key]: open.value }, viewer);
+        assert.equal(updated.id, first.id);
+      }
+    });
+
     it("renvoie null pour un employé introuvable", async () => {
       assert.equal(await repos.employees.getEmployeeById(987654321, viewer), null);
     });
@@ -47,6 +69,10 @@ export function runContract(name: string, make: () => Promise<Repositories>, opt
       const page = await repos.attendances.listAttendances({ limit: 5, offset: 0, onlyWithWorkedHours: true }, viewer);
       assert.ok(page.items.length <= 5);
       assert.ok(page.total >= page.items.length);
+      for (const a of page.items) {
+        assert.equal(typeof a.capabilities.canEdit, "boolean");
+        assert.ok(!a.capabilities.canApprove || a.capabilities.canEdit, "approuver sans pouvoir modifier");
+      }
     });
 
     it("donne des totaux de synthèse cohérents d'un niveau à l'autre", async () => {

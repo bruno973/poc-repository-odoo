@@ -9,7 +9,7 @@ import type { EmployeeRepository } from "../domain/EmployeeRepository.js";
 import { DomainError } from "../domain/errors.js";
 import type { EmployeeListParams } from "../domain/tree.js";
 import { applyVisibility } from "../domain/visibility.js";
-import { extractViewer } from "./viewer.js";
+import type { ViewerResolver } from "./viewer.js";
 
 const ListQuerySchema = z.object({
   search: z.string().optional(),
@@ -26,9 +26,9 @@ export const IdParamsSchema = z.object({ id: z.coerce.number().int().positive() 
  */
 const UpdatePatchSchema = z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()]));
 
-export function registerEmployeeRoutes(fastify: FastifyInstance, repository: EmployeeRepository): void {
+export function registerEmployeeRoutes(fastify: FastifyInstance, repository: EmployeeRepository, viewerOf: ViewerResolver): void {
   fastify.get("/api/employees", async (request) => {
-    const viewer = extractViewer(request);
+    const viewer = viewerOf(request);
     const d = ListQuerySchema.parse(request.query);
     const params: EmployeeListParams = {
       ...(d.search !== undefined && { search: d.search }),
@@ -40,7 +40,7 @@ export function registerEmployeeRoutes(fastify: FastifyInstance, repository: Emp
   });
 
   fastify.get("/api/employees/:id", async (request) => {
-    const viewer = extractViewer(request);
+    const viewer = viewerOf(request);
     const { id } = IdParamsSchema.parse(request.params);
     const record = await repository.getEmployeeById(id, viewer);
     if (!record) throw new DomainError(`Employé ${id} introuvable.`, "not_found");
@@ -49,7 +49,7 @@ export function registerEmployeeRoutes(fastify: FastifyInstance, repository: Emp
   });
 
   fastify.patch("/api/employees/:id", async (request) => {
-    const viewer = extractViewer(request);
+    const viewer = viewerOf(request);
     const { id } = IdParamsSchema.parse(request.params);
     const patch = UpdatePatchSchema.parse(request.body ?? {});
     const updated = await repository.updateEmployee(id, patch, viewer);

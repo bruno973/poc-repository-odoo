@@ -4,12 +4,12 @@
 
 import type { EmployeeListResult, DepartmentNode, EmployeeSummary } from "../../types/domain.js";
 import AppNav from "../../components/AppNav.astro";
-import { apiGet } from "../../lib/api.js";
-import { getViewer } from "../../lib/viewer.js";
+import { apiGet, isUnauthenticated, loginUrl } from "../../lib/api.js";
+import { currentViewer, ROLE_LABEL } from "../../lib/viewer.js";
 
-// Viewer : lu côté serveur (process.env) et injecté par lib/api.ts
-const viewer = getViewer();
-const viewerRole = viewer.role;
+// Viewer : constaté par l'API (identité réelle) ou déclaré par l'environnement (shared)
+const viewer = currentViewer(Astro.locals);
+const viewerRole = ROLE_LABEL[viewer.role];
 
 // Paramètres de recherche depuis l'URL
 const url = new URL(Astro.request.url);
@@ -17,10 +17,17 @@ const search = url.searchParams.get("search") ?? "";
 const deptFilter = url.searchParams.get("departmentId") ?? "";
 
 // Appels API parallèles (les deux portent le viewer, y compris l'arbre des départements)
-const [listData, departments] = await Promise.all([
-  apiGet<EmployeeListResult>("/api/employees", { search, departmentId: deptFilter }),
-  apiGet<DepartmentNode[]>("/api/departments/tree"),
-]);
+let listData: EmployeeListResult;
+let departments: DepartmentNode[];
+try {
+  [listData, departments] = await Promise.all([
+    apiGet<EmployeeListResult>(Astro, "/api/employees", { search, departmentId: deptFilter }),
+    apiGet<DepartmentNode[]>(Astro, "/api/departments/tree"),
+  ]);
+} catch (error) {
+  if (isUnauthenticated(error)) return Astro.redirect(loginUrl(Astro.url));
+  throw error;
+}
 
 // Grouper les employés par département
 const byDept = new Map<string, EmployeeSummary[]>();

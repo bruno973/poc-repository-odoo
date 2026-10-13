@@ -1,18 +1,18 @@
 ---
 // components/AppNav.astro — Barre de navigation commune + journal des appels.
 import { apiGet } from "../lib/api.js";
-import { getViewer, ROLE_LABEL } from "../lib/viewer.js";
+import { currentViewer, ROLE_LABEL } from "../lib/viewer.js";
 
 interface Props {
   current: "employees" | "pointer" | "gestion" | "synthese";
 }
 const { current } = Astro.props;
-const viewer = getViewer();
+const viewer = currentViewer(Astro.locals);
 
 let source = "API injoignable";
 let isOdoo = false;
 try {
-  const meta = await apiGet<{ adapter: string; label: string }>("/api/meta");
+  const meta = await apiGet<{ adapter: string; label: string }>(Astro, "/api/meta");
   source = meta.label;
   isOdoo = meta.adapter === "odoo";
 } catch {
@@ -36,7 +36,15 @@ const links = [
   </nav>
   <div class="appnav__meta">
     <span class={`appnav__source${isOdoo ? " is-odoo" : ""}`} title="Adapter branché derrière les ports">{source}</span>
-    <span class="appnav__role" title="Viewer injecté par le serveur (VIEWER_ROLE)">{ROLE_LABEL[viewer.role]} #{viewer.id}</span>
+    {viewer.observed ? (
+      <>
+        <span class="appnav__who">{viewer.label}</span>
+        <span class="appnav__role" title="Rôle constaté dans Odoo (groupes de l'utilisateur)">{ROLE_LABEL[viewer.role]}</span>
+        <form method="post" action="/logout"><button class="appnav__logout" type="submit">Se déconnecter</button></form>
+      </>
+    ) : (
+      <span class="appnav__role" title="Viewer injecté par le serveur (VIEWER_ROLE)">{ROLE_LABEL[viewer.role]} {viewer.label}</span>
+    )}
   </div>
 </header>
 
@@ -59,6 +67,10 @@ const links = [
   .appnav__links a[aria-current="page"] { background: #e8edff; color: #364fc7; font-weight: 600; }
   .appnav__meta { margin-left: auto; display: flex; gap: 0.6rem; align-items: center; font-size: 0.82rem; color: #666; }
   .appnav__source.is-odoo::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #2f9e44; margin-right: 6px; }
+  .appnav__who { font-weight: 600; color: #333; }
+  .appnav__meta form { margin: 0; }
+  .appnav__logout { border: 1px solid #dfe3f0; background: #fff; border-radius: 8px; padding: 0.25rem 0.6rem; font: inherit; color: #c92a2a; cursor: pointer; }
+  .appnav__logout:hover { background: #fff0f0; }
   .appnav__role { background: #f4f6fb; border: 1px solid #eaecf5; border-radius: 999px; padding: 0.15rem 0.6rem; color: #364fc7; font-weight: 600; }
 
   .trace { position: fixed; right: 1rem; bottom: 1rem; width: min(440px, calc(100vw - 2rem)); z-index: 50; font-family: system-ui, sans-serif; }
@@ -81,7 +93,7 @@ const links = [
 
   interface TraceEntry {
     id: number; port: string; ms: number; ok: boolean; error?: string;
-    backend: { call: string; ms: number; ok: boolean }[];
+    backend: { call: string; ms: number; ok: boolean; uid?: number }[];
   }
 
   const el = (tag: string, cls?: string, text?: string) => {
@@ -105,7 +117,10 @@ const links = [
           const ul = el("ul", "trace__backend");
           for (const b of e.backend) {
             const r = el("li", "trace__row");
-            r.append(el("code", undefined, b.call), el("span", undefined, `${b.ms} ms`));
+            r.append(
+              el("code", undefined, b.call),
+              el("span", undefined, `${b.uid !== undefined ? `uid ${b.uid} · ` : ""}${b.ms} ms`),
+            );
             ul.append(r);
           }
           li.append(ul);

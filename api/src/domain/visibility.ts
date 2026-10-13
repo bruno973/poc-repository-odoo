@@ -75,3 +75,35 @@ export function applyVisibility(record: EmployeeFormRecord, viewer: ViewerContex
     formTree: record.formTree.map(prune).filter((g): g is GroupNode => g !== null && g.kind === "group"),
   };
 }
+
+/**
+ * Restreint `editable` par la règle Leila `editableIf` (feuille et groupes parents).
+ * Ne rend jamais modifiable un champ que le moteur a déclaré non modifiable.
+ * Appelé par les adapters à l'hydratation : l'affichage et l'enregistrement
+ * (updateEmployee) lisent donc le même résultat.
+ */
+export function applyEditableIf(tree: GroupNode[], viewer: ViewerContext, employeeId: number): GroupNode[] {
+  const values = flattenValues(tree);
+  const allowed = (rules: readonly VisibleIf[]) => rules.every((r) => isVisible(r, viewer, employeeId, values));
+
+  function walk(node: FormNode, inherited: readonly VisibleIf[]): FormNode {
+    const rules = node.editableIf ? [...inherited, node.editableIf] : inherited;
+    if (node.kind === "group") return { ...node, children: node.children.map((c) => walk(c, rules)) };
+    return node.editable && rules.length > 0 && !allowed(rules) ? { ...node, editable: false } : node;
+  }
+
+  return tree.map((g) => walk(g, []) as GroupNode);
+}
+
+/** Clés des feuilles modifiables d'une fiche hydratée. */
+export function editableKeys(tree: readonly FormNode[]): Set<string> {
+  const keys = new Set<string>();
+  const walk = (nodes: readonly FormNode[]) => {
+    for (const n of nodes) {
+      if (n.kind === "group") walk(n.children);
+      else if (n.editable) keys.add(n.key);
+    }
+  };
+  walk(tree);
+  return keys;
+}

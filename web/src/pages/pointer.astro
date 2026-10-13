@@ -2,12 +2,12 @@
 // pages/pointer.astro — Pointer une arrivée ou un départ.
 // Rendu serveur de l'état, action par fetch vers le proxy /api/*, puis rechargement.
 import Shell from "../components/Shell.astro";
-import { apiGet, ApiError } from "../lib/api.js";
-import { getViewer } from "../lib/viewer.js";
+import { apiGet, ApiError, isUnauthenticated, loginUrl } from "../lib/api.js";
+import { currentViewer } from "../lib/viewer.js";
 import { duration, fmtDateTime, fmtTime, hm } from "../lib/format.js";
 import type { Attendance, AttendancePage, EmployeeListResult } from "../types/domain.js";
 
-const viewer = getViewer();
+const viewer = currentViewer(Astro.locals);
 const url = new URL(Astro.request.url);
 const ok = url.searchParams.get("ok");
 
@@ -18,18 +18,19 @@ let recent: Attendance[] = [];
 let employeeId: number | undefined;
 
 try {
-  employees = (await apiGet<EmployeeListResult>("/api/employees", { limit: 200 })).items;
+  employees = (await apiGet<EmployeeListResult>(Astro, "/api/employees", { limit: 200 })).items;
   const wanted = Number(url.searchParams.get("employe")) || viewer.employeeId;
   employeeId = employees.find((e) => e.id === wanted)?.id ?? employees[0]?.id;
   if (employeeId !== undefined) {
     const [current, page] = await Promise.all([
-      apiGet<{ attendance: Attendance | null }>(`/api/employees/${employeeId}/open-attendance`),
-      apiGet<AttendancePage>("/api/attendances", { employeeId, limit: 6 }),
+      apiGet<{ attendance: Attendance | null }>(Astro, `/api/employees/${employeeId}/open-attendance`),
+      apiGet<AttendancePage>(Astro, "/api/attendances", { employeeId, limit: 6 }),
     ]);
     open = current.attendance;
     recent = page.items;
   }
 } catch (e) {
+  if (isUnauthenticated(e)) return Astro.redirect(loginUrl(Astro.url));
   error = e instanceof ApiError ? e.message : "Erreur inattendue.";
 }
 
@@ -146,6 +147,10 @@ const now = new Date();
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ movements }),
       });
+      if (res.status === 401) {
+        location.href = `/login?retour=${encodeURIComponent(location.pathname + location.search)}`;
+        return;
+      }
       const data = await res.json();
       document.dispatchEvent(new Event("leila:api-call"));
       if (!res.ok) throw new Error(data.message ?? `Erreur ${res.status}`);

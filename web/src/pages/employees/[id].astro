@@ -6,17 +6,19 @@ import type { EmployeeFormRecord } from "../../types/domain.js";
 import TreeForm from "../../components/TreeForm.astro";
 import OrgChartNode from "../../components/nodes/OrgChartNode.astro";
 import AppNav from "../../components/AppNav.astro";
-import { apiGet, ApiError } from "../../lib/api.js";
+import { apiGet, ApiError, isUnauthenticated, loginUrl } from "../../lib/api.js";
 
 const { id } = Astro.params;
 if (!id) return Astro.redirect("/employees");
 
 let record: EmployeeFormRecord;
 try {
-  // L'API renvoie la fiche déjà élaguée pour le viewer (injecté par lib/viewer.ts).
-  record = await apiGet<EmployeeFormRecord>(`/api/employees/${id}`);
+  // L'API renvoie la fiche déjà élaguée pour le viewer, avec `editable` calculé
+  // par Odoo pour ce viewer (champ ET fiche modifiables).
+  record = await apiGet<EmployeeFormRecord>(Astro, `/api/employees/${id}`);
 } catch (error) {
   if (error instanceof ApiError && error.status === 404) return Astro.redirect("/employees");
+  if (isUnauthenticated(error)) return Astro.redirect(loginUrl(Astro.url));
   throw error;
 }
 ---

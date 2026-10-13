@@ -1,0 +1,25 @@
+{
+  "target": "amg",
+  "profiles": {
+    "p.admin": { "login": "p.admin", "passwordEnv": "MATRIX_PASSWORD_ADMIN", "shared": { "role": "hr_admin", "id": 2, "employeeId": 1 } },
+    "p.manager": { "login": "p.manager", "passwordEnv": "MATRIX_PASSWORD_MANAGER", "shared": { "role": "manager", "id": 10, "employeeId": 20, "departmentId": 3 } },
+    "p.validateur": { "login": "p.validateur", "passwordEnv": "MATRIX_PASSWORD_VALIDATEUR", "shared": { "role": "employee", "id": 11, "employeeId": 21 } },
+    "p.employe": { "login": "p.employe", "passwordEnv": "MATRIX_PASSWORD_EMPLOYE", "shared": { "role": "employee", "id": 12, "employeeId": 22, "departmentId": 3 } },
+    "p.autre_societe": { "login": "p.autre_societe", "passwordEnv": "MATRIX_PASSWORD_AUTRE_SOCIETE", "shared": { "role": "manager", "id": 13, "employeeId": 23 } }
+  },
+  "data": {
+    "teamEmployeeIds": [22, 24, 25],
+    "managerEmployeeId": 20,
+    "employeEmployeeId": 22,
+    "colleagueEmployeeId": 24,
+    "validatedEmployeeId": 30,
+    "notValidatedEmployeeId": 24,
+    "outsideTeamEmployeeId": 31,
+    "closedAttendance": { "id": 4567, "employeeId": 30 },
+    "companyBEmployeeIds": [40, 41, 42]
+  },
+  "expected": {
+    "S-05": "à constater dans Odoo (T-03) : autorisé | refusé",
+    "S-08": "à constater dans Odoo (T-03) : lisible | absent"
+  }
+}

@@ -4,7 +4,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { MockEmployeeRepository } from "../src/adapters/mock/index.js";
 import type { EmployeeFormRecord, FormNode, ViewerContext, VisibleIf } from "../src/domain/tree.js";
-import { applyVisibility, isVisible } from "../src/domain/visibility.js";
+import { EMPLOYEE_SKELETON } from "../src/domain/employee.skeleton.js";
+import type { GroupNode } from "../src/domain/tree.js";
+import { applyEditableIf, applyVisibility, editableKeys, isVisible } from "../src/domain/visibility.js";
 
 const keys = (record: EmployeeFormRecord): string[] => {
   const out: string[] = [];
@@ -33,10 +35,9 @@ describe("Visibilité évaluée côté serveur", () => {
     assert.ok(!visible.includes("parametres"), "onglet Paramètres exposé");
     // Les informations professionnelles restent visibles
     assert.ok(visible.includes("header.workEmail"));
-    // NB : le contact d'urgence est déclaré SELF_OR_MANAGER_PLUS, mais il est rangé
-    // dans le groupe « Informations privées » (SELF_OR_ADMIN) : le manager ne le voit
-    // donc pas. C'était déjà le cas avant (onglet masqué côté front). À trancher.
+    // Décision Q-03 : contact et téléphone d'urgence en SELF_OR_ADMIN (scénario S-07b)
     assert.ok(!visible.includes("infoPrivee.emergencyContact"));
+    assert.ok(!visible.includes("infoPrivee.emergencyPhone"));
   });
 
   it("ne laisse plus fuiter le conjoint vers un viewer qui n'est ni soi ni admin", async () => {
@@ -78,5 +79,47 @@ describe("Visibilité évaluée côté serveur", () => {
     };
     assert.equal(isVisible(rule, self, 2, {}), true);
     assert.equal(isVisible(rule, self, 3, {}), false);
+  });
+});
+
+describe("editableIf (règle Leila optionnelle)", () => {
+  const tree: GroupNode[] = [
+    {
+      kind: "group",
+      key: "g",
+      label: "G",
+      visibleIf: { kind: "always" },
+      editableIf: { kind: "role", roles: ["hr_admin", "manager"] },
+      children: [
+        { kind: "text", key: "g.a", label: "A", value: "x", visibleIf: { kind: "always" }, editable: true },
+        {
+          kind: "text", key: "g.b", label: "B", value: "y", visibleIf: { kind: "always" }, editable: true,
+          editableIf: { kind: "role", roles: ["hr_admin"] },
+        },
+        { kind: "text", key: "g.c", label: "C", value: "z", visibleIf: { kind: "always" }, editable: false },
+      ],
+    },
+  ];
+
+  it("restreint editable, en héritant des groupes parents", () => {
+    assert.deepEqual([...editableKeys(applyEditableIf(tree, admin, 5))], ["g.a", "g.b"]);
+    assert.deepEqual([...editableKeys(applyEditableIf(tree, managerOther, 5))], ["g.a"]);
+    assert.deepEqual([...editableKeys(applyEditableIf(tree, self, 5))], []);
+  });
+
+  it("ne rend jamais modifiable ce que le moteur refuse", () => {
+    assert.ok(!editableKeys(applyEditableIf(tree, admin, 5)).has("g.c"));
+  });
+
+  it("aucune règle de droit déclarée dans le squelette (critère S-3)", () => {
+    const rules: string[] = [];
+    const walk = (nodes: readonly FormNode[]) => {
+      for (const n of nodes) {
+        if (n.editableIf) rules.push(n.key);
+        if (n.kind === "group") walk(n.children);
+      }
+    };
+    walk(EMPLOYEE_SKELETON);
+    assert.deepEqual(rules, []);
   });
 });

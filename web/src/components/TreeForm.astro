@@ -23,6 +23,11 @@ const tabs: GroupNode[] = record.formTree;
 
 const activeTab = Astro.url.searchParams.get("tab") ?? tabs[0]?.key ?? "";
 
+// F-04 : rien de modifiable pour ce viewer (selon Odoo) → pas de bouton Enregistrer.
+const anyEditable = (nodes: readonly FormNode[]): boolean =>
+  nodes.some((n) => (n.kind === "group" ? anyEditable(n.children) : n.editable));
+const canSave = anyEditable(tabs);
+
 ---
 
 <nav class="tabs" role="tablist">
@@ -61,10 +66,12 @@ const activeTab = Astro.url.searchParams.get("tab") ?? tabs[0]?.key ?? "";
     </div>
   ))}
 
-  <div class="form-actions">
-    <button type="submit" class="btn-save">💾 Enregistrer</button>
-    <span class="save-status" id="save-status"></span>
-  </div>
+  {canSave && (
+    <div class="form-actions">
+      <button type="submit" class="btn-save">💾 Enregistrer</button>
+      <span class="save-status" id="save-status"></span>
+    </div>
+  )}
 </form>
 
 <style>
@@ -153,6 +160,10 @@ const activeTab = Astro.url.searchParams.get("tab") ?? tabs[0]?.key ?? "";
         body: JSON.stringify(patch),
       });
 
+      if (res.status === 401) {
+        location.href = `/login?retour=${encodeURIComponent(location.pathname + location.search)}`;
+        return;
+      }
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         status.textContent = `Erreur : ${err.message ?? err.error ?? res.statusText}`;

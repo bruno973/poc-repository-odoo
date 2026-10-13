@@ -13,6 +13,14 @@ export interface Movements {
 
 export type HoursStatus = "to_approve" | "approved" | "refused";
 
+/** Capacités calculées par le moteur pour CE viewer, jamais par Leila. */
+export interface AttendanceCapabilities {
+  /** Corriger le pointage (heures, mouvements) */
+  canEdit: boolean;
+  /** Approuver / refuser les heures */
+  canApprove: boolean;
+}
+
 export interface Attendance {
   id: number;
   employee: Ref;
@@ -24,6 +32,7 @@ export interface Attendance {
   workedHours: number;
   movements: Movements;
   hoursStatus: HoursStatus | null;
+  capabilities: AttendanceCapabilities;
 }
 
 export interface AttendancePage {
