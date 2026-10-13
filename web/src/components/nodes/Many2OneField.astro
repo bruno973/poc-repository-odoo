@@ -1,0 +1,42 @@
+---
+// components/nodes/Many2OneField.astro
+// Reste en lecture seule dans ce PoC : éditer un many2one nécessiterait un
+// picker (recherche + sélection d'un enregistrement lié), hors périmètre.
+interface Props {
+  label: string;
+  value: { id: number; label: string } | null;
+  editable: boolean;
+}
+const { label, value } = Astro.props;
+---
+
+<div class="field field--many2one">
+  <span class="field__label">{label}</span>
+  <span class="field__value">
+    {value ? value.label : <em class="field__empty">—</em>}
+  </span>
+</div>
+
+<style>
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .field__label {
+    font-size: 0.75rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .field__value {
+    font-size: 0.95rem;
+    color: #222;
+  }
+  .field__empty {
+    color: #ccc;
+    font-style: normal;
+  }
+</style>

@@ -1,0 +1,21 @@
+{
+  "name": "poc-odoo-repository-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "typecheck": "astro check && tsc --noEmit"
+  },
+  "dependencies": {
+    "@astrojs/node": "^8.2.0",
+    "astro": "^4.15.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.3",
+    "@types/node": "^22.20.5",
+    "typescript": "^5.5.4"
+  }
+}

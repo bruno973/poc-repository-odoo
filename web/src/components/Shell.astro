@@ -1,0 +1,73 @@
+---
+// components/Shell.astro — Gabarit des pages Pointer, Gestion et Synthèse.
+// Reprend le style des pages employés (fond #f4f6fb, cartes blanches, accent #4c6ef5).
+import AppNav from "./AppNav.astro";
+
+interface Props {
+  title: string;
+  current: "employees" | "pointer" | "gestion" | "synthese";
+}
+const { title, current } = Astro.props;
+---
+
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title} · Leila RH</title>
+  </head>
+  <body>
+    <AppNav current={current} />
+    <main class="page">
+      <slot />
+    </main>
+  </body>
+</html>
+
+<style is:global>
+  *, *::before, *::after { box-sizing: border-box; }
+  body { font-family: system-ui, sans-serif; margin: 0; background: #f4f6fb; color: #222; }
+  .page { max-width: 1280px; margin: 0 auto; padding: 1.5rem 1rem 5rem; }
+  h1 { font-size: 1.5rem; margin: 0; }
+  .head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .card { background: #fff; border: 1px solid #eaecf5; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.05); }
+  .toolbar { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+  select, input[type="search"] { height: 34px; border: 1px solid #dfe3f0; border-radius: 8px; background: #fff; padding: 0 0.6rem; font: inherit; }
+  .muted { color: #8a8fa3; }
+  .num { font-variant-numeric: tabular-nums; }
+  .banner { padding: 0.6rem 0.85rem; border-radius: 8px; margin: 0 0 1rem; }
+  .banner.is-error { background: #fff0f0; color: #c92a2a; }
+  .banner.is-ok { background: #ebfbee; color: #2b8a3e; }
+  .btn { height: 36px; padding: 0 1rem; border-radius: 8px; border: 1px solid #4c6ef5; background: #4c6ef5; color: #fff; font-weight: 600; cursor: pointer; font: inherit; font-weight: 600; }
+  .btn:hover { background: #3b5bdb; }
+  .btn:disabled { opacity: 0.6; cursor: progress; }
+  .link { background: none; border: 0; padding: 0.15rem 0.25rem; color: #4c6ef5; font: inherit; font-weight: 600; cursor: pointer; }
+  .link.is-danger { color: #c92a2a; }
+  .link:hover { text-decoration: underline; }
+  .check { display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; }
+
+  .table-wrap { overflow-x: auto; }
+  table.grid { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  .grid th, .grid td { padding: 0.5rem 0.6rem; border-bottom: 1px solid #f0f2f8; text-align: left; white-space: nowrap; }
+  .grid thead th { font-size: 0.78rem; color: #6b7088; font-weight: 600; white-space: normal; vertical-align: bottom; background: #fafbfe; }
+  .grid .is-num { text-align: right; }
+  .grid .is-center { text-align: center; }
+  .grid tbody tr:hover { background: #fafbff; }
+  .grid tr.is-pending { opacity: 0.5; }
+  .grid tfoot td, .grid tfoot th { font-weight: 700; border-top: 2px solid #222; background: #fafbfe; }
+  .grid .empty { text-align: center; color: #8a8fa3; padding: 2rem; white-space: normal; }
+
+  .status { display: inline-block; font-size: 0.75rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 6px; }
+  .status.is-approved { background: #ebfbee; color: #2b8a3e; }
+  .status.is-to_approve { background: #fff9db; color: #b06d00; }
+  .status.is-refused { background: #fff0f0; color: #c92a2a; }
+
+  .switch { appearance: none; width: 30px; height: 17px; border-radius: 9px; background: #d0d5e3; position: relative; cursor: pointer; vertical-align: middle; }
+  .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: #fff; transition: transform .15s; }
+  .switch:checked { background: #4c6ef5; }
+  .switch:checked::after { transform: translateX(13px); }
+  [hidden] { display: none !important; }
+  :focus-visible { outline: 2px solid #4c6ef5; outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>

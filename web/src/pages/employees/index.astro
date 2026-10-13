@@ -1,0 +1,193 @@
+---
+// pages/employees/index.astro
+// Listing des employés groupé par département + recherche.
+
+import type { EmployeeListResult, DepartmentNode, EmployeeSummary } from "../../types/domain.js";
+import AppNav from "../../components/AppNav.astro";
+import { apiGet } from "../../lib/api.js";
+import { getViewer } from "../../lib/viewer.js";
+
+// Viewer : lu côté serveur (process.env) et injecté par lib/api.ts
+const viewer = getViewer();
+const viewerRole = viewer.role;
+
+// Paramètres de recherche depuis l'URL
+const url = new URL(Astro.request.url);
+const search = url.searchParams.get("search") ?? "";
+const deptFilter = url.searchParams.get("departmentId") ?? "";
+
+// Appels API parallèles (les deux portent le viewer, y compris l'arbre des départements)
+const [listData, departments] = await Promise.all([
+  apiGet<EmployeeListResult>("/api/employees", { search, departmentId: deptFilter }),
+  apiGet<DepartmentNode[]>("/api/departments/tree"),
+]);
+
+// Grouper les employés par département
+const byDept = new Map<string, EmployeeSummary[]>();
+for (const emp of listData.items) {
+  const deptLabel = emp.department?.label ?? "Sans département";
+  const arr = byDept.get(deptLabel) ?? [];
+  arr.push(emp);
+  byDept.set(deptLabel, arr);
+}
+---
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Annuaire des employés</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f4f6fb; color: #222; }
+    .page { max-width: 1100px; margin: 0 auto; padding: 2rem 1rem; }
+    h1 { font-size: 1.5rem; font-weight: 700; color: #222; margin-bottom: 0.25rem; }
+    .subtitle { color: #888; font-size: 0.9rem; margin-bottom: 1.5rem; }
+
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .toolbar input, .toolbar select {
+      padding: 8px 12px;
+      border: 1px solid #d0d4e8;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      background: #fff;
+    }
+    .toolbar input { flex: 1; min-width: 200px; }
+    .toolbar button {
+      padding: 8px 18px;
+      background: #4c6ef5;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    .toolbar button:hover { background: #3b5bdb; }
+
+    .dept-section { margin-bottom: 2rem; }
+    .dept-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #4c6ef5;
+      margin-bottom: 0.75rem;
+      padding-bottom: 4px;
+      border-bottom: 2px solid #e0e4f5;
+    }
+    .kanban {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1rem;
+    }
+    .emp-card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: inherit;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+      transition: box-shadow 0.15s, transform 0.1s;
+      border: 1px solid #eaecf5;
+    }
+    .emp-card:hover {
+      box-shadow: 0 4px 16px rgba(76,110,245,0.15);
+      transform: translateY(-2px);
+      border-color: #4c6ef5;
+    }
+    .emp-avatar {
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      background: #e8edff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem; font-weight: 700; color: #4c6ef5;
+      flex-shrink: 0; overflow: hidden;
+    }
+    .emp-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .emp-info { flex: 1; min-width: 0; }
+    .emp-name { font-weight: 600; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .emp-title { font-size: 0.8rem; color: #888; margin-top: 2px; }
+    .emp-email { font-size: 0.78rem; color: #4c6ef5; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .badge-role {
+      display: inline-block;
+      font-size: 0.72rem;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: #e8edff;
+      color: #4c6ef5;
+      font-weight: 600;
+      margin-left: auto;
+      white-space: nowrap;
+    }
+    .empty { color: #aaa; font-style: italic; padding: 1rem 0; }
+  </style>
+</head>
+<body>
+  <AppNav current="employees" />
+  <div class="page">
+    <h1>👥 Annuaire des employés</h1>
+    <p class="subtitle">
+      {listData.total} employé{listData.total > 1 ? "s" : ""} •
+      Rôle viewer : <strong>{viewerRole}</strong>
+    </p>
+
+    <!-- Barre de recherche / filtres -->
+    <form class="toolbar" method="get">
+      <input
+        type="search"
+        name="search"
+        value={search}
+        placeholder="Rechercher par nom, poste, email…"
+      />
+      <select name="departmentId">
+        <option value="">Tous les départements</option>
+        {departments.map((d) => (
+          <option value={String(d.id)} selected={deptFilter === String(d.id)}>
+            {d.name}
+          </option>
+        ))}
+      </select>
+      <button type="submit">Rechercher</button>
+      {(search || deptFilter) && (
+        <a href="/employees" style="font-size:0.85rem;color:#999;">✕ Réinitialiser</a>
+      )}
+    </form>
+
+    <!-- Kanban par département -->
+    {byDept.size === 0
+      ? <p class="empty">Aucun employé trouvé.</p>
+      : Array.from(byDept.entries()).map(([deptName, employees]) => (
+          <div class="dept-section">
+            <h2 class="dept-title">🏢 {deptName} ({employees.length})</h2>
+            <div class="kanban">
+              {employees.map((emp) => (
+                <a href={`/employees/${emp.id}`} class="emp-card">
+                  <div class="emp-avatar">
+                    {emp.photo
+                      ? <img src={emp.photo} alt={emp.fullName} />
+                      : emp.fullName.charAt(0).toUpperCase()
+                    }
+                  </div>
+                  <div class="emp-info">
+                    <div class="emp-name">{emp.fullName}</div>
+                    {emp.jobTitle && <div class="emp-title">{emp.jobTitle}</div>}
+                    {emp.workEmail && <div class="emp-email">{emp.workEmail}</div>}
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+        ))
+    }
+  </div>
+</body>
+</html>

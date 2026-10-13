@@ -1,0 +1,49 @@
+# ─── Secrets ─────────────────────────────────────────────────────────────────
+# Identifiants Odoo, clés d'API, secret SSO : jamais dans le dépôt
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ─── Dépendances ─────────────────────────────────────────────────────────────
+node_modules/
+# Les package-lock.json SONT versionnés (npm ci dans les Dockerfiles)
+
+# ─── Sorties de build ────────────────────────────────────────────────────────
+dist/
+api/dist/
+web/dist/
+# Types générés par Astro
+web/.astro/
+*.tsbuildinfo
+
+# ─── Tests et rapports ───────────────────────────────────────────────────────
+coverage/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+# Résultats bruts de la matrice de droits (le rapport .md, lui, est versionné)
+api/test-results/
+docs/*.json
+
+# ─── Logs ────────────────────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+logs/
+
+# ─── Docker ──────────────────────────────────────────────────────────────────
+# Surcharges locales de compose (ports, extra_hosts propres à ta machine)
+docker-compose.override.yml
+compose.override.yml
+
+# ─── Système et éditeurs ─────────────────────────────────────────────────────
+.DS_Store
+._*
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp

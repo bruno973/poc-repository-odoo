@@ -1,0 +1,79 @@
+# docker compose up --build                    → API + front (adapter choisi dans api/.env)
+# docker compose --profile odoo-local up       → + une Odoo 18 locale avec leila_hr
+# docker compose --profile debug run odoo-check → curl -v sur ODOO_URL (diagnostic réseau)
+
+name: poc-odoo-repository
+
+services:
+  api:
+    build: ./api
+    env_file:
+      - path: ./api/.env
+        required: false # sans .env : ADAPTER=mock par défaut
+    environment:
+      API_PORT: "3001"
+    ports:
+      - "3001:3001"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  web:
+    build: ./web
+    env_file:
+      - path: ./web/.env
+        required: false
+    environment:
+      # Le front parle à l'API par le réseau interne de compose
+      API_BASE_URL: http://api:3001
+    ports:
+      - "4321:4321"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ─── Profil odoo-local : une base de recette jetable ───────────────────────
+  # Dans api/.env : ADAPTER=odoo et ODOO_URL=http://odoo:8069
+  # Puis créer la base sur http://localhost:8069 et installer leila_hr.
+  db:
+    image: postgres:16-alpine
+    profiles: ["odoo-local"]
+    environment:
+      POSTGRES_USER: odoo
+      POSTGRES_PASSWORD: odoo
+      POSTGRES_DB: postgres
+    volumes:
+      - odoo-db:/var/lib/postgresql/data
+
+  odoo:
+    image: odoo:18
+    profiles: ["odoo-local"]
+    depends_on:
+      - db
+    environment:
+      HOST: db
+      USER: odoo
+      PASSWORD: odoo
+    ports:
+      - "8069:8069"
+    volumes:
+      - odoo-data:/var/lib/odoo
+      # Chemin vers le module leila_hr (dossier contenant __manifest__.py)
+      - ${LEILA_HR_PATH:-../leila_hr}:/mnt/extra-addons/leila_hr:ro
+
+  # ─── Profil debug : ton Dockerfile racine (curl -v $ODOO_URL) ──────────────
+  odoo-check:
+    build: .
+    profiles: ["debug"]
+    env_file:
+      - path: ./api/.env
+        required: false
+
+volumes:
+  odoo-db:
+  odoo-data:

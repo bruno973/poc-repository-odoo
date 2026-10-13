@@ -1,0 +1,61 @@
+---
+// components/nodes/TextField.astro
+interface Props {
+  label: string;
+  value: string | number | null;
+  editable: boolean;
+  name?: string; // nom du champ pour le <form> — requis si editable
+}
+const { label, value, editable, name } = Astro.props;
+---
+
+<div class="field field--text">
+  <span class="field__label">{label}</span>
+  {editable ? (
+    <input
+      class="field__input"
+      type="text"
+      name={name}
+      value={value ?? ""}
+    />
+  ) : (
+    <span class="field__value">{value ?? <em class="field__empty">—</em>}</span>
+  )}
+</div>
+
+<style>
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .field__label {
+    font-size: 0.75rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .field__value {
+    font-size: 0.95rem;
+    color: #222;
+  }
+  .field__empty {
+    color: #ccc;
+    font-style: normal;
+  }
+  .field__input {
+    font-size: 0.95rem;
+    color: #222;
+    padding: 4px 8px;
+    border: 1px solid #d0d4e8;
+    border-radius: 4px;
+    background: #fff;
+    font-family: inherit;
+  }
+  .field__input:focus {
+    outline: none;
+    border-color: #4c6ef5;
+  }
+</style>

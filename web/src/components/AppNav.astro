@@ -1,0 +1,132 @@
+---
+// components/AppNav.astro — Barre de navigation commune + journal des appels.
+import { apiGet } from "../lib/api.js";
+import { getViewer, ROLE_LABEL } from "../lib/viewer.js";
+
+interface Props {
+  current: "employees" | "pointer" | "gestion" | "synthese";
+}
+const { current } = Astro.props;
+const viewer = getViewer();
+
+let source = "API injoignable";
+let isOdoo = false;
+try {
+  const meta = await apiGet<{ adapter: string; label: string }>("/api/meta");
+  source = meta.label;
+  isOdoo = meta.adapter === "odoo";
+} catch {
+  /* la page affichera son propre message d'erreur */
+}
+
+const links = [
+  { id: "employees", href: "/employees", label: "Employés" },
+  { id: "pointer", href: "/pointer", label: "Pointer" },
+  { id: "gestion", href: "/gestion", label: "Gestion" },
+  { id: "synthese", href: "/synthese", label: "Synthèse" },
+] as const;
+---
+
+<header class="appnav">
+  <a class="appnav__brand" href="/employees">Leila RH <span>PoC repository</span></a>
+  <nav class="appnav__links" aria-label="Navigation principale">
+    {links.map((l) => (
+      <a href={l.href} aria-current={current === l.id ? "page" : undefined}>{l.label}</a>
+    ))}
+  </nav>
+  <div class="appnav__meta">
+    <span class={`appnav__source${isOdoo ? " is-odoo" : ""}`} title="Adapter branché derrière les ports">{source}</span>
+    <span class="appnav__role" title="Viewer injecté par le serveur (VIEWER_ROLE)">{ROLE_LABEL[viewer.role]} #{viewer.id}</span>
+  </div>
+</header>
+
+<section class="trace" aria-label="Journal des appels">
+  <button type="button" class="trace__toggle" aria-expanded="false">Journal des appels</button>
+  <ol class="trace__list" hidden></ol>
+</section>
+
+<style>
+  .appnav {
+    display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;
+    background: #fff; border-bottom: 1px solid #eaecf5;
+    padding: 0.6rem 1.25rem; font-family: system-ui, sans-serif;
+  }
+  .appnav__brand { font-weight: 700; color: #222; text-decoration: none; }
+  .appnav__brand span { font-weight: 400; color: #8a8fa3; font-size: 0.85rem; margin-left: 0.35rem; }
+  .appnav__links { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+  .appnav__links a { color: #444; text-decoration: none; padding: 0.4rem 0.75rem; border-radius: 8px; font-size: 0.92rem; }
+  .appnav__links a:hover { background: #f4f6fb; }
+  .appnav__links a[aria-current="page"] { background: #e8edff; color: #364fc7; font-weight: 600; }
+  .appnav__meta { margin-left: auto; display: flex; gap: 0.6rem; align-items: center; font-size: 0.82rem; color: #666; }
+  .appnav__source.is-odoo::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #2f9e44; margin-right: 6px; }
+  .appnav__role { background: #f4f6fb; border: 1px solid #eaecf5; border-radius: 999px; padding: 0.15rem 0.6rem; color: #364fc7; font-weight: 600; }
+
+  .trace { position: fixed; right: 1rem; bottom: 1rem; width: min(440px, calc(100vw - 2rem)); z-index: 50; font-family: system-ui, sans-serif; }
+  .trace__toggle { float: right; border: 1px solid #eaecf5; background: #fff; border-radius: 999px; padding: 0.5rem 0.9rem; font-weight: 600; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,.1); }
+  .trace__list { clear: both; list-style: none; margin: 0 0 0.5rem; padding: 0.5rem; max-height: 55vh; overflow: auto; background: #1f2330; color: #e6e8f0; border-radius: 10px; font-size: 12.5px; }
+  .trace__list:not([hidden]) { margin-top: 0.5rem; }
+</style>
+
+<style is:global>
+  .trace__item { padding: 0.45rem; border-bottom: 1px solid rgba(255,255,255,.08); }
+  .trace__item code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+  .trace__row { display: flex; justify-content: space-between; gap: 1rem; }
+  .trace__backend { list-style: none; margin: 0.25rem 0 0; padding-left: 0.8rem; border-left: 2px solid #748ffc; color: #b8bdd0; }
+  .trace__error, .trace__item.is-error .trace__row { color: #ff8787; }
+</style>
+
+<script>
+  const toggle = document.querySelector<HTMLButtonElement>(".trace__toggle");
+  const list = document.querySelector<HTMLOListElement>(".trace__list");
+
+  interface TraceEntry {
+    id: number; port: string; ms: number; ok: boolean; error?: string;
+    backend: { call: string; ms: number; ok: boolean }[];
+  }
+
+  const el = (tag: string, cls?: string, text?: string) => {
+    const node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  };
+
+  async function refresh() {
+    if (!list) return;
+    const res = await fetch("/api/_trace").catch(() => null);
+    const entries: TraceEntry[] = res?.ok ? await res.json() : [];
+    list.replaceChildren(
+      ...(entries.length ? entries : []).map((e) => {
+        const li = el("li", `trace__item${e.ok ? "" : " is-error"}`);
+        const row = el("div", "trace__row");
+        row.append(el("code", undefined, e.port), el("span", undefined, `${e.ms} ms`));
+        li.append(row);
+        if (e.backend.length) {
+          const ul = el("ul", "trace__backend");
+          for (const b of e.backend) {
+            const r = el("li", "trace__row");
+            r.append(el("code", undefined, b.call), el("span", undefined, `${b.ms} ms`));
+            ul.append(r);
+          }
+          li.append(ul);
+        }
+        if (e.error) li.append(el("div", "trace__error", e.error));
+        return li;
+      }),
+    );
+    if (!entries.length) list.append(el("li", "trace__item", "Aucun appel pour l'instant."));
+  }
+
+  toggle?.addEventListener("click", () => {
+    if (!list) return;
+    const open = list.hidden;
+    list.hidden = !open;
+    toggle.setAttribute("aria-expanded", String(open));
+    if (open) void refresh();
+  });
+
+  // Rafraîchit le journal après chaque action d'une page
+  document.addEventListener("leila:api-call", () => {
+    if (list && !list.hidden) void refresh();
+  });
+</script>
