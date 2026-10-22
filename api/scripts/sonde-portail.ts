@@ -10,6 +10,7 @@
 //   cd api
 //   SONDE_LOGIN=… SONDE_PASSWORD=… npm run sonde-portail
 //   SONDE_MODELES=hr.attendance,mon.modele npm run sonde-portail   (modèles à sonder)
+//   SONDE_PROPRIETAIRES=hr.attendance:employee_id   (cloisonnement : un seul propriétaire visible ?)
 //   → docs/inventaire/<login>/SONDE.md
 
 import "dotenv/config";
@@ -94,6 +95,36 @@ for (const model of models) {
   );
 }
 
+// Cloisonnement : les enregistrements visibles appartiennent-ils tous au même propriétaire ?
+// Seul l'identifiant du propriétaire d'UN enregistrement est lu ; le reste est compté.
+const owners = (env["SONDE_PROPRIETAIRES"] ?? "hr.attendance:employee_id").split(",").map((s) => s.trim()).filter(Boolean);
+if (owners.length) {
+  lines.push("", "## Cloisonnement", "", "| Modèle | Champ propriétaire | Visibles | Hors du premier propriétaire | Verdict |", "|---|---|---|---|---|");
+  for (const pair of owners) {
+    const [model, field] = pair.split(":") as [string, string | undefined];
+    if (!field) continue;
+    const total = await attempt(() => t.callKw<number>({ model, method: "search_count", args: [[]], kwargs: {} }));
+    const ownerOf = await attempt(async () => {
+      const rows = await t.callKw<Record<string, unknown>[]>({ model, method: "search_read", args: [[]], kwargs: { fields: [field], limit: 1 } });
+      const v = rows[0]?.[field];
+      return Array.isArray(v) ? (v[0] as number) : typeof v === "number" ? v : false;
+    });
+    const others = ownerOf?.ok
+      ? await attempt(() => t.callKw<number>({ model, method: "search_count", args: [[[field, "!=", ownerOf.value]]], kwargs: {} }))
+      : null;
+    const verdict = !total.ok
+      ? "lecture refusée"
+      : total.value === 0
+        ? "rien de visible"
+        : others?.ok
+          ? others.value === 0
+            ? "✅ un seul propriétaire visible"
+            : "⚠️ plusieurs propriétaires visibles : vérifier la règle d'enregistrement"
+          : `? (${(others && !others.ok && others.error) || (ownerOf && !ownerOf.ok && ownerOf.error) || "indéterminé"})`;
+    lines.push(`| \`${model}\` | \`${field}\` | ${total.ok ? total.value : "refusé"} | ${others?.ok ? others.value : "?"} | ${cell(verdict)} |`);
+  }
+}
+
 lines.push("", `Méthode de vérification des droits utilisée : ${[...vias].map((v) => `\`${cell(v)}\``).join(", ")}.`, "");
 lines.push(
   "## Lecture",
@@ -108,4 +139,6 @@ mkdirSync(outDir, { recursive: true });
 writeFileSync(`${outDir}SONDE.md`, lines.join("\n"));
 await t.destroy();
 console.log(lines.slice(4, 10 + models.length).join("\n"));
+const cloison = lines.indexOf("## Cloisonnement");
+if (cloison >= 0) console.log(`\n${lines.slice(cloison, cloison + 4 + owners.length).join("\n")}`);
 console.log(`\n→ ${outDir}SONDE.md`);

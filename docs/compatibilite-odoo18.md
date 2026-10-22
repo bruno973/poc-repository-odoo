@@ -99,6 +99,8 @@ Options, à arbitrer (impact sécurité et licences) :
 
 Sonde : `cd api && SONDE_LOGIN=… SONDE_PASSWORD=… npm run sonde-portail` → `docs/inventaire/<compte>/SONDE.md` (droits ORM, nombre d'enregistrements visibles, champs lisibles, `get_views` ; aucune donnée lue). Un module `amg` donne des droits au groupe Portail : la sonde dira s'ils passent par l'ORM (cas favorable, option 4 : écrans employé Leila appelés avec la session portail, droits garantis par Odoo).
 
+Sonde du compte portail `agetre@yopmail.com` (23/10/2026) : **`hr.attendance` lisible par l'ORM** (504 visibles, 54 champs, `get_views` ✅), lecture seule ; `res.users` / `res.partner` : son propre enregistrement ; `hr.employee`, `hr.employee.public`, `hr.attendance.overtime`, `hr.leave*`, `ir.ui.menu` refusés ; `hr.payslip` absent (module paie non installé). `has_access` fonctionne en Odoo 18. Les droits du module portail passent donc par l'ORM : l'option 4 de Q-10 est possible pour les présences, **sous réserve du cloisonnement** (section « Cloisonnement » de la sonde : toutes les présences visibles doivent appartenir au même employé).
+
 Reste à vérifier :
 1. inventorier les profils non administrateurs (manager, employé) et rejouer `ui-inventaire-amg.test.ts` sur leurs dossiers ;
-2. `has_access` sur une liste vide (droit du modèle), signature positionnelle de `name_search`, lecture de `groups_id` pour un compte non administrateur.
+2. ~~`has_access` sur une liste vide~~ (constaté : fonctionne), signature positionnelle de `name_search`, lecture de `groups_id` pour un compte non administrateur.
