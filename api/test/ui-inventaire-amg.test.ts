@@ -10,53 +10,20 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { SCHEMA_VERSION, ViewSchemaSchema } from "@leila/ui-schema";
 import { evaluateDomain, parseDomain } from "../src/adapters/odoo18/ui/OdooDomain.js";
-import { parseLiteral, type Literal } from "../src/adapters/odoo18/ui/OdooExpressionParser.js";
-import { type OdooFieldMeta, type ParsedView, parseArch } from "../src/adapters/odoo18/ui/OdooViewParser.js";
+import type { ParsedView } from "../src/adapters/odoo18/ui/OdooViewParser.js";
+import { buttonCandidates, type InventoryView, loadInventory, parseInventoryView, rankGaps, renderRanking } from "../scripts/lib/classement.js";
 
 const ROOT = new URL("../../docs/inventaire/", import.meta.url).pathname;
 const accounts = existsSync(ROOT) ? readdirSync(ROOT).filter((d) => existsSync(`${ROOT}${d}/README.md`)) : [];
 
-interface ViewFile {
-  account: string;
-  action: string;
-  model: string;
-  type: "form" | "list" | "search";
-  arch: string;
-  fields: Record<string, OdooFieldMeta>;
-}
-
-function load(account: string): ViewFile[] {
-  const dir = `${ROOT}${account}/`;
-  return readdirSync(dir)
-    .map((f) => /^(\d+)-(.+)\.(form|list|search)\.xml$/.exec(f))
-    .filter((m): m is RegExpExecArray => m !== null)
-    .map((m) => ({
-      account,
-      action: m[1] as string,
-      model: m[2] as string,
-      type: m[3] as ViewFile["type"],
-      arch: readFileSync(`${dir}${m[0]}`, "utf8"),
-      fields: JSON.parse(readFileSync(`${dir}${m[1]}-${m[2]}.fields.json`, "utf8")) as Record<string, OdooFieldMeta>,
-    }));
-}
-
-/** Contexte d'action relevé dans le README de l'inventaire. */
-function actionContext(account: string, action: string): Record<string, Literal> | undefined {
-  const readme = readFileSync(`${ROOT}${account}/README.md`, "utf8");
-  const m = new RegExp(`Action ${action} · [^\\n]*contexte \`([\\s\\S]*?)\`\\n`).exec(readme);
-  const ctx = m ? parseLiteral(m[1] as string) : null;
-  return ctx && typeof ctx === "object" && !Array.isArray(ctx) ? (ctx as Record<string, Literal>) : undefined;
-}
-
-const parse = (v: ViewFile): ParsedView =>
-  parseArch(v.arch, v.type, { model: v.model, fields: v.fields, commandFor: () => undefined, actionContext: actionContext(v.account, v.action) });
+const parse = (v: InventoryView): ParsedView => parseInventoryView(v);
 
 if (accounts.length === 0) {
   describe("Inventaire amg", () => it("absent (lancer npm run inventaire)", { skip: true }, () => undefined));
 }
 
 for (const account of accounts) {
-  const views = load(account);
+  const views = loadInventory(`${ROOT}${account}/`);
   describe(`Inventaire amg (${account}) : ${views.length} vues résolues`, () => {
     it("chaque vue s'analyse, respecte la parité et produit un schéma conforme", () => {
       for (const v of views) {
@@ -111,6 +78,14 @@ for (const account of accounts) {
         }
       });
     }
+
+    it("classement : regroupe les manques par vues concernées, sans les exclusions par droits", () => {
+      const gaps = rankGaps(views.map((v) => ({ model: v.model, type: v.type, diagnostics: parse(v).diagnostics })));
+      assert.ok(gaps.length > 0);
+      for (let i = 1; i < gaps.length; i++) assert.ok((gaps[i - 1]?.views.length ?? 0) >= (gaps[i]?.views.length ?? 0), "tri par vues concernées");
+      const md = renderRanking(gaps, { account, viewCount: views.length, modelCount: 1 }, buttonCandidates(views));
+      assert.ok(md.includes("## Synthèse") && !md.includes("non lisible"));
+    });
 
     it("domaines d'action relevés : évaluables avec uid et société", () => {
       const readme = readFileSync(`${ROOT}${account}/README.md`, "utf8");

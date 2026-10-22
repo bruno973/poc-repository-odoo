@@ -9,7 +9,8 @@
 //
 //   cd api
 //   ODOO_URL=… ODOO_DB=amg INVENTAIRE_LOGIN=p.manager INVENTAIRE_PASSWORD=… npm run inventaire
-//   → docs/inventaire/<login>/ (une exécution par profil de test)
+//   → docs/inventaire/<login>/ (une exécution par profil de test), dont CLASSEMENT.md :
+//     les manques triés par nombre de vues concernées (régénérable hors ligne : npm run classement)
 
 import "dotenv/config";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -18,6 +19,7 @@ import { loadMenus, type OdooMenu } from "../src/adapters/odoo18/ui/OdooUiAdapte
 import { type OdooFieldMeta, parseArch } from "../src/adapters/odoo18/ui/OdooViewParser.js";
 import { ODOO_COMMANDS } from "../src/adapters/odoo18/ui/commands.js";
 import { SessionTransport } from "../src/adapters/odoo18/transport.js";
+import { rankInventory } from "./lib/classement.js";
 
 const env = process.env;
 const need = (k: string) => env[k] || (console.error(`Variable manquante : ${k}`), process.exit(1));
@@ -95,5 +97,6 @@ for (const [actionId, menuPath] of actions) {
 lines.push("## Expressions de condition non prises en charge (Q-08)", "", "| Occurrences | Expression |", "|---|---|");
 for (const [expr, n] of [...unsupported].sort((a, b) => b[1] - a[1])) lines.push(`| ${n} | \`${expr.replace(/\|/g, "\\|")}\` |`);
 writeFileSync(`${outDir}README.md`, `${lines.join("\n")}\n`);
+writeFileSync(`${outDir}CLASSEMENT.md`, rankInventory(outDir, login));
 await t.destroy();
-console.log(`Inventaire de ${actions.size} action(s) → ${outDir}`);
+console.log(`Inventaire de ${actions.size} action(s) → ${outDir} (classement : CLASSEMENT.md)`);

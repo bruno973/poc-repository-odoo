@@ -78,7 +78,9 @@ Fiche employé (`hr.employee`, vue 547) : **0 sélection désactivée** (9 aupar
 
 ## Points encore à vérifier sur `amg`
 
-Script : `cd api && INVENTAIRE_LOGIN=… INVENTAIRE_PASSWORD=… npm run inventaire` (un passage par profil) → `docs/inventaire/<compte>/`. Seul le compte admin est inventorié : les profils non administrateurs (manager, employé) restent à passer, leurs vues diffèrent (groupes).
+Script : `cd api && INVENTAIRE_LOGIN=… INVENTAIRE_PASSWORD=… npm run inventaire` (un passage par profil) → `docs/inventaire/<compte>/`.
+
+**Classement des manques** : `docs/inventaire/<compte>/CLASSEMENT.md`, produit par l'inventaire et régénérable hors ligne (`cd api && npm run classement`) après chaque évolution du moteur. Les manques (types de champ, widgets, éléments, recherche, boutons) y sont triés par nombre de vues concernées ; « transversal » = plusieurs modèles (à implémenter), « propre à » = un seul modèle (candidat « Ouvrir dans Odoo »). Il liste aussi les boutons candidats au registre de commandes. Pour un nouveau module : l'ajouter à `UI_MENU_ROOTS`, lancer l'inventaire, lire le classement — sans ouvrir les fiches une à une. Seul le compte admin est inventorié : les profils non administrateurs (manager, employé) restent à passer, leurs vues diffèrent (groupes).
 
 Constaté sur `amg` (inventaire admin du 22/10/2026) :
 - `ir.ui.menu.load_web_menus` s'appelle par `call_kw` avec `[[], debug]` (ids en premier argument) — corrigé, et reproduit par le simulateur ;
