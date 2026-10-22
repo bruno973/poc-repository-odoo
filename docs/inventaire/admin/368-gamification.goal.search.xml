@@ -1,0 +1,18 @@
+<search string="Rechercher des objectifs">
+                <filter name="my" string="Mes objectifs" domain="[('user_id', '=', uid)]"/>
+                <separator/>
+                <filter name="draft" string="Brouillon" domain="[('state', '=', 'draft')]"/>
+                <filter name="inprogress" string="En cours" domain="[                         '|',                             ('state', '=', 'inprogress'),                             '&amp;',                                 ('state', 'in', ('done', 'failed')),                                 ('end_date', '&gt;=', context_today().strftime('%Y-%m-%d'))                     ]"/>
+                <filter name="closed" string="Terminé" domain="[                         ('state', 'in', ('reached', 'failed')),                         '|',                             ('end_date', '=', False),                             ('end_date', '&lt;', context_today().strftime('%Y-%m-%d'))                     ]"/>
+                <separator/>
+
+                <field name="user_id"/>
+                <field name="definition_id"/>
+                <field name="challenge_id"/>
+                <group expand="0" string="Regrouper par">
+                    <filter name="group_by_user" string="Utilisateur" domain="[]" context="{'group_by':'user_id'}"/>
+                    <filter name="group_by_definition" string="Définition de l'objectif" domain="[]" context="{'group_by':'definition_id'}"/>
+                    <filter string="Statut" name="state" domain="[]" context="{'group_by':'state'}"/>
+                    <filter string="Date de fin" name="enddate" domain="[]" context="{'group_by':'end_date'}"/>
+                </group>
+            </search>

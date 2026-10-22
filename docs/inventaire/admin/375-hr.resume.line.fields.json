@@ -1,0 +1,244 @@
+{
+  "employee_id": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": true,
+    "name": "employee_id",
+    "readonly": false,
+    "relation": "hr.employee",
+    "required": true,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Employé",
+    "type": "many2one"
+  },
+  "name": {
+    "change_default": false,
+    "groupable": true,
+    "name": "name",
+    "readonly": false,
+    "required": true,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Nom",
+    "translate": true,
+    "trim": true,
+    "type": "char"
+  },
+  "date_start": {
+    "change_default": false,
+    "groupable": true,
+    "name": "date_start",
+    "readonly": false,
+    "required": true,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Date de début",
+    "type": "date"
+  },
+  "date_end": {
+    "change_default": false,
+    "groupable": true,
+    "name": "date_end",
+    "readonly": false,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Date de fin",
+    "type": "date"
+  },
+  "description": {
+    "change_default": false,
+    "groupable": true,
+    "name": "description",
+    "readonly": false,
+    "required": false,
+    "sanitize": true,
+    "sanitize_tags": true,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Description",
+    "translate": true,
+    "type": "html"
+  },
+  "line_type_id": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": true,
+    "name": "line_type_id",
+    "readonly": false,
+    "relation": "hr.resume.line.type",
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Type",
+    "type": "many2one"
+  },
+  "display_type": {
+    "change_default": false,
+    "groupable": true,
+    "name": "display_type",
+    "readonly": false,
+    "required": false,
+    "searchable": true,
+    "selection": [
+      [
+        "classic",
+        "Classique"
+      ],
+      [
+        "certification",
+        "Certification"
+      ]
+    ],
+    "sortable": true,
+    "store": true,
+    "string": "Type d'affichage",
+    "type": "selection"
+  },
+  "id": {
+    "change_default": false,
+    "groupable": true,
+    "name": "id",
+    "readonly": true,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "ID",
+    "type": "integer"
+  },
+  "display_name": {
+    "change_default": false,
+    "groupable": false,
+    "name": "display_name",
+    "readonly": true,
+    "required": false,
+    "searchable": true,
+    "sortable": false,
+    "store": false,
+    "string": "Nom d'affichage",
+    "translate": false,
+    "trim": true,
+    "type": "char"
+  },
+  "create_uid": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": true,
+    "name": "create_uid",
+    "readonly": true,
+    "relation": "res.users",
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Créé par",
+    "type": "many2one"
+  },
+  "create_date": {
+    "change_default": false,
+    "groupable": true,
+    "name": "create_date",
+    "readonly": true,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Créé le",
+    "type": "datetime"
+  },
+  "write_uid": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": true,
+    "name": "write_uid",
+    "readonly": true,
+    "relation": "res.users",
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Mis à jour par",
+    "type": "many2one"
+  },
+  "write_date": {
+    "change_default": false,
+    "groupable": true,
+    "name": "write_date",
+    "readonly": true,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Mis à jour le",
+    "type": "datetime"
+  },
+  "department_id": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": true,
+    "name": "department_id",
+    "readonly": true,
+    "related": "employee_id.department_id",
+    "relation": "hr.department",
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Département",
+    "type": "many2one"
+  },
+  "survey_id": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": true,
+    "name": "survey_id",
+    "readonly": true,
+    "relation": "survey.survey",
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Certification",
+    "type": "many2one"
+  },
+  "expiration_status": {
+    "change_default": false,
+    "groupable": true,
+    "name": "expiration_status",
+    "readonly": true,
+    "required": false,
+    "searchable": true,
+    "selection": [
+      [
+        "expired",
+        "Expiré"
+      ],
+      [
+        "expiring",
+        "Expire"
+      ],
+      [
+        "valid",
+        "Valide"
+      ]
+    ],
+    "sortable": true,
+    "store": true,
+    "string": "Statut d'expiration",
+    "type": "selection"
+  }
+}

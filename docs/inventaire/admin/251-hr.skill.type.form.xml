@@ -1,0 +1,27 @@
+<form string="Type de compétences">
+                <field name="id" invisible="1"/>
+                <sheet>
+                    <widget name="web_ribbon" title="Archivé" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="oe_title">
+                        <label for="name" string="Type de compétences"/>
+                        <h1>
+                            <field name="name" placeholder="par ex. Langues" required="True"/>
+                            <field name="active" invisible="1"/>
+                        </h1>
+                    </div>
+                    <group string="Compétences">
+                    </group>
+                    <field name="skill_ids" nolabel="1" context="{'default_skill_type_id': id}">
+                        <list editable="bottom">
+                            <field name="sequence" widget="handle"/>
+                            <field name="name"/>
+                        </list>
+                    </field>
+                    <group string="Niveaux">
+                    </group>
+                    <field name="skill_level_ids" nolabel="1" widget="auto_save_skill_type" context="{'default_skill_type_id': id}"/>
+                    <group string="Affichage">
+                        <field name="color" widget="color_picker"/>
+                    </group>
+                </sheet>
+            </form>

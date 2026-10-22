@@ -1,0 +1,340 @@
+{
+  "name": {
+    "change_default": false,
+    "groupable": true,
+    "name": "name",
+    "readonly": false,
+    "required": true,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Nom",
+    "translate": false,
+    "trim": true,
+    "type": "char"
+  },
+  "company_id": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": true,
+    "name": "company_id",
+    "readonly": false,
+    "relation": "res.company",
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Société",
+    "type": "many2one"
+  },
+  "template_ids": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": false,
+    "name": "template_ids",
+    "readonly": false,
+    "relation": "mail.activity.plan.template",
+    "relation_field": "plan_id",
+    "required": false,
+    "searchable": true,
+    "sortable": false,
+    "store": true,
+    "string": "Activités",
+    "type": "one2many"
+  },
+  "active": {
+    "change_default": false,
+    "groupable": true,
+    "name": "active",
+    "readonly": false,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Actif",
+    "type": "boolean"
+  },
+  "res_model_id": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": true,
+    "name": "res_model_id",
+    "readonly": false,
+    "relation": "ir.model",
+    "required": true,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "S'applique à",
+    "type": "many2one"
+  },
+  "res_model": {
+    "change_default": false,
+    "groupable": true,
+    "help": "Spécifiez un modèle si l'activité doit être propre à un certain modèle et non disponible lors de la gestion des activités des autres modèles.",
+    "name": "res_model",
+    "readonly": false,
+    "required": true,
+    "searchable": true,
+    "selection": [
+      [
+        "hr.leave.allocation",
+        "Allocation de congés"
+      ],
+      [
+        "gamification.badge",
+        "Badge de ludification"
+      ],
+      [
+        "discuss.channel",
+        "Canal de discussion"
+      ],
+      [
+        "iap.account",
+        "Compte IAP"
+      ],
+      [
+        "account.analytic.account",
+        "Compte analytique"
+      ],
+      [
+        "hr.leave",
+        "Congé"
+      ],
+      [
+        "res.partner",
+        "Contact"
+      ],
+      [
+        "mailing.contact",
+        "Contact de la liste de diffusion"
+      ],
+      [
+        "hr.contract",
+        "Contrat de l'employé"
+      ],
+      [
+        "mail.thread",
+        "Discussion par e-mail"
+      ],
+      [
+        "gamification.challenge",
+        "Défi de ludification"
+      ],
+      [
+        "hr.department",
+        "Département"
+      ],
+      [
+        "mailing.mailing",
+        "E-mail Marketing"
+      ],
+      [
+        "hr.employee",
+        "Employé"
+      ],
+      [
+        "survey.user_input",
+        "Entrée utilisateur du sondage"
+      ],
+      [
+        "mail.thread.cc",
+        "Gestion de l'e-mail cc"
+      ],
+      [
+        "mail.thread.main.attachment",
+        "Gestion des pièces jointes principales des e-mails"
+      ],
+      [
+        "project.milestone",
+        "Jalon du projet"
+      ],
+      [
+        "mail.blacklist",
+        "Liste noire des e-mails"
+      ],
+      [
+        "mail.thread.blacklist",
+        "Liste noire des e-mails mixin"
+      ],
+      [
+        "phone.blacklist",
+        "Liste noire des téléphones"
+      ],
+      [
+        "mail.thread.phone",
+        "Liste noire des téléphones mixin"
+      ],
+      [
+        "project.update",
+        "Mise à jour du projet"
+      ],
+      [
+        "hr.job",
+        "Poste"
+      ],
+      [
+        "project.project",
+        "Projet"
+      ],
+      [
+        "hr.attendance",
+        "Présence"
+      ],
+      [
+        "survey.survey",
+        "Sondage"
+      ],
+      [
+        "project.task",
+        "Tâche"
+      ],
+      [
+        "rating.mixin",
+        "Évaluations mixin"
+      ],
+      [
+        "calendar.event",
+        "Événement du calendrier"
+      ]
+    ],
+    "sortable": true,
+    "store": true,
+    "string": "Modèle",
+    "type": "selection"
+  },
+  "steps_count": {
+    "change_default": false,
+    "groupable": false,
+    "name": "steps_count",
+    "readonly": true,
+    "required": false,
+    "searchable": false,
+    "sortable": false,
+    "store": false,
+    "string": "Nombre d'étapes",
+    "type": "integer"
+  },
+  "has_user_on_demand": {
+    "change_default": false,
+    "groupable": false,
+    "name": "has_user_on_demand",
+    "readonly": true,
+    "required": false,
+    "searchable": false,
+    "sortable": false,
+    "store": false,
+    "string": "A un responsable sur demande",
+    "type": "boolean"
+  },
+  "id": {
+    "change_default": false,
+    "groupable": true,
+    "name": "id",
+    "readonly": true,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "ID",
+    "type": "integer"
+  },
+  "display_name": {
+    "change_default": false,
+    "groupable": false,
+    "name": "display_name",
+    "readonly": true,
+    "required": false,
+    "searchable": true,
+    "sortable": false,
+    "store": false,
+    "string": "Nom d'affichage",
+    "translate": false,
+    "trim": true,
+    "type": "char"
+  },
+  "create_uid": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": true,
+    "name": "create_uid",
+    "readonly": true,
+    "relation": "res.users",
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Créé par",
+    "type": "many2one"
+  },
+  "create_date": {
+    "change_default": false,
+    "groupable": true,
+    "name": "create_date",
+    "readonly": true,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Créé le",
+    "type": "datetime"
+  },
+  "write_uid": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": true,
+    "name": "write_uid",
+    "readonly": true,
+    "relation": "res.users",
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Mis à jour par",
+    "type": "many2one"
+  },
+  "write_date": {
+    "change_default": false,
+    "groupable": true,
+    "name": "write_date",
+    "readonly": true,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Mis à jour le",
+    "type": "datetime"
+  },
+  "department_id": {
+    "change_default": false,
+    "context": {},
+    "domain": "(company_id and [('company_id', 'in', [company_id] + [False])] or [('company_id', '=', False)]) + ([])",
+    "groupable": true,
+    "name": "department_id",
+    "readonly": false,
+    "relation": "hr.department",
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Département",
+    "type": "many2one"
+  },
+  "department_assignable": {
+    "change_default": false,
+    "groupable": false,
+    "name": "department_assignable",
+    "readonly": true,
+    "required": false,
+    "searchable": false,
+    "sortable": false,
+    "store": false,
+    "string": "Assignation département",
+    "type": "boolean"
+  }
+}

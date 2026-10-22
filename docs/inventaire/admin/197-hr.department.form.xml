@@ -1,0 +1,41 @@
+<form string="département">
+                    <field name="company_id" invisible="1" can_create="True" can_write="True"/>
+                    <sheet>
+                        <div class="oe_button_box" name="button_box" invisible="not id">
+                            <button class="oe_stat_button" name="action_employee_from_department" type="object" icon="fa-users">
+                                <field string="Employés" name="total_employee" widget="statinfo"/>
+                            </button>
+                            <button class="oe_stat_button" type="object" name="action_plan_from_department" icon="fa-list-ul">
+                                <field string="Plans" name="plans_count" widget="statinfo"/>
+                            </button>
+                        </div>
+                        <widget name="web_ribbon" title="Archivé" bg_color="text-bg-danger" invisible="active"/>
+                        <field name="active" invisible="1"/>
+                        <div class="oe_title">
+                            <h1>
+                                <field name="name"/>
+                            </h1>
+                        </div>
+                        <group>
+                            <group>
+                                <field name="name" invisible="1"/> <!-- Remove in master -->
+                                <field name="manager_id" widget="many2one_avatar_employee" can_create="True" can_write="True"/>
+                                <field name="parent_id" on_change="1" can_create="True" can_write="True"/>
+                                <field name="child_ids" invisible="1"/>
+                                
+                                <field name="color" widget="color_picker" string="Code"/>
+                            </group>
+                            <div invisible="not id or id and not child_ids and not parent_id">
+                                <widget name="hr_department_chart"/>
+                            </div>
+                        </group>
+                <group string="Options Kiosk">
+                    <field name="hide_meal_question" readonly="is_meal_hide_inherited" on_change="1"/>
+                    <field name="is_meal_hide_inherited" invisible="1"/>
+                    <div invisible="not is_meal_hide_inherited" class="text-muted">
+                        <em>Hérité du département parent — modification impossible ici.</em>
+                    </div>
+                </group>
+                    </sheet>
+                    <chatter/>
+                </form>

@@ -1,0 +1,178 @@
+{
+  "active": {
+    "change_default": false,
+    "groupable": true,
+    "name": "active",
+    "readonly": false,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Actif",
+    "type": "boolean"
+  },
+  "name": {
+    "change_default": false,
+    "groupable": true,
+    "name": "name",
+    "readonly": false,
+    "required": true,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Lieu de travail",
+    "translate": false,
+    "trim": true,
+    "type": "char"
+  },
+  "company_id": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": true,
+    "name": "company_id",
+    "readonly": false,
+    "relation": "res.company",
+    "required": true,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Société",
+    "type": "many2one"
+  },
+  "location_type": {
+    "change_default": false,
+    "groupable": true,
+    "name": "location_type",
+    "readonly": false,
+    "required": true,
+    "searchable": true,
+    "selection": [
+      [
+        "home",
+        "Domicile"
+      ],
+      [
+        "office",
+        "Bureau"
+      ],
+      [
+        "other",
+        "Autre"
+      ]
+    ],
+    "sortable": true,
+    "store": true,
+    "string": "Image de couverture",
+    "type": "selection"
+  },
+  "address_id": {
+    "change_default": false,
+    "context": {},
+    "domain": "(company_id and ['|', ('company_id', '=', False), ('company_id', 'parent_of', [company_id])] or ['|', ('company_id', '=', False), ('company_id', 'parent_of', '')]) + ([])",
+    "groupable": true,
+    "name": "address_id",
+    "readonly": false,
+    "relation": "res.partner",
+    "required": true,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Adresse professionnelle",
+    "type": "many2one"
+  },
+  "location_number": {
+    "change_default": false,
+    "groupable": true,
+    "name": "location_number",
+    "readonly": false,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Numéro du lieu",
+    "translate": false,
+    "trim": true,
+    "type": "char"
+  },
+  "id": {
+    "change_default": false,
+    "groupable": true,
+    "name": "id",
+    "readonly": true,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "ID",
+    "type": "integer"
+  },
+  "display_name": {
+    "change_default": false,
+    "groupable": false,
+    "name": "display_name",
+    "readonly": true,
+    "required": false,
+    "searchable": true,
+    "sortable": false,
+    "store": false,
+    "string": "Nom d'affichage",
+    "translate": false,
+    "trim": true,
+    "type": "char"
+  },
+  "create_uid": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": true,
+    "name": "create_uid",
+    "readonly": true,
+    "relation": "res.users",
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Créé par",
+    "type": "many2one"
+  },
+  "create_date": {
+    "change_default": false,
+    "groupable": true,
+    "name": "create_date",
+    "readonly": true,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Créé le",
+    "type": "datetime"
+  },
+  "write_uid": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": true,
+    "name": "write_uid",
+    "readonly": true,
+    "relation": "res.users",
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Mis à jour par",
+    "type": "many2one"
+  },
+  "write_date": {
+    "change_default": false,
+    "groupable": true,
+    "name": "write_date",
+    "readonly": true,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Mis à jour le",
+    "type": "datetime"
+  }
+}

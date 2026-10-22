@@ -1,0 +1,17 @@
+<search create="False" delete="False" edit="False">
+                <field name="employee_id"/>
+                <field name="department_id"/>
+                <field name="skill_id"/>
+                <field name="skill_type_id"/>
+                <separator/>
+                <filter string="Employés avec les compétences" name="employees_with_skills" domain="[('skill_id', '!=', False)]"/>
+                <filter string="Employés sans les compétences" name="employees_without_skills" domain="[('skill_id', '=', False)]"/>
+                <separator/>
+                <filter string="Archivé" name="archived" domain="[('active', '=', False)]"/>
+                <separator/>
+                <filter string="Employé" name="employee" context="{'group_by': 'employee_id'}"/>
+                <filter string="Département" name="department" context="{'group_by': 'department_id'}"/>
+                <separator/>
+                <filter string="Type de compétences" name="skill_type" context="{'group_by': 'skill_type_id'}"/>
+                <filter string="Compétence" name="skill" context="{'group_by': 'skill_id'}"/>
+            </search>

@@ -1,0 +1,8 @@
+<list expand="1" decoration-danger="expiration_status == 'expired'" decoration-warning="expiration_status == 'expiring'" default_group_by="employee_id">
+                <field name="employee_id" widget="many2one_avatar_user"/>
+                <field name="name"/>
+                <field name="date_start" string="Début de validité"/>
+                <field name="date_end" string="Fin de validité" on_change="1"/>
+                <field name="survey_id" optional="show"/>
+                <field name="expiration_status" column_invisible="1"/>
+            </list>

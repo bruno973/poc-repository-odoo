@@ -1,0 +1,39 @@
+<search string="Employés">
+                    <field name="name" string="Employé" filter_domain="['|', ('work_email', 'ilike', self), ('name', 'ilike', self)]"/>
+                    <field name="department_id"/>
+                    <searchpanel>
+                        
+                        <field name="department_id" icon="fa-users" enable_counters="1"/>
+                    </searchpanel>
+                    <field name="parent_id" string="Manager" domain="[('company_id', 'in', allowed_company_ids)]"/>
+                <field name="first_contract_date"/>
+                    <field name="job_id"/>
+                <field name="employee_skill_ids"/>
+                <field name="resume_line_ids" string="CV" filter_domain="                     ['|',                         ('resume_line_ids.name', 'ilike', self),                         ('resume_line_ids.description', 'ilike', self),                     ]"/>
+                    <field name="coach_id" domain="[('company_id', 'in', allowed_company_ids)]"/>
+                    <field name="category_ids"/>
+                    <field name="private_car_plate"/>
+                    <separator/>
+                    
+                    <separator/>
+                    <filter invisible="1" string="Activités en retard" name="activities_overdue" domain="[('my_activity_date_deadline', '&lt;', context_today().strftime('%Y-%m-%d'))]"/>
+                    <filter invisible="1" string="Activités du jour" name="activities_today" domain="[('my_activity_date_deadline', '=', context_today().strftime('%Y-%m-%d'))]"/>
+                    <filter invisible="1" string="Activités futures" name="activities_upcoming_all" domain="[('my_activity_date_deadline', '&gt;', context_today().strftime('%Y-%m-%d'))]"/>
+                    <separator/>
+                <filter name="at_work" string="Au travai" domain="[('is_absent', '=', False)]"/>
+                <filter name="on_timeoff" string="Sur les congés" domain="[('is_absent', '=', True)]"/>
+                <separator/>
+                    <filter name="my_team" string="Mon équipe" domain="[('parent_id.user_id', '=', uid)]"/>
+                    <filter name="my_department" string="Mon département" domain="[('member_of_department', '=', True)]"/>
+                    <separator/>
+                    <filter name="newly_hired" string="Nouvelles recrues" domain="[('newly_hired', '=', True)]"/>
+                    <separator/>
+                    <filter string="Archivé" name="inactive" domain="[('active', '=', False)]"/>
+                    <group expand="0" string="Regrouper par">
+                        <filter name="group_manager" string="Manager" domain="[]" context="{'group_by': 'parent_id'}"/>
+                        <filter name="group_department" string="Département" domain="[]" context="{'group_by': 'department_id'}"/>
+                        <filter name="group_job" string="Poste" domain="[]" context="{'group_by': 'job_id'}"/>
+                        <filter name="group_start" string="Date de début" domain="[]" context="{'group_by': 'first_contract_date'}"/>
+                        <filter name="group_category_ids" string="Étiquettes" domain="[]" context="{'group_by': 'category_ids'}"/>
+                    </group>
+                </search>

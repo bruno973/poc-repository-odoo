@@ -1,0 +1,7 @@
+<list expand="0" edit="1" editable="bottom" create="False" delete="False">
+                <field name="employee_id" widget="many2one_avatar_user" options="{'no_create': True, 'no_open': True}"/>
+                <field name="skill_type_id" options="{'no_create': True, 'no_open': True}"/>
+                <field name="skill_id" options="{'no_create': True, 'no_open': True}"/>
+                <field name="skill_level" options="{'no_create': True, 'no_open': True}"/>
+                <field name="level_progress" widget="percentage" options="{'no_create': True, 'no_open': True}"/>
+            </list>

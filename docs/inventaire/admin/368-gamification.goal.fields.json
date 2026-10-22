@@ -1,0 +1,412 @@
+{
+  "definition_id": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": true,
+    "name": "definition_id",
+    "readonly": false,
+    "relation": "gamification.goal.definition",
+    "required": true,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Définition de l'objectif",
+    "type": "many2one"
+  },
+  "user_id": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": true,
+    "name": "user_id",
+    "readonly": false,
+    "relation": "res.users",
+    "required": true,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Utilisateur",
+    "type": "many2one"
+  },
+  "line_id": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": true,
+    "name": "line_id",
+    "readonly": false,
+    "relation": "gamification.challenge.line",
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Ligne de défi",
+    "type": "many2one"
+  },
+  "challenge_id": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": true,
+    "help": "Défi qui a généré l'objectif, l'attribuer à des utilisateurs pour générer des objectifs avec une valeur dans ce champ.",
+    "name": "challenge_id",
+    "readonly": true,
+    "related": "line_id.challenge_id",
+    "relation": "gamification.challenge",
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Défi",
+    "type": "many2one"
+  },
+  "start_date": {
+    "change_default": false,
+    "groupable": true,
+    "name": "start_date",
+    "readonly": false,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Date de début",
+    "type": "date"
+  },
+  "end_date": {
+    "change_default": false,
+    "groupable": true,
+    "name": "end_date",
+    "readonly": false,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Date de fin",
+    "type": "date"
+  },
+  "target_goal": {
+    "aggregator": "sum",
+    "change_default": false,
+    "groupable": true,
+    "name": "target_goal",
+    "readonly": false,
+    "required": true,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "À atteindre",
+    "type": "float"
+  },
+  "current": {
+    "aggregator": "sum",
+    "change_default": false,
+    "groupable": true,
+    "name": "current",
+    "readonly": false,
+    "required": true,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Valeur actuelle",
+    "type": "float"
+  },
+  "completeness": {
+    "change_default": false,
+    "groupable": false,
+    "name": "completeness",
+    "readonly": true,
+    "required": false,
+    "searchable": false,
+    "sortable": false,
+    "store": false,
+    "string": "Complétude",
+    "type": "float"
+  },
+  "state": {
+    "change_default": false,
+    "groupable": true,
+    "name": "state",
+    "readonly": false,
+    "required": true,
+    "searchable": true,
+    "selection": [
+      [
+        "draft",
+        "Brouillon"
+      ],
+      [
+        "inprogress",
+        "En cours"
+      ],
+      [
+        "reached",
+        "Atteint"
+      ],
+      [
+        "failed",
+        "Échec"
+      ],
+      [
+        "canceled",
+        "Annulé"
+      ]
+    ],
+    "sortable": true,
+    "store": true,
+    "string": "Statut",
+    "type": "selection"
+  },
+  "to_update": {
+    "change_default": false,
+    "groupable": true,
+    "name": "to_update",
+    "readonly": false,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "À mettre à jour",
+    "type": "boolean"
+  },
+  "closed": {
+    "change_default": false,
+    "groupable": true,
+    "name": "closed",
+    "readonly": false,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Objectif clôturé",
+    "type": "boolean"
+  },
+  "computation_mode": {
+    "change_default": false,
+    "groupable": true,
+    "help": "Définissez comment les objectifs seront calculés. Le résultat de l'opération sera stocké dans le champ 'Actuel'.",
+    "name": "computation_mode",
+    "readonly": false,
+    "related": "definition_id.computation_mode",
+    "required": false,
+    "searchable": true,
+    "selection": [
+      [
+        "manually",
+        "Enregistré manuellement"
+      ],
+      [
+        "count",
+        "Automatique : nombre d'enregistrements"
+      ],
+      [
+        "sum",
+        "Automatique : somme sur un champ"
+      ],
+      [
+        "python",
+        "Automatique : exécuter du code Python spécifique"
+      ]
+    ],
+    "sortable": true,
+    "store": false,
+    "string": "Mode calcul",
+    "type": "selection"
+  },
+  "color": {
+    "change_default": false,
+    "groupable": false,
+    "name": "color",
+    "readonly": true,
+    "required": false,
+    "searchable": false,
+    "sortable": false,
+    "store": false,
+    "string": "Couleur",
+    "type": "integer"
+  },
+  "remind_update_delay": {
+    "aggregator": "sum",
+    "change_default": false,
+    "groupable": true,
+    "help": "Le nombre de jours après lequel l'utilisateur assigné à un objectif manuel recevra un rappel. Aucun rappel ne sera envoyé si aucune valeur est spécifiée.",
+    "name": "remind_update_delay",
+    "readonly": false,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Délai de rappel",
+    "type": "integer"
+  },
+  "last_update": {
+    "change_default": false,
+    "groupable": true,
+    "help": "En cas d'objectif manuel, des rappels sont envoyés si l'objectif n'a pas été mis à jour pendant un certain temps (défini dans défi). Ignoré en cas d'objectif non manuel ou non lié à un défi.",
+    "name": "last_update",
+    "readonly": false,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Dernière mise à jour",
+    "type": "date"
+  },
+  "definition_description": {
+    "change_default": false,
+    "groupable": true,
+    "name": "definition_description",
+    "readonly": true,
+    "related": "definition_id.description",
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": false,
+    "string": "Description",
+    "translate": false,
+    "type": "text"
+  },
+  "definition_condition": {
+    "change_default": false,
+    "groupable": true,
+    "help": "Un objectif est atteint lorsque la valeur courante est au moins égale à la valeur à atteindre",
+    "name": "definition_condition",
+    "readonly": true,
+    "related": "definition_id.condition",
+    "required": false,
+    "searchable": true,
+    "selection": [
+      [
+        "higher",
+        "Plus c'est élevé, mieux c'est"
+      ],
+      [
+        "lower",
+        "Plus c'est bas, mieux c'est"
+      ]
+    ],
+    "sortable": true,
+    "store": false,
+    "string": "Condition",
+    "type": "selection"
+  },
+  "definition_suffix": {
+    "change_default": false,
+    "groupable": false,
+    "help": "Le champ de la devise et du suffixe",
+    "name": "definition_suffix",
+    "readonly": true,
+    "related": "definition_id.full_suffix",
+    "required": false,
+    "searchable": false,
+    "sortable": false,
+    "store": false,
+    "string": "Suffixe",
+    "translate": false,
+    "trim": true,
+    "type": "char"
+  },
+  "definition_display": {
+    "change_default": false,
+    "groupable": true,
+    "name": "definition_display",
+    "readonly": true,
+    "related": "definition_id.display_mode",
+    "required": false,
+    "searchable": true,
+    "selection": [
+      [
+        "progress",
+        "Progressif (utilisation de valeurs numériques)"
+      ],
+      [
+        "boolean",
+        "Exclusif (terminé ou non)"
+      ]
+    ],
+    "sortable": true,
+    "store": false,
+    "string": "Mode d'affichage",
+    "type": "selection"
+  },
+  "id": {
+    "change_default": false,
+    "groupable": true,
+    "name": "id",
+    "readonly": true,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "ID",
+    "type": "integer"
+  },
+  "display_name": {
+    "change_default": false,
+    "groupable": false,
+    "name": "display_name",
+    "readonly": true,
+    "required": false,
+    "searchable": true,
+    "sortable": false,
+    "store": false,
+    "string": "Nom d'affichage",
+    "translate": false,
+    "trim": true,
+    "type": "char"
+  },
+  "create_uid": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": true,
+    "name": "create_uid",
+    "readonly": true,
+    "relation": "res.users",
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Créé par",
+    "type": "many2one"
+  },
+  "create_date": {
+    "change_default": false,
+    "groupable": true,
+    "name": "create_date",
+    "readonly": true,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Créé le",
+    "type": "datetime"
+  },
+  "write_uid": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": true,
+    "name": "write_uid",
+    "readonly": true,
+    "relation": "res.users",
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Mis à jour par",
+    "type": "many2one"
+  },
+  "write_date": {
+    "change_default": false,
+    "groupable": true,
+    "name": "write_date",
+    "readonly": true,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Mis à jour le",
+    "type": "datetime"
+  }
+}

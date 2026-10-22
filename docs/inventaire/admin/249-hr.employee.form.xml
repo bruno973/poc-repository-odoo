@@ -1,0 +1,333 @@
+<form string="Employé" js_class="hr_employee_form">
+                    <field name="active" invisible="1"/>
+                    <field name="user_id" invisible="1" on_change="1" can_create="True" can_write="True"/>
+                    <field name="user_partner_id" invisible="1"/>
+                    <field name="image_128" invisible="1" on_change="1"/>
+                    <field name="company_id" invisible="1" on_change="1" can_create="True" can_write="True"/>
+                    <field name="last_activity_time" invisible="1"/>
+                    <field name="last_activity" invisible="1"/>
+                    <field name="work_contact_id" invisible="1" on_change="1" can_create="True" can_write="True"/>
+                    <header>
+                        <button name="187" string="Plan de lancement" type="action" invisible="not active or not id" context="{'sort_by_responsible': True}"/>
+                <field name="total_overtime" invisible="1"/>
+                <button name="263" string="Déduire des heures supplémentaires" type="action" context="{'default_employee_id': id, 'deduct_extra_hours': True}" invisible="total_overtime &lt;= 1 or not active"/>
+                    </header>
+                    <sheet>
+                        <div name="button_box" class="oe_button_box">
+                        <button name="action_open_contract" class="oe_stat_button" icon="fa-book" type="object" context="{                                 'default_employee_id': id,                                 'default_resource_calendar_id': resource_calendar_id.id or False,                                 'from_action_open_contract': True,                             }" invisible="employee_type not in ['employee', 'student', 'trainee']">
+                            <div invisible="not first_contract_date" class="o_stat_info">
+                                <span class="o_stat_text text-success" invisible="contract_warning" title="In Contract Since"> Sous contrat depuis le</span>
+                                <span class="o_stat_value text-success" invisible="contract_warning">
+                                    <field name="first_contract_date" readonly="1"/>
+                                </span>
+                                <span class="o_stat_text text-danger" invisible="not contract_warning" title="In Contract Since">
+                                    Sous contrat depuis le
+                                </span>
+                                <span class="o_stat_value text-danger" invisible="not contract_warning">
+                                    <field name="first_contract_date" readonly="1"/>
+                                </span>
+                            </div>
+                            <div invisible="first_contract_date" class="o_stat_info">
+                                <span class="o_stat_value text-danger">
+                                    <field name="contracts_count"/>
+                                </span>
+                                <span invisible="contracts_count != 1" class="o_stat_text text-danger">
+                                    Contrat
+                                </span>
+                                <span invisible="contracts_count == 1" class="o_stat_text text-danger">
+                                    Contrats
+                                </span>
+                            </div>
+                        </button>
+                <button name="249" icon="fa-users" type="action" context="{'hierarchy_res_id': id}" invisible="(not parent_id and not child_ids) or parent_id == id">
+                    <div class="o_stat_info">
+                        <span class="o_stat_text">Organigramme</span>
+                    </div>
+                </button>
+                <field name="show_leaves" invisible="1"/>
+                <field name="is_absent" invisible="1"/>
+                <field name="hr_icon_display" invisible="1"/>
+                <button name="action_time_off_dashboard" type="object" class="oe_stat_button" context="{'search_default_employee_ids': id}" invisible="not is_absent">
+                        <div invisible="hr_icon_display != 'presence_holiday_present'" role="img" class="fa fa-fw fa-plane o_button_icon text-success" aria-label="De retour le" title="De retour le"/>
+                        <div invisible="hr_icon_display != 'presence_holiday_absent'" role="img" class="fa fa-fw fa-plane o_button_icon text-warning" aria-label="De retour le" title="De retour le"/>
+                    <div class="o_field_widget o_stat_info">
+                        <span class="o_stat_text">
+                            De retour le
+                        </span>
+                        <span class="o_stat_value">
+                            <field name="leave_date_to"/>
+                        </span>
+                    </div>
+                </button>
+                <button name="action_time_off_dashboard" type="object" class="oe_stat_button" icon="fa-calendar" invisible="not show_leaves" context="{'search_default_employee_ids': id}" help="Congés restants">
+                    <div class="o_field_widget o_stat_info" invisible="allocation_display == '0'">
+                        <span class="o_stat_value">
+                            <field name="allocation_remaining_display"/>/<field name="allocation_display"/> Jours
+                        </span>
+                        <span class="o_stat_text">
+                            Congé
+                        </span>
+                    </div>
+                    <div class="o_field_widget o_stat_info" invisible="allocation_display != '0'">
+                        <span class="o_stat_text">
+                           Congé
+                        </span>
+                    </div>
+                </button>
+                <field name="has_work_entries" invisible="1"/>
+                <button invisible="not has_work_entries" type="object" class="oe_stat_button" id="open_work_entries" icon="fa-calendar" name="action_open_work_entries">
+                    <div class="o_stat_info">
+                            <span class="o_stat_text">
+                            Prestations
+                            </span>
+                        </div>
+                </button>
+                <field name="attendance_state" invisible="1" on_change="1"/>
+                <field name="hours_last_month" invisible="1"/>
+                <button name="action_open_last_month_attendances" class="oe_stat_button" icon="fa-clock-o" type="object" invisible="1" help="Heures travaillées ce mois-ci">
+                    <div class="o_field_widget o_stat_info">
+                        <span class="o_stat_value">
+                            <field name="hours_last_month_display" widget="float_time"/> Heures
+                        </span>
+                        <span class="o_stat_text">
+                            Ce mois
+                        </span>
+                    </div>
+                </button>
+                <button name="action_open_last_month_overtime" class="oe_stat_button" icon="fa-history" type="object" invisible="1">
+                    <div class="o_stat_info">
+                        <span class="o_stat_value text-success" invisible="total_overtime &lt; 0">
+                            <field name="total_overtime" widget="float_time"/>
+                        </span>
+                        <span class="o_stat_value text-danger" invisible="total_overtime &gt;= 0">
+                            <field name="total_overtime" widget="float_time"/>
+                        </span>
+                        <span class="o_stat_text">Heures supplémentaires</span>
+                    </div>
+                </button>
+                <button name="387" type="action" class="oe_stat_button" icon="fa-globe" string="Accès portail"/>
+                    <button name="action_related_contacts" class="oe_stat_button" icon="fa-address-card-o" type="object" help="Contacts associés">
+                        <div class="o_field_widget o_stat_info">
+                            <span class="o_stat_value"><field name="related_partners_count"/></span>
+                            <span class="o_stat_text">Contacts</span>
+                        </div>
+                    </button>
+                        </div>
+                        <widget name="web_ribbon" title="Archivé" bg_color="text-bg-danger" invisible="active"/>
+                        <field name="avatar_128" invisible="1"/>
+                        <div class="row justify-content-between position-relative w-100 m-0 mb-2">
+                            <div class="oe_title mw-75 ps-0 pe-2">
+                                <h1 class="d-flex flex-row align-items-center">
+                                    <div invisible="not user_id" class="me-2">
+                                        <widget name="hr_employee_chat" invisible="not context.get('chat_icon')"/>
+                                    </div>
+                                    <field name="name" placeholder="NOM Prénom de l'employé (exemple: DOE John)" required="True" style="font-size: min(4vw, 2.6rem);" on_change="1"/>
+                                </h1>
+                                <h2>
+                                    <field name="job_title" placeholder="Titre du poste"/>
+                                </h2>
+                            </div>
+                            <div class="o_employee_avatar m-0 p-0">
+                                <field name="image_1920" widget="image" class="oe_avatar m-0" options="{&quot;zoom&quot;: true, &quot;preview_image&quot;:&quot;avatar_128&quot;}" on_change="1"/>
+                                <field name="show_hr_icon_display" invisible="1"/>
+                                <field name="hr_icon_display" class="d-flex align-items-end fs-6 o_employee_availability" invisible="not show_hr_icon_display or not id" widget="hr_presence_status"/>
+                            </div>
+                        </div>
+                        <group>
+                            <group>
+                                <field name="work_email" widget="email" placeholder="par ex. johndoe@example.com"/>
+                                <field name="work_phone" widget="phone"/>
+                                <field name="mobile_phone" widget="phone"/>
+                                <field name="category_ids" widget="many2many_tags" options="{'color_field': 'color', 'no_create_edit': True}" placeholder="Étiquettes" can_create="True" can_write="True"/>
+                                
+                                <field name="company_country_id" invisible="1" on_change="1"/>
+                                <field name="company_country_code" invisible="1"/>
+                            </group>
+                            <group>
+                                <field name="department_id" domain="[('parent_id', '!=', False)]" options="{'no_create': True, 'no_create_edit': True}" on_change="1" can_create="True" can_write="True"/>
+                                <field name="job_id" context="{'default_no_of_recruitment': 0, 'default_is_favorite': False}" placeholder="par ex. Directeur Commercial" on_change="1" can_create="True" can_write="True"/>
+                                <field name="parent_id" widget="many2one_avatar_user" on_change="1" can_create="True" can_write="True"/>
+                                <field name="coach_id" widget="many2one_avatar_user" can_create="True" can_write="True"/>
+          <label for="attendance_validator_ids">Validateurs de présence</label>
+          <field name="attendance_validator_ids" nolabel="1" widget="many2many_tags" domain="[('share','=', False), ('active','=', True)]" options="{'no_create': True, 'no_create_edit': True}" can_create="True" can_write="True"/>
+          <!-- Optionnel : petit texte d'aide si tu as le champ technique -->
+          <field name="attendance_validators_hint" nolabel="1" readonly="1" class="o_form_label o_light"/>
+                            </group>
+                        </group>
+                        <field name="employee_properties" columns="2"/>
+                        <notebook>
+                <page name="skills_resume" string="CV">
+                    <div class="row">
+                        <div class="o_hr_skills_editable o_hr_skills_group o_group_resume col-lg-7 d-flex flex-column">
+                            <separator string="CV" class="mb-4"/>
+                            <!-- This field uses a custom list view rendered by the 'resume_one2many' widget.
+                                Adding fields in the list arch below makes them accessible to the widget
+                            -->
+                            <field mode="list" nolabel="1" name="resume_line_ids" widget="resume_one2many">
+                                <list>
+                                    <field name="line_type_id"/>
+                                    <field name="name"/>
+                                    <field name="description"/>
+                                    <field name="date_start"/>
+                                    <field name="date_end"/>
+                                    <field name="display_type" column_invisible="True"/>
+                                </list>
+                            </field>
+
+                        </div>
+                        <div class="o_hr_skills_editable o_hr_skills_group o_group_skills col-lg-5 d-flex flex-column">
+                            <field mode="list" nolabel="1" name="employee_skill_ids" widget="skills_one2many" class="mt-2">
+                                <list>
+                                    <field name="skill_id" on_change="1"/>
+                                    <field name="skill_level_id" on_change="1"/>
+                                    <field name="level_progress" widget="progressbar"/>
+                                    <field name="skill_type_id" optional="hidden" on_change="1"/>
+                                </list>
+                            </field>
+                        </div>
+                    </div>
+                </page>
+                            <page name="public" string="Informations professionnelles">
+                                <div id="o_work_employee_container" class="d-lg-flex"> <!-- These two div are used to position org_chart -->
+                                    <div id="o_work_employee_main" class="flex-grow-1">
+                                        <group string="Lieu">
+                                            <field name="address_id" context="{'show_address': 1}" options="{&quot;highlight_first_line&quot;: True}" on_change="1" can_create="True" can_write="True"/>
+                                            <field name="work_location_id" context="{'default_address_id': address_id}" placeholder="par ex. Bâtiment 2, À distance, etc." can_create="True" can_write="True"/>
+                                        </group>
+                                        <group name="managers" string="Validateurs" class="hide-group-if-empty,hide-group-if-empty" invisible="0">
+                                            <!-- is overridden in other hr related modules -->
+                <field name="leave_manager_id" widget="many2one_avatar_user" can_create="True" can_write="True"/>
+                </group>
+                                        <group name="departure" string="Départ" invisible="active">
+                                            <field name="departure_reason_id" options="{'no_edit': True, 'no_create': True, 'no_open': True}" can_create="True" can_write="True"/>
+                                            <field name="departure_description"/>
+                                            <field name="departure_date"/>
+                                        </group>
+                                        <group string="Horaire">
+                                            <field name="calendar_mismatch" invisible="1"/>
+                        <label for="resource_calendar_id"/>
+                        <div class="d-flex align-items-center">
+                            <field name="resource_calendar_id" help="Les heures de travail par défaut sont définies dans la configuration." placeholder="Totalement flexibles" on_change="1" can_create="True" can_write="True"/>
+                            <widget name="contract_warning_tooltip" invisible="not calendar_mismatch"/>
+                        </div>
+                    <field name="id" invisible="1"/>
+                                            <field name="tz" required="id"/>
+                                        </group>
+                                    </div>
+                <div id="o_employee_right" class="col-lg-4 px-0 ps-lg-5 pe-lg-0">
+                    <separator string="Organigramme"/>
+                    <field name="child_ids" class="position-relative" widget="hr_org_chart" readonly="1" nolabel="1"/>
+                </div>
+                                </div>
+                            </page>
+                <page string="Badges attribués" name="received_badges" invisible="not user_id">
+                    <field name="has_badges" invisible="1"/>
+                    <button string="Attribuer un badge" type="action" name="367"/> récompenser un employé pour une action positive
+                    <div class="o_field_nocontent mt-2" invisible="has_badges">
+                        <p>
+                            Accordez son premier badge à cet employé
+                        </p><p class="oe_grey">
+                            Les badges sont une reconnaissance du bon travail. Donnez-les aux personnes que les méritent selon vous.
+                        </p>
+                    </div>
+                    <div class="mt-2">
+                        <field name="badge_ids" mode="kanban"><kanban action="action_open_badge" type="object">
+                <field name="create_date"/>
+                <templates>
+                    <t t-name="card" class="row g-0">
+                        <aside class="col-2">
+                            <field name="badge_id" widget="image" options="{'preview_image': 'image_1024'}" t-att-alt="record.badge_name.value" on_change="1"/>
+                        </aside>
+                        <main class="col ps-2">
+                            <field class="fw-bold fs-5" type="open" name="badge_name"/>
+                            <field name="comment"/>
+                            <p>Délivré par <field name="create_uid"/> le <t t-esc="luxon.DateTime.fromISO(record.create_date.raw_value).toFormat('D')"/></p>
+                        </main>
+                    </t>
+                </templates>
+            </kanban></field>
+                    </div>
+                </page>
+                            <page name="personal_information" string="Informations privées">
+                                <group>
+                                    <group string="Coordonnées privées">
+                                        <label for="private_street" string="Adresse personnelle"/>
+                                        <div class="o_address_format">
+                                            <field name="private_street" placeholder="Rue..." class="o_address_street"/>
+                                            <field name="private_street2" placeholder="Rue 2..." class="o_address_street"/>
+                                            <field name="private_city" placeholder="Ville" class="o_address_city"/>
+                                            <field name="private_state_id" class="o_address_state" placeholder="Statut" options="{'no_open': True, 'no_quick_create': True}" context="{'default_country_id': private_country_id}" can_create="True" can_write="True"/>
+                                            <field name="private_zip" placeholder="Code postal" class="o_address_zip"/>
+                                            <field name="private_country_id" placeholder="Pays" class="o_address_country" options="{&quot;no_open&quot;: True, &quot;no_create&quot;: True}" can_create="True" can_write="True"/>
+                                        </div>
+                                        <field name="private_email" placeholder="par ex. myprivateemail@example.com"/>
+                                        <field name="private_phone"/>
+                                        <field name="bank_account_id" context="{'default_partner_id': work_contact_id}" options="{'no_quick_create': True}" readonly="not id" can_create="True" can_write="True"/>
+                                        <label for="distance_home_work"/>
+                                        <div class="o_row" name="div_km_home_work">
+                                            <field name="distance_home_work" class="o_hr_narrow_field"/>
+                                            <span><field name="distance_home_work_unit"/></span>
+                                        </div>
+                                        <field name="private_car_plate"/>
+                                    </group>
+                                    <group string="Nationalité">
+                                        <field name="country_id" options="{&quot;no_open&quot;: True, &quot;no_create&quot;: True}" can_create="True" can_write="True"/>
+                                        <field name="identification_id"/>
+                                        <field name="ssnid"/>
+                                        <field name="passport_id"/>
+                                        <field name="gender"/>
+                                        <field name="birthday"/>
+                                        <field name="place_of_birth"/>
+                                        <field name="country_of_birth" can_create="True" can_write="True"/>
+                                    </group>
+                                    <group string="Urgence" name="emergency">
+                                        <field name="emergency_contact"/>
+                                        <field name="emergency_phone" class="o_force_ltr"/>
+                                        <separator string="Situation familiale"/>
+                                        <field name="marital"/>
+                                        <field name="spouse_complete_name" invisible="marital not in ['married', 'cohabitant']"/>
+                                        <field name="spouse_birthdate" invisible="marital not in ['married', 'cohabitant']"/>
+                                        <field name="children"/>
+                                    </group>
+                                    <group string="Éducation">
+                                        <field name="certificate"/>
+                                        <field name="study_field"/>
+                                        <field name="study_school"/>
+                                        <separator name="has_work_permit" string="Permis de travail"/>
+                                        <field name="visa_no"/>
+                                        <field name="permit_no" on_change="1"/>
+                                        <field name="visa_expire"/>
+                                        <field name="work_permit_expiration_date"/>
+                                        <field name="work_permit_name" invisible="1"/>
+                                        <field name="has_work_permit" widget="work_permit_upload" filename="work_permit_name"/>
+                                    </group>
+                                </group>
+                            </page>
+                            <page name="hr_settings" string="Paramètres">
+                                <group>
+                                    <group string="Statut" name="active_group">
+                                        <field name="employee_type"/>
+                        <field name="first_contract_date" invisible="1"/>
+                                        <label for="user_id"/>
+                                        <div class="o_row">
+                                            <field name="user_id" string="Utilisateur associé" help="" domain="[('company_ids', 'in', company_id), ('share', '=', False)]" context="{'default_create_employee_id': id}" widget="many2one_avatar_user" on_change="1" can_create="True" can_write="True"/>
+                                            <button string="Créer un utilisateur" class="btn btn-link" type="object" name="action_create_user" invisible="user_id"/>
+                                        </div>
+                                    </group>
+                                    <group string="Présence/Point de vente" name="identification_group">
+                                        <field name="pin" string="Code PIN"/>
+                                        <label for="barcode"/>
+                                        <div class="o_row">
+                                            <field name="barcode"/>
+                                            <button string="Générer" class="btn btn-link" type="object" name="generate_random_barcode" invisible="barcode"/>
+                                            <button name="193" string="Imprimer le badge" class="btn btn-link" type="action" invisible="not barcode"/>
+                                        </div>
+                                    </group>
+                                    <group name="application_group" string="Paramètres de l'application" invisible="1"/>
+                                </group>
+                            </page>
+                        </notebook>
+                        <field name="contract_warning" invisible="1"/>
+                    </sheet>
+                    <chatter reload_on_follower="True"/>
+                </form>

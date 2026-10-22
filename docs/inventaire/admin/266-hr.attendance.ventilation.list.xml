@@ -1,0 +1,35 @@
+<list string="Attendance Details" create="0" edit="0" delete="0" default_order="closure_id asc, check_in asc, id asc">
+        <field name="employee_id" string="Employé"/>
+
+        <field name="check_in" string="Arrivée" optional="show" on_change="1"/>
+        <field name="check_out" string="Départ" optional="show" on_change="1"/>
+        
+        <field name="closure_id" string="Période" optional="hide"/>
+        <field name="week_label" string="Numéro de la semaine" optional="hide"/>
+        <field name="day_of_week" on_change="1"/>
+
+        <field name="slot_name" string="Créneau" optional="show"/>
+        <field name="prestation_type" optional="show"/>
+
+        <field name="hour_from" string="Début créneau" optional="show" widget="float_time"/>
+        <field name="hour_to" string="Fin créneau" optional="show" widget="float_time"/>
+
+        <field name="worked_hours" string="H. travaillées" widget="float_time" on_change="1"/>
+
+        <field name="day_hours" string="H. jour" widget="float_time"/>
+        <field name="night_hours" string="H. nuit" widget="float_time"/>
+
+        <field name="overtime_hours_t1" string="H.S.25%" widget="float_time"/>
+        <field name="overtime_hours_t2" string="H.S.50%" widget="float_time"/>
+
+        <field name="sunday_hours" string="H. dimanche" widget="float_time"/>
+        <field name="public_holiday_hours" string="H. fériées" widget="float_time"/>
+
+        <field name="meal_count" string="Repas sur place" optional="show" sum="Total"/>
+        <field name="is_break_entry_day_count" string="Jours arrivée break" readonly="1" sum="Total"/>
+        <field name="arrival_has_used_boat_day_count" string="Jours voyage à l'arrivée" readonly="1" sum="Total"/>
+        <field name="is_break_exit_day_count" string="Jours départ break" readonly="1" sum="Total"/>
+        <field name="departure_will_used_boat_day_count" string="Jours voyage au départ" readonly="1" sum="Total"/>
+
+        <field name="overtime_status" string="Statut H."/>
+      </list>

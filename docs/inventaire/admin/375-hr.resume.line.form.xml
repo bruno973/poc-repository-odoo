@@ -1,0 +1,23 @@
+<form string="CV">
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name" string="Titre"/>
+                        <h1>
+                            <field name="name" placeholder="par ex. Odoo Inc." required="True"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="employee_id" invisible="0" can_create="True" can_write="True"/>
+                            <field name="line_type_id" can_create="True" can_write="True"/>
+                            <field name="display_type" required="1"/>
+                <field name="survey_id" domain="[('certification', '=', True)]" readonly="0" invisible="display_type != 'certification'" context="&#10;                    {'default_certification': True}&#10;                "/>
+                        </group>
+                        <group>
+                            <field name="date_start" string="Durée" widget="daterange" options="{'end_date_field': 'date_end'}"/>
+                            <field name="date_end" invisible="1"/>
+                        </group>
+                    </group>
+                    <field name="description" placeholder="Description"/>
+                </sheet>
+            </form>

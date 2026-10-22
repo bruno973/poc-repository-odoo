@@ -1,0 +1,6 @@
+<list string="Types de compétences">
+                <field name="name" string="Types de compétences"/>
+                <field name="color" widget="color_picker" optional="show"/>
+                <field name="skill_ids" widget="many2many_tags" options="{'color_field': 'color'}"/>
+                <field name="skill_level_ids" widget="many2many_tags_skills"/>
+            </list>

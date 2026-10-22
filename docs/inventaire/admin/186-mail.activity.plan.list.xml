@@ -1,0 +1,7 @@
+<list string="Planification" sample="1">
+                    <field name="name"/>
+                    <field name="res_model_id" optional="hide"/>
+                    <field name="department_id" optional="show" column_invisible="context.get('default_res_model') != 'hr.employee'"/>
+                    <field name="steps_count"/>
+                    
+                </list>

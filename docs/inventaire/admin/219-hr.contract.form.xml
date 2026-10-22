@@ -1,0 +1,93 @@
+<form string="Contrat en cours">
+                    <field name="contracts_count" invisible="1"/>
+                    <header invisible="not id">
+                        
+                        <field name="state" widget="statusbar" options="{'clickable': '1'}"/>
+                    </header>
+                    <sheet>
+                        <field name="state" invisible="1"/>
+                        <div class="oe_button_box" name="button_box">
+                            <button name="action_open_contract_list" class="oe_stat_button" icon="fa-book" type="object" invisible="contracts_count == 0">
+                                <div class="o_stat_info">
+                                    <span class="o_stat_value">
+                                        <field name="contracts_count"/>
+                                    </span>
+                                    <span invisible="contracts_count == 1" class="o_stat_text">
+                                        Contrats
+                                    </span>
+                                    <span invisible="contracts_count &gt; 1" class="o_stat_text">
+                                        Contrat
+                                    </span>
+                                </div>
+                            </button>
+                        </div>
+                        <widget name="web_ribbon" title="Archivé" bg_color="text-bg-danger" invisible="active"/>
+                        <div class="oe_title pe-0 w-100 mw-100" name="title">
+                            <h1 class="d-flex flex-row justify-content-between">
+                                <field name="name" class="text-truncate" placeholder="Référence du contrat"/>
+                                
+                                <field name="kanban_state" class="d-flex align-items-center" widget="state_selection" readonly="0"/>
+                            </h1>
+                            <h2>
+                                
+                            </h2>
+                        </div>
+                        <group name="top_info">
+                            <group name="top_info_left">
+                                <field name="active" invisible="1"/>
+                                <!-- employee_id = fields.Many2one('hr.employee', string='Employee', tracking=True, domain="['|', ('company_id', '=', False), ('company_id', '=', company_id)]") -->
+                                <field name="company_id" invisible="1" on_change="1" can_create="True" can_write="True"/>
+                                <field name="employee_id" widget="many2one_avatar_employee" on_change="1" can_create="True" can_write="True"/>
+                                <field name="active_employee" invisible="1"/>
+                                <field name="date_start" string="Date de début du contrat"/>
+                                <field name="date_end" string="Date de fin du contrat"/>
+                                <field name="company_country_id" invisible="1" on_change="1"/>
+                                <field name="country_code" invisible="1"/>
+                                <field name="calendar_mismatch" invisible="1"/>
+                                <label for="resource_calendar_id"/>
+                                <div id="resource_calendar_warning" class="d-flex align-items-center">
+                    <!-- resource calendar is only required when work_entry_source is set to 'calendar' -->
+                    
+                    <field name="resource_calendar_id" placeholder="Totalement flexible" required="work_entry_source == 'calendar'" on_change="1" can_create="True" can_write="True"/>
+                    <widget name="contract_warning_tooltip" invisible="not calendar_mismatch or state != 'open'"/>
+                </div>
+                <!-- Makes no sense to display only one possibility -->
+                <field name="work_entry_source" widget="work_entry_source_field" invisible="1"/>
+            </group>
+                            <group name="top_info_right">
+                                
+                                <field name="structure_type_id" domain="['|', ('country_id', '=', False), ('country_id', '=', company_country_id)]" on_change="1" can_create="True" can_write="True"/>
+                                
+                                <field name="department_id" can_create="True" can_write="True"/>
+                                
+                                <field name="job_id" can_create="True" can_write="True"/>
+                                
+                                <field name="contract_type_id" can_create="True" can_write="True"/>
+                                <field name="hr_responsible_id" widget="many2one_avatar_user" invisible="1" can_create="True" can_write="True"/>
+                            </group>
+                        </group>
+                        <notebook>
+                            <page string="Informations sur le salaire" name="information" class="o_hr_contract_salary_information">
+                                <group name="salary_info">
+                                    <group name="salary">
+                                        <label for="wage"/>
+                                        <div class="o_row mw-50" name="wage">
+                                            <field name="wage" class="oe_inline o_hr_narrow_field" nolabel="1"/>
+                                            <div class="mb-3" name="wage_period_label">/ mois</div>
+                                        </div>
+                                    </group>
+                                    <group name="yearly_benefits"/>
+                                </group>
+                            </page>
+                            <page string="Détails" name="other">
+                                <group name="contract_details_0"/>
+                                <group name="contract_details" col="2"/>
+                                <group name="contract_details_2"/>
+                                <group name="notes_group" string="Notes">
+                                    <field name="notes" nolabel="1" placeholder="Tapez des notes sur ce contrat..."/>
+                                </group>
+                            </page>
+                        </notebook>
+                    </sheet>
+                    <chatter/>
+                </form>

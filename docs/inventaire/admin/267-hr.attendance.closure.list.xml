@@ -1,0 +1,9 @@
+<list string="Clôtures des Pointages">
+            <header>
+                <button name="action_rebuild_all_ventilations" type="object" string="Régénérer TOUTES les ventilations" class="btn-danger" confirm="⚠️ Action lourde : régénère TOUTES les ventilations + recalcule toutes les HS. Continuer ?"/>
+            </header>
+                <field name="name"/>
+                <field name="date_start" on_change="1"/>
+                <field name="date_end" on_change="1"/>
+                <field name="month"/>
+            </list>

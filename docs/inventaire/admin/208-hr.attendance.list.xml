@@ -1,0 +1,19 @@
+<list string="Pointages des employés" create="0" editable="bottom">
+                <header>
+                    <button class="btn-secondary" string="Approuver" name="action_approve_overtime" type="object"/>
+                    <button class="btn-secondary" string="Refuser" name="action_refuse_overtime" type="object"/>
+                </header>
+                <field name="employee_id" widget="many2one_avatar_user" readonly="1" on_change="1"/>
+            <button name="action_open_attendance_form" type="object" class="oe_stat_button o_leila_open_attendance" icon="fa-eye" string="" help="Ouvrir la feuille de pointage"/>
+                <field name="check_in" readonly="0" on_change="1"/>
+        <field name="check_out" readonly="0" on_change="1"/>
+          <field name="meal_count" string="Repas sur place"/>
+          <field name="break_entry" widget="boolean_switch" string="Arrivé de break"/>
+          <field name="break_exit" widget="boolean_switch" string="Part en break"/>
+          <field name="boat_arrival" widget="boolean_switch" string="Arrivé en transport"/>
+          <field name="boat_departure" widget="boolean_switch" string="Départ en transport"/>
+        <field name="worked_hours" readonly="1" string="Temps de travail" widget="float_time"/>
+                <field name="overtime_status" widget="badge" decoration-warning="overtime_status == 'to_approve'" decoration-success="overtime_status == 'approved'" decoration-danger="overtime_status == 'refused'" string="Statut des heures"/>
+                <button class="oe_stat_button" string="Approuver" invisible="overtime_status not in ['to_approve', 'refused']" name="action_approve_overtime" icon="fa-check" type="object"/>
+                <button class="oe_stat_button" string="Refuser" invisible="overtime_status not in ['to_approve', 'approved']" name="action_refuse_overtime" icon="fa-times" type="object"/>
+            </list>

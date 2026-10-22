@@ -1,0 +1,13 @@
+<search string="Postes">
+                    <field name="name" string="Poste"/>
+                    <field name="department_id" operator="child_of"/>
+                    <separator/>
+                    
+                    <separator/>
+                    <filter name="archived" string="Archivé" domain="[('active', '=', False)]"/>
+                    <group expand="0" string="Regrouper par">
+                        <filter string="Département" name="department" domain="[]" context="{'group_by': 'department_id'}"/>
+                        
+                        <filter string="Type d'emploi" name="employment_type" domain="[]" context="{'group_by': 'contract_type_id'}"/>
+                    </group>
+                </search>

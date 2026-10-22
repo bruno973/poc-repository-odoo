@@ -1,0 +1,9 @@
+<form>
+                    <group>
+                        <group>
+                            <field name="name" on_change="1"/>
+                            
+                            <field name="country_id" can_create="True" can_write="True"/>
+                        </group>
+                    </group>
+                </form>

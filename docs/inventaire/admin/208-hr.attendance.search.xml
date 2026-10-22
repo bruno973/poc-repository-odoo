@@ -1,0 +1,17 @@
+<search>
+                <field name="employee_id"/>
+                <field name="department_id" operator="child_of"/>
+                <filter string="Mes présences" name="myattendances" domain="[('employee_id.user_id', '=', uid)]"/>
+                <filter string="Mon équipe" name="myteam" domain="[('employee_id.parent_id.user_id', '=', uid)]"/>
+                <separator/>
+                <filter string="À approuver" name="to_approve" domain="[('overtime_status','=', 'to_approve')]"/>
+                <filter string="Approuvé" name="approved" domain="[('overtime_status','=', 'approved')]"/>
+                <filter string="Refusée" name="refused" domain="[('overtime_status','=', 'refused')]"/>
+          <filter string="Avec heures travaillées" name="with_worked_hours" domain="[('worked_hours','&gt;',0.001)]"/>
+                <separator/>
+                <filter string="Employés actifs" name="activeemployees" domain="[('employee_id.active', '=', True)]"/>
+                <filter string="Employés archivés" name="archivedemployees" domain="[('employee_id.active', '=', False)]"/>
+                <group string="Regrouper par">
+                    <filter string="Employé" name="employee" context="{'group_by': 'employee_id'}"/>
+                </group>
+            </search>

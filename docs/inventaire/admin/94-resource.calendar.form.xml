@@ -1,0 +1,58 @@
+<form string="Temps de travail">
+                <field name="two_weeks_calendar" invisible="1" on_change="1"/>
+                <header>
+                    <button name="switch_calendar_type" invisible="two_weeks_calendar or flexible_hours" string="Passer à un calendrier de 2 semaines" type="object" confirm="Êtes-vous sûr de vouloir passer à un calendrier de 2 semaines ? Toutes les prestations seront perdues." confirm-label="Changer"/>
+                    <button name="switch_calendar_type" invisible="not two_weeks_calendar" string="Passer à un calendrier d'une semaine" type="object" confirm="Êtes-vous sûr de vouloir passer à un calendrier d'1 semaine ? Toutes les prestations seront perdues." confirm-label="Changer"/>
+                </header>
+                <sheet string="Temps de travail">
+                    <widget name="web_ribbon" title="Archivé" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="oe_button_box" name="button_box">
+                <button name="222" type="action" icon="fa-sun-o" class="oe_stat_button">
+                    <div class="o_field_widget o_stat_info">
+                        <span class="o_stat_text">
+                            <field name="associated_leaves_count"/> Publique
+                        </span>
+                        <span class="o_stat_text">
+                            Congé
+                        </span>
+                    </div>
+                </button>
+                        
+                        <button name="89" type="action" icon="fa-cogs" class="oe_stat_button">
+                                <div class="o_field_widget o_stat_info">
+                                    <span class="o_stat_text">Ressources de travail</span>
+                                </div>
+                        </button>
+                <button class="oe_stat_button" name="action_open_contracts" type="object" icon="fa-book">
+                    <field name="contracts_count" string="Contrats" widget="statinfo"/>
+                </button>
+                    </div>
+                    <div class="oe_title">
+                        <h1><field name="name"/></h1>
+                    </div>
+                    <group name="resource_details" col="2">
+                        <group name="resource_working_hours">
+                            <field name="flexible_hours" on_change="1"/>
+                            <label for="full_time_required_hours" invisible="flexible_hours"/>
+                            <label for="full_time_required_hours" string="Heures par semaine" invisible="not flexible_hours"/>
+                            <div>
+                                <field name="full_time_required_hours" style="width: 10%" widget="float_time"/>
+                                <span> heures/semaine</span>
+                            </div>
+                            <field name="hours_per_day" widget="float_time" readonly="not flexible_hours"/>
+                        </group>
+                        <group name="resource_company">
+                            <field name="active" invisible="1"/>
+                            
+                            <field name="tz" widget="timezone_mismatch" options="{'tz_offset_field': 'tz_offset', 'mismatch_title': 'Timezone Mismatch : This timezone is different from that of your browser.\nPlease, be mindful of this when setting the working hours or the time off.'}" on_change="1"/>
+                            <field name="tz_offset" invisible="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Heures de travail" name="working_hours" invisible="flexible_hours">
+                            <field name="two_weeks_explanation" invisible="not two_weeks_calendar"/>
+                            <field name="attendance_ids" widget="section_one2many" on_change="1"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>

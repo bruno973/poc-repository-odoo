@@ -1,0 +1,6 @@
+<search string="Chercher un horaire">
+               <field name="name" string="Temps de travail"/>
+               
+               <separator/>
+               <filter string="Archivé" name="inactive" domain="[('active', '=', False)]"/>
+           </search>

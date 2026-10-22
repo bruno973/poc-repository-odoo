@@ -1,0 +1,9 @@
+<search string="Rechercher des défis">
+                <filter name="inprogress" string="Défis en cours" domain="[('state', '=', 'inprogress')]"/>
+                <filter name="hr_challenges" string="RH Défis" domain="[('challenge_category', '=', 'hr')]"/>
+                <field name="name"/>
+                <group expand="0" string="Regrouper par">
+                    <filter string="Statut" name="state" domain="[]" context="{'group_by':'state'}"/>
+                    <filter string="Période" name="period" domain="[]" context="{'group_by':'period'}"/>
+                </group>
+            </search>

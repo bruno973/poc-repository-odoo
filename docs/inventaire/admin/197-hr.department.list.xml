@@ -1,0 +1,9 @@
+<list string="Sociétés" multi_edit="1">
+                    <field name="company_id" column_invisible="True" can_create="True" can_write="True"/>
+                    <field name="name"/>
+                    
+                    <field name="manager_id" widget="many2one_avatar_employee" can_create="True" can_write="True"/>
+                    <field name="total_employee" string="Employés"/>
+                    <field name="parent_id" can_create="True" can_write="True"/>
+                    <field name="color" widget="color_picker" string="Code"/>
+                </list>

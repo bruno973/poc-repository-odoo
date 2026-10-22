@@ -1,0 +1,46 @@
+<form string="Objectif" create="false">
+                <header>
+                    <button string="Démarrer l'objectif" type="object" name="action_start" invisible="state != 'draft'" class="oe_highlight"/>
+
+                    <button string="Objectif atteint" type="object" name="action_reach" invisible="state != 'inprogress'"/>
+                    <button string="Objectif non atteint" type="object" name="action_fail" invisible="state != 'inprogress'"/>
+                    
+                    <field name="state" widget="statusbar" statusbar_visible="draft,inprogress,reached"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group string="Référence">
+                            <field name="definition_id" readonly="state != 'draft'" on_change="1" can_create="True" can_write="True"/>
+                            <field name="user_id" readonly="state != 'draft'" can_create="True" can_write="True"/>
+                            <field name="challenge_id"/>
+                        </group>
+                        <group string="Planifier">
+                            <field name="start_date" readonly="state != 'draft'"/>
+                            <field name="end_date"/>
+                            <field name="computation_mode" invisible="1"/>
+
+                            <label for="remind_update_delay" invisible="computation_mode != 'manually'"/>
+                            <div invisible="computation_mode != 'manually'">
+                                <field name="remind_update_delay" class="oe_inline"/>
+                                jours
+                            </div>
+                            
+                        </group>
+                        <group string="Données" colspan="4">
+                            <label for="target_goal"/>
+                            <div>
+                                <field name="target_goal" readonly="state != 'draft'" class="oe_inline"/>
+                                <field name="definition_suffix" class="oe_inline"/>
+                            </div>
+                            <label for="current"/>
+                            <div>
+                                <field name="current" class="oe_inline"/>
+                                <button string="rafraîchir" type="object" name="update_goal" class="oe_link" invisible="computation_mode == 'manually' or state == 'draft'"/>
+                                <div class="oe_grey" invisible="not definition_id">
+                                    Atteint si la valeur actuelle est <strong><field name="definition_condition" class="oe_inline"/></strong> que la cible.
+                                </div>
+                            </div>
+                        </group>
+                    </group>
+                </sheet>
+            </form>

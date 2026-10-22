@@ -1,0 +1,547 @@
+<form string="Paramètres" class="oe_form_configuration" js_class="base_settings" delete="False">
+                    <field name="is_root_company" invisible="1"/>
+                    <app data-string="General Settings" string="Paramètres généraux" name="general_settings" logo="/base/static/description/settings.png">
+
+                        <div id="invite_users">
+                            <block title="Utilisateurs" name="users_setting_container">
+                                <setting id="invite_users_setting">
+                                    <widget name="res_config_invite_users"/>
+                                </setting>
+                                <setting id="active_user_setting">
+                                    <span class="fa fa-lg fa-users" aria-label="Nombre d'utilisateurs actifs"/>
+                                    <field name="active_user_count" class="w-auto ps-3 fw-bold"/>
+                                    <span class="o_form_label" invisible="active_user_count &gt; 1">
+                                        Utilisateur actif
+                                    </span>
+                                    <span class="o_form_label" invisible="active_user_count &lt;= 1">
+                                        Utilisateurs actifs
+                                    </span>
+                                    <widget name="documentation_link" path="/applications/general/users.html" icon="fa-question-circle"/>
+                                    <br/>
+                                    <button name="70" icon="oi-arrow-right" type="action" string="Gérer les utilisateurs" class="btn-link o_web_settings_access_rights"/>
+                                </setting>
+                            </block>
+                        </div>
+
+                        <div id="languages">
+                            <block title="Langues" name="languages_setting_container">
+                                <setting id="languages_setting">
+                                    <!-- TODO This is not an ideal solution but it looks ok on the interface -->
+                                    <div class="w-50">
+                                        <field name="language_count" class="w-auto ps-1 fw-bold"/>
+                                        <span class="o_form_label" invisible="language_count &gt; 1">
+                                            Langue
+                                        </span>
+                                        <span class="o_form_label" invisible="language_count &lt;= 1">
+                                            Langues
+                                        </span>
+                                    </div>
+                                    <div class="mt8">
+                                        <button name="44" icon="oi-arrow-right" type="action" string="Ajouter des langues" class="btn-link"/>
+                                    </div>
+                                    
+                                </setting>
+                            </block>
+                        </div>
+
+                        <div id="companies">
+                            <block title="Sociétés" name="companies_setting_container">
+                                <field name="company_id" invisible="1" on_change="1" can_create="True" can_write="True"/>
+                                <setting id="company_details_settings">
+                                    <field name="company_name" nolabel="1" class="fw-bold"/>
+                                    <br/>
+                                    <field name="company_informations" class="text-muted" style="width: 90%;"/>
+                                    <br/>
+                                    <button name="open_company" icon="oi-arrow-right" type="object" string="Mettre à jour les informations" class="btn-link"/>
+                                </setting>
+                                <setting id="companies_setting">
+                                    <field name="company_count" nolabel="1" class="w-auto ps-1 fw-bold"/>
+                                    <span class="o_form_label" invisible="company_count &gt; 1">
+                                        Société
+                                    </span>
+                                    <span class="o_form_label" invisible="company_count &lt;= 1">
+                                        Sociétés
+                                    </span>
+                                    <br/>
+                                    <div class="mt8">
+                                        <button name="53" icon="oi-arrow-right" type="action" string="Gérer des sociétés" class="btn-link"/>
+                                    </div>
+                                </setting>
+                                <setting id="document_layout_setting" string="Mise en page du document" help="Choisir la mise en page de vos documents" company_dependent="1">
+                                    <div class="content-group">
+                                        
+                                            <button name="81" string="Configurer la mise en page du document" type="action" class="oe_link" icon="oi-arrow-right"/>
+                                            
+                                            
+                                            
+                                            
+                                    </div>
+                                </setting>
+                    <setting string="Modèles d'e-mail" help="Personnaliser la présentation des e-mails automatisés" id="mail_templates_setting">
+                        <div class="w-50 row">
+                            <span class="d-block w-75 py-2">Couleur de l'en-tête</span>
+                            <field name="email_primary_color" class="d-block w-25 p-0 m-0" widget="color"/>
+                        </div>
+                        <div class="w-50 row mt-1">
+                            <span class="d-block w-75 py-2">Couleur de bouton</span>
+                            <field name="email_secondary_color" class="d-block w-25 p-0 m-0" widget="color"/>
+                        </div>
+                        
+                        
+                        <button name="open_mail_templates" icon="oi-arrow-right" type="object" string="Revoir tous les modèles" class="btn-link"/>
+                    </setting>
+                                <field name="company_id" invisible="1" on_change="1" can_create="True" can_write="True"/>
+                                
+                            </block>
+                        </div>
+                        <block title="E-mails" id="emails">
+                        <setting id="email_servers_setting" title="Vous devez utiliser votre propre serveur de messagerie pour envoyer ou recevoir des e-mails dans les versions Community et Enterprise. Les utilisateurs en ligne bénéficient déjà d'un serveur de messagerie préalablement compatible (@mycompany.odoo.com)." documentation="/applications/general/email_communication/email_servers.html" help="Configurer vos propres serveurs de messagerie">
+                            <field name="external_email_server_default"/>
+                            <div class="content-group mb-3" invisible="not external_email_server_default">
+                                <div>
+                                    <div class="mt8">
+                                        <button type="action" name="103" string="Serveurs de messagerie entrants" icon="oi-arrow-right" class="btn-link"/>
+                                    </div>
+                                    <div class="mt8">
+                                        <button type="action" name="18" string="Serveurs de messagerie sortants" icon="oi-arrow-right" class="btn-link"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </setting>
+                        <setting id="email-alias-setting" string="Domaine alias" help="Utiliser différents domaines pour vos alias de messagerie" company_dependent="1" documentation="/applications/general/email_communication/email_domain.html#be-spf-compliant">
+                            <span class="me-1">@</span>
+                            <field name="alias_domain_id" placeholder="par ex. mycompany.com" options="{'no_create_edit': True}" can_create="True" can_write="True"/>
+                        </setting>
+                        <setting string="Utiliser un serveur Gmail" help="Envoyer et recevoir des e-mails via votre compte Gmail." documentation="https://console.developers.google.com/" invisible="not external_email_server_default">
+                            <field name="module_google_gmail" on_change="1"/>
+                            <div class="content-group" invisible="not module_google_gmail" id="msg_module_google_gmail">
+                                <div class="mt16 text-warning"><strong>Enregistrez</strong> cette page et revenez ici pour configurer la fonctionnalité.</div>
+                            </div>
+                        </setting>
+                        <setting id="email-outlook-setting" string="Utiliser un serveur Outlook" help="Envoyer et recevoir des e-mails via votre compte Outlook." documentation="https://docs.microsoft.com/en-us/azure/active-directory/develop/quickstart-register-app" invisible="not external_email_server_default">
+                            <field name="module_microsoft_outlook" on_change="1"/>
+                            <div class="content-group" id="msg_module_microsoft_outlook" invisible="not module_microsoft_outlook">
+                                <div class="mt16 text-warning">
+                                    <strong>Enregistrez</strong> cette page et revenez ici pour configurer la fonctionnalité.
+                                </div>
+                            </div>
+                        </setting>
+                <setting id="digest" string="Digest d'e-mails" help="Ajouter de nouveaux utilisateurs comme destinataires d'un e-mail périodique comprenant des métriques clés" documentation="/applications/general/digest_emails.html" title="Les nouveaux utilisateurs sont ajoutés automatiquement comme destinataire du digest d'e-mails suivant." name="digest_email_setting_container">
+                    <field name="digest_emails"/>
+                    <div class="content-group" invisible="not digest_emails">
+                        <div class="mt16">
+                            <label for="digest_id" class="o_light_label mr8"/>
+                            <field name="digest_id" class="oe_inline" can_create="True" can_write="True"/>
+                        </div>
+                        <div class="mt8">
+                            <button type="action" name="183" string="Configurer les digests d'e-mails" icon="oi-arrow-right" class="btn-link"/>
+                        </div>
+                    </div>
+                </setting>
+                        <setting id="restrict_template_rendering_setting" help="Restreindre l'édition les modèles d'e-mail et l'utilisation des placeholders QWEB.">
+                            <field name="restrict_template_rendering"/>
+                        </setting>
+                    </block>
+                    <block title="Discussion" id="discuss">
+                        <setting id="activities_setting" string="Activités" help="Configurer vos types d'activités">
+                            <div class="content-group">
+                                <div class="mt8">
+                                    <button name="120" string="Types d'activités" type="action" class="oe_link" icon="oi-arrow-right"/>
+                                </div>
+                            </div>
+                        </setting>
+                        <setting help="Ajouter vos identifiants twilio pour les serveurs ICE">
+                            <field name="use_twilio_rtc_servers"/>
+                            <div class="content-group" invisible="not use_twilio_rtc_servers">
+                                <div class="row mt16" id="mail_twilio_sid">
+                                    <label for="twilio_account_sid" class="col-lg-3"/>
+                                    <field name="twilio_account_sid" placeholder="par exemple : ACd5543a0b450ar4c7t95f1b6e8a39t543"/>
+                                </div>
+                                <div class="row mt16" id="mail_twilio_auth_token">
+                                    <label for="twilio_account_token" class="col-lg-3"/>
+                                    <field name="twilio_account_token" placeholder="par exemple : 65ea4f9e948b693N5156F350256bd152"/>
+                                </div>
+                            </div>
+                        </setting>
+                        <setting string="Serveur SFU">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <label for="sfu_server_url" string="URL" class="col-lg-3"/>
+                                    <field name="sfu_server_url"/>
+                                </div>
+                                <div class="row mt16">
+                                    <label for="sfu_server_key" string="Clé" class="col-lg-3"/>
+                                    <field name="sfu_server_key"/>
+                                </div>
+                            </div>
+                        </setting>
+                        <setting string="Liste de serveurs ICE personnalisés" help="Configurer votre liste de serveur ICE pour webRTC">
+                            <div class="content-group">
+                                <div class="row col-lg-4">
+                                    <button type="action" name="112" string="Serveurs ICE" icon="oi-arrow-right" class="btn-link"/>
+                                </div>
+                            </div>
+                        </setting>
+                        <setting id="tenor_api_key" string="Klipy GIF API key" help="Add a Klipy GIF API key to enable GIFs support. If you were using a Tenor GIF API key (service shutdown on June 30, 2026), please replace it here with a Klipy GIF API key" documentation="https://docs.klipy.com/getting-started">
+                            <field name="tenor_api_key" placeholder="Copier votre clé API"/>
+                        </setting>
+                        <setting id="tenor_content_filter" string="Klipy GIF content filter" help="Sélectionner le filtre de contenu utilisé pour filtrer les GIF" documentation="https://docs.klipy.com/migrate-from-tenor/content-filtering">
+                            <field name="tenor_content_filter"/>
+                        </setting>
+                        <setting id="tenor_gif_limit" string="Klipy GIF limits" help="Récupérer jusqu'au nombre précisé de GIF.">
+                            <field name="tenor_gif_limit"/>
+                        </setting>
+                        <setting string="Traduction des messages" help="Intégration de Google Translate" id="message_translation_setting" documentation="https://cloud.google.com/translate/docs/setup">
+                            <field name="google_translate_api_key" placeholder="Copier votre clé API"/>
+                        </setting>
+                    </block>
+                <div id="contacts_settings">
+                            <block title="Contacts" name="contacts_setting_container">
+                                <setting id="sms" string="Envoyer un SMS" documentation="/applications/marketing/sms_marketing/pricing/pricing_and_faq.html" help="Envoyer des sms à vos contacts">
+                                    <!-- Invisible to avoid breaking any custom inheriting templates -->
+                                    <field name="module_sms" invisible="1" on_change="1"/>
+                <widget name="iap_buy_more_credits" service_name="sms" hide_service="1"/>
+                                </setting>
+                                <setting help="Enrichir automatiquement votre base de contacts avec des données sur les entreprises" title="Lors du remplissage de votre carnet d'adresses, Odoo fournit une liste des entreprises correspondantes. Lorsque vous sélectionnez un élément, les données de la société et le logo sont automatiquement renseignés." id="partner_autocomplete">
+                                    <field name="module_partner_autocomplete" on_change="1"/>
+                <widget name="iap_buy_more_credits" service_name="partner_autocomplete" hide_service="1"/>
+                                </setting>
+                        </block>
+                <div id="iap_portal">
+                    <block class="iap_portal" name="iap_purchases_setting_container">
+                        <setting id="iap_credits_setting" string="Odoo IAP" help="Consulter vos Services IAP et recharger vos crédits" documentation="/applications/general/in_app_purchase.html">
+                            <button name="iap.iap_account_action" icon="oi-arrow-right" type="action" string="Voir mes services" class="btn-link"/>
+                        </setting>
+                    </block>
+                </div>
+                    </div>
+
+                    <block title="Permissions" id="user_default_rights">
+                    <setting id="login_documents" title="Pour envoyer des invitations en mode B2B, ouvrez un contact ou sélectionnez-en plusieurs dans la liste et cliquez sur l'option 'Portal Access Management' dans le menu déroulant *Action*." help="Permettre à vos clients de se connecter pour consulter leurs documents">
+                        <field name="auth_signup_uninvited" class="o_light_label" widget="radio" options="{'horizontal': true}" required="True"/>
+                        <div class="content-group" invisible="auth_signup_uninvited == 'b2b'">
+                            <div class="mt8">
+                                <button type="object" name="action_open_template_user" string="Droits d'accès par défaut" icon="oi-arrow-right" class="btn-link"/>
+                            </div>
+                        </div>
+                    </setting>
+                    <setting string="Réinitialisation du mot de passe" help="Permettre la réinitialisation du mot de passe depuis la page de connexion" id="enable_password_reset">
+                        <field name="auth_signup_reset_password"/>
+                    </setting>
+                        <setting string="Droits d'accès par défaut" help="Définir les droits d'accès personnalisés pour les nouveaux utilisateurs" title="Les nouveaux utilisateurs obtiennent par défaut les droits d'accès maximaux pour toutes les applications installées. Si la case n'est pas cochée, les nouveaux utilisateurs n'auront qu'un accès de base en tant qu'employés" id="access_rights">
+                            <field name="user_default_rights"/>
+                            <div class="content-group" invisible="not user_default_rights">
+                                <div class="mt8">
+                                    <button type="object" name="open_default_user" string="Droits d'accès par défaut" icon="oi-arrow-right" class="btn-link"/>
+                                </div>
+                            </div>
+                        </setting>
+                        <setting string="Clés API" help="Les clés API permettent à vos utilisateurs d'accéder à Odoo avec des outils externes lorsque l'authentification à facteurs multiples est activée.">
+                            <button type="action" name="73" string="Gérer les clés API" icon="oi-arrow-right" class="btn-link"/>
+                    
+                        </setting>
+                        
+                        
+                    </block>
+
+                    
+
+                        <block title="Intégrations" name="integration">
+                            <setting string="Plugin de messagerie" documentation="/applications/productivity/mail_plugins.html" help="Intégrer les plugins des clients de messagerie" id="mail_pluggin_setting">
+                                <field name="module_mail_plugin" on_change="1"/>
+                            </setting>
+                            <div id="product_get_pic_setting"/>
+                            <setting string="Authentification OAuth" help="Utiliser des comptes externes pour vous connecter (Google, Facebook, etc.)" id="module_auth_oauth">
+                                <field name="module_auth_oauth" on_change="1"/>
+                                <div class="content-group" invisible="not module_auth_oauth">
+                        <div class="mt8">
+                            <button type="action" name="384" string="Fournisseurs OAuth" icon="oi-arrow-right" class="btn-link"/>
+                        </div>
+                    </div>
+                </setting>
+                    <setting id="signin_google_setting" string="Authentification Google" help="Autoriser les utilisateurs à se connecter avec leur compte Google" documentation="/applications/general/auth/google.html" invisible="not module_auth_oauth">
+                        <field name="auth_oauth_google_enabled"/>
+                        <div class="content-group" invisible="not auth_oauth_google_enabled">
+                            <div class="row mt16">
+                                <label for="auth_oauth_google_client_id" string="ID client :" class="col-lg-3 o_light_label"/>
+                                <field name="auth_oauth_google_client_id" placeholder="par ex. 1234-xyz.apps.googleusercontent.com"/>
+                            </div>
+                            <widget name="documentation_link" path="/applications/general/auth/google.html" icon="oi oi-fw oi-arrow-right" label="Tutoriel"/>
+                        </div>
+                    </setting>
+                            <setting string="Authentification LDAP" help="Utiliser les informations d'identification LDAP pour vous connecter" documentation="/applications/general/auth/ldap.html" id="module_auth_ldap">
+                                <field name="module_auth_ldap" on_change="1"/>
+                                <div class="content-group" invisible="not module_auth_ldap" id="auth_ldap_warning">
+                                    <div class="mt16 text-warning"><strong>Enregistrez</strong> cette page et revenez ici pour configurer la fonctionnalité.</div>
+                                </div>
+                            </setting>
+                            <setting documentation="/applications/websites/website/optimize/unsplash.html" help="Trouver des images gratuites haute résolution sur Unsplash" id="unsplash">
+                                <field name="module_web_unsplash" on_change="1"/>
+                                <div invisible="not module_web_unsplash">
+                    <div class="content-group mt16">
+                        <label for="unsplash_access_key" class="o_light_label mr8"/>
+                        <field name="unsplash_access_key"/>
+                    </div>
+                    <div class="content-group">
+                        <label for="unsplash_app_id" class="o_light_label mr8"/>
+                        <field name="unsplash_app_id"/>
+                    </div>
+                    <div>
+                        <widget name="documentation_link" path="/applications/websites/website/optimize/unsplash.html#generate-an-unsplash-access-key" label="Générer une clé d'accès" icon="oi oi-arrow-right" class="oe_link"/>
+                    </div>
+                </div>
+            </setting>
+                            <setting string="Géolocalisation" help="Géolocaliser vos partenaires" id="base_geolocalize">
+                                <field name="module_base_geolocalize" on_change="1"/>
+                                <div class="content-group" invisible="not module_base_geolocalize" name="base_geolocalize_warning">
+                                    <div class="mt16 text-warning"><strong>Enregistrez</strong> cette page et revenez ici pour choisir votre Fournisseur Geo.</div>
+                                </div>
+                            </setting>
+                            <setting help="Protéger vos formulaires du spam et des abus." id="recaptcha">
+                                <field name="module_google_recaptcha" on_change="1"/>
+                                <div class="content-group" invisible="not module_google_recaptcha" id="recaptcha_warning">
+                                    <div class="mt16 text-warning"><strong>Enregistrez</strong> cette page et revenez ici pour configurer reCaptcha.</div>
+                                </div>
+                            </setting>
+                            <setting help="Protégez vos formulaires grâce à CF Turnstile." id="cf-turnstile">
+                                <field name="module_website_cf_turnstile" on_change="1"/>
+                                <div class="content-group" invisible="not module_website_cf_turnstile" id="turnstile_warning">
+                                    <div class="mt16 text-warning"><strong>Enregistrez</strong> cette page et revenez ici pour configurer Cloudflare turnstile.</div>
+                                </div>
+                            </setting>
+
+                        </block>
+
+                        
+
+                        <widget name="res_config_dev_tool"/>
+                        <div id="about">
+                            <block title="À propos" name="about_setting_container">
+                                <widget name="mobile_apps_funnel"/>
+                                <widget name="res_config_edition"/>
+                            </block>
+                        </div>
+                    </app>
+                <app data-string="Calendar" string="Calendrier" name="calendar">
+                    <block title="Paramètres du calendrier" name="calendar">
+                        <setting string="Calendrier Outlook" documentation="/applications/productivity/calendar/outlook.html" help="Synchronisez votre calendrier avec Outlook" id="sync_outlook_calendar_setting">
+                            <field name="module_microsoft_calendar" on_change="1"/>
+                            <div class="content-group" invisible="not module_microsoft_calendar" id="msg_module_microsoft_calendar">
+                                <div class="text-warning mt16"><strong>Enregistrez</strong> cette page et revenez ici pour configurer la fonctionnalité.</div>
+                            </div>
+                        </setting>
+                        <setting string="Google Agenda" documentation="/applications/productivity/calendar/google.html" help="Synchronisez votre calendrier avec Google Agenda" id="sync_google_calendar_setting">
+                            <field name="module_google_calendar" on_change="1"/>
+                            <div class="content-group" invisible="not module_google_calendar" id="msg_module_google_calendar">
+                                <div class="text-warning mt16"><strong>Enregistrez</strong> cette page et revenez ici pour configurer la fonctionnalité.</div>
+                            </div>
+                        </setting>
+                    </block>
+                </app>
+                    <app data-string="Project" string="Projet" name="project">
+                        <block title="Gestion des tâches" id="tasks_management">
+                            <setting id="recurring_tasks_setting" help="Générer automatiquement des tâches pour vos activités régulières">
+                                <field name="group_project_recurring_tasks"/>
+                            </setting>
+                            <setting id="task_dependencies_setting" help="Déterminer l'ordre dans lequel réaliser vos tâches">
+                                <field name="group_project_task_dependencies"/>
+                            </setting>
+                            <setting id="project_stages" help="Suivre l'évolution de vos projets">
+                                <field name="group_project_stages"/>
+                                <div class="content-group" invisible="not group_project_stages">
+                                    <div class="mt8">
+                                        <button name="332" icon="oi-arrow-right" type="action" string="Configurer les étapes" class="btn-link"/>
+                                    </div>
+                                </div>
+                            </setting>
+                            <setting id="project_milestone" help="Suivre les étapes importantes devant être atteintes pour assurer le succès">
+                                <field name="group_project_milestone"/>
+                            </setting>
+                        </block>
+                        <block title="Gestion du temps" name="project_time">
+                            <setting id="log_time_tasks_setting" help="Suivre le temps passé sur vos projets et tâches">
+                                <field name="module_hr_timesheet" on_change="1"/>
+                            </setting>
+                        </block>
+                        <block title="Analytique" name="analytic">
+                            <setting id="track_customer_satisfaction_setting" help="Suivre la satisfaction client sur les tâches">
+                                <field name="group_project_rating"/>
+                                <div class="content-group" invisible="not group_project_rating">
+                                    <div class="mt16">
+                                        <button name="335" context="{'project_id':id}" icon="oi-arrow-right" type="action" string="Définir un modèle d'e-mail d'évaluation sur les étapes" class="btn-link"/>
+                                    </div>
+                                </div>
+                            </setting>
+                        </block>
+                    </app>
+                    <app data-string="Email Marketing" string="E-mail Marketing" name="mass_mailing">
+                        <block title="E-mail Marketing" name="managa_mail_campaigns_setting_container">
+                            <setting title="Cet outil est conseillé si votre campagne marketing est composée de nombreux e-mails." help="Gérer des campagnes d'e-mail marketing">
+                                <field name="group_mass_mailing_campaign"/>
+                            </setting>
+                            <setting name="contact_naming" title="Désignation du contact" help="Séparer les noms des contacts d'e-mailing en deux champs">
+                                <field name="mass_mailing_split_contact_name"/>
+                            </setting>
+                            <setting name="allow_blacklist_setting_container" title="Autorisez le destinataire à gérer lui-même son statut sur la liste noire via la page de désabonnement. Si l'option est activé, le bouton 'Me mettre sur la liste noire' est masqué sur la page de désabonnement. Le bouton 'Revenir' sera toujours visible au cas où une piste ou un partenaire souhaite se réinscrire." help="Autoriser les destinataires à se mettre en liste noire">
+                                <field name="show_blacklist_buttons"/>
+                            </setting>
+                            <setting name="mass_mailing_reports_setting_container" title="Envoyer un rapport au responsable le jour après l'envoi des e-mails." help="Vérifier les résultats de votre mailing le jour après son envoi">
+                                <field name="mass_mailing_reports"/>
+                            </setting>
+                            <setting name="dedicated_server_setting_container" title="Utilisez un serveur de messagerie spécifique en priorité. Sinon, Odoo utilise le premier serveur de messagerie sortant disponible (en fonction de leur séquence), comme c'est le cas pour les e-mails ordinaires." help="Choisir un serveur de messagerie sortant dédié pour vos envois de masse.">
+                                <field name="mass_mailing_outgoing_mail_server" on_change="1"/>
+                                <div class="content-group" invisible="not mass_mailing_outgoing_mail_server">
+                                    <div class="mt16">
+                                        <field name="mass_mailing_mail_server_id" options="{'no_create': True, 'no_open': True}" placeholder="Serveur par défaut" can_create="True" can_write="True"/>
+                                    </div>
+                                    <div class="mt8">
+                                        <button type="action" name="base.action_ir_mail_server_list" string="Configurer les serveurs de messagerie sortants" icon="oi-arrow-right" class="oe_link"/>
+                                    </div>
+                                </div>
+                            </setting>
+                        </block>
+                    </app>
+                <app data-string="Employees" string="Employés" name="hr">
+                    <block title="Employés" name="employees_setting_container">
+                        <setting id="presence_control_setting" title="Présence des employés" string="Affichage des présences">
+                            <div class="content-group" name="hr_presence_options">
+                                <div class="d-flex">
+                                    <field name="module_hr_attendance" class="ml16" on_change="1"/>
+                                    <label for="module_hr_attendance" class="o_light_label"/>
+                                </div>
+                                <div class="d-flex">
+                                    <field name="hr_presence_control_login" class="ml16"/>
+                                    <label for="hr_presence_control_login" class="o_light_label"/>
+                                </div>
+                            </div>
+                        </setting>
+                        <setting id="presence_reporting_setting" help="Écran de rapport de présence, contrôle d'adresse e-mail et IP." title="Présences des employés avancées">
+                            <field name="module_hr_presence" on_change="1"/>
+                            <div class="d-flex mt-1" invisible="not module_hr_presence">
+                                <field name="hr_presence_control_email" class="ml16"/>
+                                <label for="hr_presence_control_email" class="o_light_label"/>
+                            </div>
+                            <div class="d-flex" invisible="not module_hr_presence">
+                                <field name="hr_presence_control_ip" class="ml16"/>
+                                <label for="hr_presence_control_ip" class="o_light_label"/>
+                            </div>
+                        </setting>
+                        <setting id="presence_reporting_setting" help="Définissez le nombre minimum d'e-mails envoyés à afficher comme Présents." title="Présences des employés avancées" string="Condition liée à la présence" invisible="not module_hr_presence or not hr_presence_control_email">
+                            <div class="d-flex">
+                                <span class="flex-shrink-0 ml8 me-2">E-mails envoyés</span>
+                                <field name="hr_presence_control_email_amount" class="ms-2 oe_inline"/>
+                            </div>
+                        </setting>
+                        <setting id="presence_reporting_setting" help="Définissez l'adresse IP qui sera affichée comme Présente. En cas de plusieurs adresses, séparez-les par une virgule." title="Présences des employés avancées" string="Condition liée à la présence" invisible="not module_hr_presence or not hr_presence_control_ip">
+                            <div class="d-flex">
+                                <span class="flex-shrink-0 ml8 me-2">Adresses IP</span>
+                                <field name="hr_presence_control_ip_list" class="ms-2 oe_inline"/>
+                            </div>
+                        </setting>
+                        <setting invisible="not module_hr_presence or not (hr_presence_control_ip or hr_presence_control_email) or (hr_presence_control_ip and hr_presence_control_email)" help="Ce bloc de paramètres est utilisé pour gérer le design frontend."/>
+                        <setting help="Enrichir les profils des employés avec des compétences et des CV" id="enrich_employee_setting">
+                            <field name="module_hr_skills" on_change="1"/>
+                        </setting>
+                        <setting id="home_working_setting" help="Afficher les paramètres de télétravail pour chaque employé et les rapports dédiés. Les icônes de présence seront mises à jour en fonction du lieu de télétravail.">
+                            <field name="module_hr_homeworking" on_change="1"/>
+                        </setting>
+                    </block>
+                    <block title="Organisation du travail" name="work_organization_setting_container">
+                        <setting company_dependent="1" help="Définir le calendrier par défaut de l'entreprise pour gérer l'horaire de vos employés" id="default_company_schedule_setting">
+                            <field name="resource_calendar_id" required="1" class="o_light_label" domain="['|', ('company_id', '=', False), ('company_id', '=', company_id)]" context="{'default_company_id': company_id}" can_create="True" can_write="True"/>
+                        </setting>
+                    </block>
+                <field name="company_country_code" invisible="1"/>
+                <block title="Localisation française – Congés" invisible="company_country_code != 'FR'">
+                    <setting company_dependent="1" help="Définit le type de congé payé en application pour cette société. Cette information est utilisée pour déterminer la durée des congés des employés à temps partiel.">
+                        <field name="l10n_fr_reference_leave_type" class="o_light_label" domain="[('company_id', 'in', [company_id, False])]" context="{'default_company_id': company_id}" required="company_country_code == 'FR'" can_create="True" can_write="True"/>
+                    </setting>
+                </block>
+                    <block title="Mise à jour de droits des employés" name="employee_rights_setting_container">
+                        <setting help="Autoriser les employés à mettre à jour leurs propres données." title="Autoriser les employés à mettre à jour leurs propres données.">
+                            <field name="hr_employee_self_edit"/>
+                        </setting>
+                    </block>
+                <block title="Contrat" id="hr_contract">
+                    <setting string="Délai de préavis du contrat" id="contract_notice_period" title="Nombre de jours avant la date de fin du contrat pour qu'un avertissement d'expiration du contrat soit déclenché.">
+                        <field name="contract_expiration_notice_period" class="w-25"/><span>Jours</span>
+                    </setting>
+                    <setting string="Délai d'expiration du permis de travail" id="work_permit_notice_period" title="Nombre de jours avant la date d'expiration du permis de travail pour qu'un avertissement soit déclenché.">
+                        <field name="work_permit_expiration_notice_period" class="w-25"/><span>Jours</span>
+                    </setting>
+                </block>
+                </app>
+                <app data-string="Attendances" string="Présences" name="hr_attendance">
+                    <block title="Modes" name="kiosk_mode_setting_container">
+                        <setting string="Mode kiosque" company_dependent="1" help="Définir la façon dont l'utilisateur sera identifié par l'application.">
+                            <field name="attendance_kiosk_mode" required="1" class="w-75"/>
+                            <div>
+                                <a href="https://www.odoo.com/documentation/master/applications/hr/attendances/hardware.html" target="_blank"><i class="fa fa-fw fa-arrow-right"/>Manuel d'installation</a>
+                            </div>
+                        </setting>
+                        <setting string="Présences depuis le backend" company_dependent="1" help="Permettre aux utilisateurs de pointer à l'entrée/sortie d'Odoo.">
+                            <field name="attendance_from_systray" required="1"/>
+                        </setting>
+                        <setting string="Checkout automatique" company_dependent="1" help="Checkout automatique des employés selon leur horaire de travail avec une tolérance supplémentaire. Ne s’applique pas aux employés avec un horaire flexible.">
+                            <field name="auto_check_out"/>
+                            <div invisible="not auto_check_out">
+                                <span class="me-2">Tolérance</span><field name="auto_check_out_tolerance" class="text-center" style="width: 5ch;"/><span class="ms-2">Heures</span>
+                            </div>
+                        </setting>
+                        <setting string="Gestion des absences" company_dependent="1" help="Si cette option est cochée, les jours non couverts par une présence seront visibles dans le rapport. Ne s’applique pas aux employés avec un horaire flexible.">
+                            <field name="absence_management"/>
+                        </setting>
+                    </block>
+                    <block title="Paramètres kiosque">
+                        <setting invisible="attendance_kiosk_mode == 'manual'" company_dependent="1" help="Définir la caméra utilisée pour la lecture du code-barres.">
+                            <field name="attendance_barcode_source" required="1"/>
+                        </setting>
+                        <setting string="Afficher l'heure" company_dependent="1" help="Choisir la durée d'affichage du message d'accueil.">
+                            <field name="attendance_kiosk_delay" required="1" class="text-center" style="width: 10%; min-width: 4rem;"/><span> secondes</span>
+                        </setting>
+                        <setting title="Définir des codes PIN dans le formulaire détaillé de l'employé (dans l'onglet Paramètres RH)." invisible="attendance_kiosk_mode == 'barcode'" help="Utiliser les codes PIN (définis sur le profil de l'employé) pour vous enregistrer.">
+                            <field name="attendance_kiosk_use_pin"/>
+                        </setting>
+                        <setting title="Adresse mode kiosque" help="Utilisez cette URL pour accéder au mode kiosque à partir de n'importe quel appareil.">
+                            <field name="attendance_kiosk_url" class="o_hr_kiosk_url_media w-100" style="width:100% !important;" widget="CopyClipboardURL"/>
+                            <button name="regenerate_kiosk_key" type="object" string="Générer une nouvelle URL" class="btn-link" icon="fa-refresh"/>
+                        </setting>
+                    </block>
+                    <block title="Heures supplémentaires" name="overtime_settings">
+                        <setting company_dependent="1">
+                            <div class="mt16">
+                                <label for="overtime_company_threshold" class="o_form_label">
+                                    Temps de tolérance en faveur de l'entreprise
+                                </label>
+                                <div class="text-muted">
+                                    Accorder une période de temps (autour des heures de travail) où les heures supplémentaires ne seront pas comptées, au profit de l'entreprise
+                                </div>
+                                <span class="me-2">Période</span><field name="overtime_company_threshold" class="text-center" style="width: 5ch;"/><span class="ms-2">Minutes</span>
+                                <br/>
+                                <br/>
+                                <label for="overtime_employee_threshold" class="o_form_label">
+                                    Temps de tolérance en faveur de l'employé
+                                </label>
+                                <div class="text-muted">
+                                    Prévoir une période (autour des heures de travail) où le temps supplémentaire ne sera pas déduit, au profit du salarié
+                                </div>
+                                <span class="me-2">Période </span><field name="overtime_employee_threshold" class="text-center" style="width: 5ch;"/><span> Minutes</span>
+                            </div>
+                        </setting>
+                        <setting title="Afficher les heures supplémentaires." string="Afficher les heures supplémentaires" company_dependent="1" help="Afficher les heures supplémentaires en mode kiosque et sur le profil utilisateur.">
+                            <field name="hr_attendance_display_overtime"/>
+                        </setting>
+                        <setting title="Validation d'heures supplémentaires" string="Validation d'heures supplémentaires" company_dependent="1" help="Peut être converti en Congés (cfr Configuration des Congés).">
+                            <field name="attendance_overtime_validation" widget="radio"/>
+                        </setting>
+                    </block>
+                <block title="Question Repas (Kiosk)" name="meal_settings">
+                    <setting string="Question repas" company_dependent="0" help="Demander le nombre de repas pris sur place lors du check-out au kiosk.">
+                        <field name="kiosk_meal_question_enabled"/>
+                    </setting>
+                    <setting string="Nombre maximum de repas" company_dependent="0" invisible="not kiosk_meal_question_enabled" help="Nombre maximum de repas qu'un employé peut déclarer par pointage.">
+                        <field name="kiosk_meal_max_count" class="text-center" style="width: 5ch;"/>
+                    </setting>
+                </block>
+                </app>
+                </form>

@@ -1,0 +1,34 @@
+<form string="Poste">
+                    <header/> <!-- inherited in other module -->
+                    <field name="active" invisible="1"/>
+                    <field name="company_id" invisible="1" can_create="True" can_write="True"/>
+                    <sheet>
+                        <div class="oe_button_box" name="button_box"/>
+                        <widget name="web_ribbon" title="Archivé" bg_color="text-bg-danger" invisible="active"/>
+                        <div class="oe_title">
+                            <label for="name"/>
+                            <h1><field name="name" options="{'line_breaks': False}" widget="text" placeholder="par ex. Directeur Commercial"/></h1>
+                        </div>
+                        <notebook>
+                            <page string="Recrutement" name="recruitment_page" invisible="1">
+                                <group>
+                                    <group name="recruitment">
+                                        
+                                        <field name="department_id" can_create="True" can_write="True"/>
+                                        <field name="contract_type_id" can_create="True" can_write="True"/>
+                                    </group>
+                                    <group name="recruitment2">
+                                        <label for="no_of_recruitment"/>
+                                        <div class="o_row" name="recruitment_target">
+                                            <field name="no_of_recruitment" class="o_hr_narrow_field"/>
+                                            <span>nouveaux employés</span>
+                                        </div>
+                                    </group>
+                                </group>
+                            </page>
+                            <page string="Résumé du poste" name="job_description_page" invisible="1">
+                                <field name="description" options="{'collaborative': true}" placeholder="par ex. SRésumez le poste en une ou deux lignes..."/>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>

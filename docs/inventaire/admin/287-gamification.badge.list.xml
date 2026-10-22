@@ -1,0 +1,7 @@
+<list string="Liste des badges">
+                <field name="name"/>
+                <field name="granted_count"/>
+                <field name="stat_this_month"/>
+                <field name="stat_my"/>
+                <field name="rule_auth"/>
+            </list>

@@ -1,0 +1,6 @@
+<list string="Lieu de travail">
+                    <field name="active" column_invisible="True"/>
+                    <field name="name"/>
+                    <field class="o_homework_icon_types d-flex flex-wrap" name="location_type" widget="hr_homeworking_radio_image" options="{'horizontal': true}"/>
+                    
+                </list>

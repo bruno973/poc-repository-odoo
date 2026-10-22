@@ -1,0 +1,8 @@
+<search string="Rechercher un type de compétences">
+                <field name="name" string="Types de compétences"/>
+                <field name="skill_ids"/>
+                <field name="skill_level_ids"/>
+                <field name="active" invisible="1"/>
+                <filter name="inactive" string="Archivé" domain="[('active', '=', False)]"/>
+                <separator/>
+            </search>

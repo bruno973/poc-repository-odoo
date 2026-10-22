@@ -1,0 +1,16 @@
+<form string="Lieu de travail">
+                    <sheet>
+                        <group>
+                            <group>
+                                <field name="active" invisible="1"/>
+                                <field name="name"/>
+                                <field name="address_id" can_create="True" can_write="True"/>
+                                <field class="o_homework_icon_types d-flex flex-wrap" name="location_type" widget="hr_homeworking_radio_image" options="{'horizontal': true}"/>
+                            </group>
+                            <group>
+                                
+                                <field name="company_id" invisible="1" can_create="True" can_write="True"/>
+                            </group>
+                        </group>
+                    </sheet>
+                </form>

@@ -1,0 +1,6 @@
+<list string="Types de contrat" editable="bottom">
+                    <field name="sequence" widget="handle"/>
+                    <field name="name" on_change="1"/>
+                    
+                    <field name="country_id" can_create="True" can_write="True"/>
+                </list>

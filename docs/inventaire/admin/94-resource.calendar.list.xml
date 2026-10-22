@@ -1,0 +1,6 @@
+<list string="Temps de travail">
+                <field name="name" string="Temps de travail"/>
+                
+                <field name="contracts_count"/>
+                <field name="full_time_required_hours" widget="float_time" optional="hide"/>
+            </list>

@@ -1,0 +1,93 @@
+<form string="Défi">
+                <header>
+                    <button string="Démarrer le défi" type="object" name="action_start" invisible="state != 'draft'" class="oe_highlight"/>
+                    <button string="Rafraîchir le défi" type="object" name="action_check" invisible="state != 'inprogress'"/>
+                    
+                    <field name="state" widget="statusbar" options="{'clickable': '1'}"/>
+                </header>
+                <sheet>
+                    <!-- action buttons -->
+                    <div class="oe_button_box" name="button_box">
+                        <button type="object" name="action_view_users" class="oe_stat_button" icon="fa-users">
+                            <field name="user_count" string="Participants" widget="statinfo"/>
+                        </button>
+                        <button type="action" name="289" class="oe_stat_button" icon="fa-gift" invisible="state == 'draft'">
+                            <div class="o_field_widget o_stat_info">
+                                <span class="o_stat_text">Objectifs associés</span>
+                            </div>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1>
+                            <field name="name" placeholder="par ex. Objectifs mensuels de vente"/>
+                        </h1>
+                        <label for="user_domain" string="Attribuer le défi à"/>
+                        <div>
+                            <field name="user_domain" widget="domain" options="{'model': 'res.users'}"/>
+                        </div>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="period" readonly="state != 'draft'"/>
+                            <field name="visibility_mode" widget="radio" colspan="1"/>
+                        </group>
+                        <group>
+                            <field name="manager_id" can_create="True" can_write="True"/>
+                            <field name="start_date" readonly="state != 'draft'"/>
+                            <field name="end_date" readonly="state != 'draft'"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Objectifs" name="goals">
+                            <field name="line_ids" nolabel="1" colspan="4">
+                                <list string="Ligne de liste" editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="definition_id" on_change="1" can_create="True" can_write="True"/>
+                                    <field name="condition"/>
+                                    <field name="target_goal" string="Cible"/>
+                                    <field name="definition_full_suffix"/>
+                                </list>
+                            </field>
+                            <field name="description" placeholder="Décrire le défi : ce qu'il fait, qui est ciblé, quel est son intérêt..."/>
+                        </page>
+                        <page string="Récompense" name="reward">
+                            <group>
+                                <field name="reward_id" required="reward_realtime" can_create="True" can_write="True"/>
+                                <field name="reward_first_id" can_create="True" can_write="True"/>
+                                <field name="reward_second_id" invisible="not reward_first_id" can_create="True" can_write="True"/>
+                                <field name="reward_third_id" invisible="not reward_first_id or not reward_second_id" can_create="True" can_write="True"/>
+                                <field name="reward_failure" invisible="not reward_first_id"/>
+                                <field name="reward_realtime"/>
+                            </group>
+                            <div class="oe_grey">
+                                <p>Les badges sont délivrés en fin de défi. Un défi se termine soit à la fin d'une période (par ex. fin de mois pour un défi mensuel), soit par une date de fin (si aucune périodicité n'est définie) soit par la clôture manuelle du défi.</p>
+                            </div>
+                        </page>
+                        <page string="Options avancées" name="advanced_options">
+                            <group string="Abonnements">
+                                <field name="invited_user_ids" widget="many2many_tags" can_create="True" can_write="True"/>
+                            </group>
+                            <group string="Messages des notifications">
+                                <div class="oe_grey" colspan="4">
+                                    <p>Selon le mode d'affichage, les rapports seront individuels ou partagés.</p>
+                                </div>
+                                <group colspan="4">
+                                    <field name="report_message_frequency"/>
+                                    <field name="report_template_id" invisible="report_message_frequency == 'never'" can_create="True" can_write="True"/>
+                                    <field name="report_message_group_id" invisible="report_message_frequency == 'never'" can_create="True" can_write="True"/>
+                                </group>
+                            </group>
+                            <group string="Rappels pour les objectifs manuels">
+                                <label for="remind_update_delay"/>
+                                <div>
+                                    <field name="remind_update_delay" class="oe_inline"/> jours
+                                </div>
+                            </group>
+                            
+                        </page>
+                    </notebook>
+
+                </sheet>
+                <chatter/>
+            </form>

@@ -1,0 +1,16 @@
+<search>
+                <field name="employee_id"/>
+                <field name="name"/>
+                <field name="survey_id"/>
+                <separator/>
+                <filter string="Expire bientôt" name="certification_expiring" domain="[('expiration_status', '=', 'expiring')]"/>
+                <filter string="Expiré" name="certification_expired" domain="[('expiration_status', '=', 'expired')]"/>
+                <separator/>
+                <filter string="Valide juqu'au" name="date_end" date="date_end"/>
+                <separator/>
+                <filter string="Employé" name="employee" context="{'group_by': 'employee_id'}"/>
+                <filter string="Département" name="department" context="{'group_by': 'department_id'}"/>
+                <separator/>
+                <filter string="Certification" name="certification" context="{'group_by': 'survey_id'}"/>
+                <filter string="Date d'expiration" name="date_end" context="{'group_by': 'date_end'}"/>
+            </search>

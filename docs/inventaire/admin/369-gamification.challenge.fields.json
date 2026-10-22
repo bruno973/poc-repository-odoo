@@ -1,0 +1,738 @@
+{
+  "message_is_follower": {
+    "change_default": false,
+    "groupable": false,
+    "name": "message_is_follower",
+    "readonly": true,
+    "required": false,
+    "searchable": true,
+    "sortable": false,
+    "store": false,
+    "string": "Est un abonné",
+    "type": "boolean"
+  },
+  "message_follower_ids": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": false,
+    "groups": "base.group_user",
+    "name": "message_follower_ids",
+    "readonly": false,
+    "relation": "mail.followers",
+    "relation_field": "res_id",
+    "required": false,
+    "searchable": true,
+    "sortable": false,
+    "store": true,
+    "string": "Abonnés",
+    "type": "one2many"
+  },
+  "message_partner_ids": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": false,
+    "groups": "base.group_user",
+    "name": "message_partner_ids",
+    "readonly": false,
+    "relation": "res.partner",
+    "required": false,
+    "searchable": true,
+    "sortable": false,
+    "store": false,
+    "string": "Abonnés (Partenaires)",
+    "type": "many2many"
+  },
+  "message_ids": {
+    "change_default": false,
+    "context": {},
+    "domain": [
+      [
+        "message_type",
+        "!=",
+        "user_notification"
+      ]
+    ],
+    "groupable": false,
+    "name": "message_ids",
+    "readonly": false,
+    "relation": "mail.message",
+    "relation_field": "res_id",
+    "required": false,
+    "searchable": true,
+    "sortable": false,
+    "store": true,
+    "string": "Messages",
+    "type": "one2many"
+  },
+  "has_message": {
+    "change_default": false,
+    "groupable": false,
+    "name": "has_message",
+    "readonly": true,
+    "required": false,
+    "searchable": true,
+    "sortable": false,
+    "store": false,
+    "string": "A un message",
+    "type": "boolean"
+  },
+  "message_needaction": {
+    "change_default": false,
+    "groupable": false,
+    "help": "Si coché, de nouveaux messages demandent votre attention.",
+    "name": "message_needaction",
+    "readonly": true,
+    "required": false,
+    "searchable": true,
+    "sortable": false,
+    "store": false,
+    "string": "Nécessite une action",
+    "type": "boolean"
+  },
+  "message_needaction_counter": {
+    "change_default": false,
+    "groupable": false,
+    "help": "Nombre de messages nécessitant une action",
+    "name": "message_needaction_counter",
+    "readonly": true,
+    "required": false,
+    "searchable": false,
+    "sortable": false,
+    "store": false,
+    "string": "Nombre d'actions",
+    "type": "integer"
+  },
+  "message_has_error": {
+    "change_default": false,
+    "groupable": false,
+    "help": "Si coché, certains messages ont une erreur de livraison.",
+    "name": "message_has_error",
+    "readonly": true,
+    "required": false,
+    "searchable": true,
+    "sortable": false,
+    "store": false,
+    "string": "Erreur d'envoi du message",
+    "type": "boolean"
+  },
+  "message_has_error_counter": {
+    "change_default": false,
+    "groupable": false,
+    "help": "Nombre de messages avec des erreurs d'envoi",
+    "name": "message_has_error_counter",
+    "readonly": true,
+    "required": false,
+    "searchable": false,
+    "sortable": false,
+    "store": false,
+    "string": "Nombre d'erreurs",
+    "type": "integer"
+  },
+  "message_attachment_count": {
+    "change_default": false,
+    "groupable": false,
+    "groups": "base.group_user",
+    "name": "message_attachment_count",
+    "readonly": true,
+    "required": false,
+    "searchable": false,
+    "sortable": false,
+    "store": false,
+    "string": "Nombre de pièces jointes",
+    "type": "integer"
+  },
+  "rating_ids": {
+    "change_default": false,
+    "context": {},
+    "domain": [
+      [
+        "res_model",
+        "=",
+        "gamification.challenge"
+      ]
+    ],
+    "groupable": false,
+    "groups": "base.group_user",
+    "name": "rating_ids",
+    "readonly": false,
+    "relation": "rating.rating",
+    "relation_field": "res_id",
+    "required": false,
+    "searchable": true,
+    "sortable": false,
+    "store": true,
+    "string": "Évaluations",
+    "type": "one2many"
+  },
+  "website_message_ids": {
+    "change_default": false,
+    "context": {},
+    "domain": [
+      [
+        "model",
+        "=",
+        "gamification.challenge"
+      ],
+      [
+        "message_type",
+        "in",
+        [
+          "comment",
+          "email",
+          "email_outgoing",
+          "auto_comment"
+        ]
+      ]
+    ],
+    "groupable": false,
+    "help": "Historique de communication du site web",
+    "name": "website_message_ids",
+    "readonly": false,
+    "relation": "mail.message",
+    "relation_field": "res_id",
+    "required": false,
+    "searchable": true,
+    "sortable": false,
+    "store": true,
+    "string": "Messages du site web",
+    "type": "one2many"
+  },
+  "message_has_sms_error": {
+    "change_default": false,
+    "groupable": false,
+    "help": "Si coché, certains messages ont une erreur de livraison.",
+    "name": "message_has_sms_error",
+    "readonly": true,
+    "required": false,
+    "searchable": true,
+    "sortable": false,
+    "store": false,
+    "string": "Erreur d'envoi SMS",
+    "type": "boolean"
+  },
+  "name": {
+    "change_default": false,
+    "groupable": true,
+    "name": "name",
+    "readonly": false,
+    "required": true,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Nom du défi",
+    "translate": true,
+    "trim": true,
+    "type": "char"
+  },
+  "description": {
+    "change_default": false,
+    "groupable": true,
+    "name": "description",
+    "readonly": false,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Description",
+    "translate": true,
+    "type": "text"
+  },
+  "state": {
+    "change_default": false,
+    "groupable": true,
+    "name": "state",
+    "readonly": false,
+    "required": true,
+    "searchable": true,
+    "selection": [
+      [
+        "draft",
+        "Brouillon"
+      ],
+      [
+        "inprogress",
+        "En cours"
+      ],
+      [
+        "done",
+        "Terminé"
+      ]
+    ],
+    "sortable": true,
+    "store": true,
+    "string": "Statut",
+    "type": "selection"
+  },
+  "manager_id": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": true,
+    "name": "manager_id",
+    "readonly": false,
+    "relation": "res.users",
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Responsable",
+    "type": "many2one"
+  },
+  "user_ids": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": true,
+    "name": "user_ids",
+    "readonly": false,
+    "relation": "res.users",
+    "required": false,
+    "searchable": true,
+    "sortable": false,
+    "store": true,
+    "string": "Participants",
+    "type": "many2many"
+  },
+  "user_domain": {
+    "change_default": false,
+    "groupable": true,
+    "name": "user_domain",
+    "readonly": false,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Domaine de l'utilisateur",
+    "translate": false,
+    "trim": true,
+    "type": "char"
+  },
+  "user_count": {
+    "change_default": false,
+    "groupable": false,
+    "name": "user_count",
+    "readonly": true,
+    "required": false,
+    "searchable": false,
+    "sortable": false,
+    "store": false,
+    "string": "# Utilisateurs",
+    "type": "integer"
+  },
+  "period": {
+    "change_default": false,
+    "groupable": true,
+    "help": "Période d'assignation automatique d'objectifs. Si aucune n'est sélectionnée, il faudra procéder à un lancement manuel.",
+    "name": "period",
+    "readonly": false,
+    "required": true,
+    "searchable": true,
+    "selection": [
+      [
+        "once",
+        "Non récurrent"
+      ],
+      [
+        "daily",
+        "Quotidien"
+      ],
+      [
+        "weekly",
+        "Hebdomadaire"
+      ],
+      [
+        "monthly",
+        "Mensuel"
+      ],
+      [
+        "yearly",
+        "Annuel"
+      ]
+    ],
+    "sortable": true,
+    "store": true,
+    "string": "Périodicité",
+    "type": "selection"
+  },
+  "start_date": {
+    "change_default": false,
+    "groupable": true,
+    "help": "La date à laquelle un nouveau défi sera automatiquement lancé. En l'absence de périodicité, la date de début de l'objectif sera utilisée.",
+    "name": "start_date",
+    "readonly": false,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Date de début",
+    "type": "date"
+  },
+  "end_date": {
+    "change_default": false,
+    "groupable": true,
+    "help": "La date à laquelle un nouveau défi sera automatiquement clôturé. En l'absence de périodicité, la date de fin de l'objectif sera utilisée.",
+    "name": "end_date",
+    "readonly": false,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Date de fin",
+    "type": "date"
+  },
+  "invited_user_ids": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": true,
+    "name": "invited_user_ids",
+    "readonly": false,
+    "relation": "res.users",
+    "required": false,
+    "searchable": true,
+    "sortable": false,
+    "store": true,
+    "string": "Suggérer aux utilisateurs",
+    "type": "many2many"
+  },
+  "line_ids": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": false,
+    "help": "Liste des objectifs qui seront définis",
+    "name": "line_ids",
+    "readonly": false,
+    "relation": "gamification.challenge.line",
+    "relation_field": "challenge_id",
+    "required": true,
+    "searchable": true,
+    "sortable": false,
+    "store": true,
+    "string": "Lignes",
+    "type": "one2many"
+  },
+  "reward_id": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": true,
+    "name": "reward_id",
+    "readonly": false,
+    "relation": "gamification.badge",
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Pour tous les utilisateurs suivants",
+    "type": "many2one"
+  },
+  "reward_first_id": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": true,
+    "name": "reward_first_id",
+    "readonly": false,
+    "relation": "gamification.badge",
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Pour le 1er utilisateur",
+    "type": "many2one"
+  },
+  "reward_second_id": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": true,
+    "name": "reward_second_id",
+    "readonly": false,
+    "relation": "gamification.badge",
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Pour le 2ème utilisateur",
+    "type": "many2one"
+  },
+  "reward_third_id": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": true,
+    "name": "reward_third_id",
+    "readonly": false,
+    "relation": "gamification.badge",
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Pour le 3ème utilisateur",
+    "type": "many2one"
+  },
+  "reward_failure": {
+    "change_default": false,
+    "groupable": true,
+    "name": "reward_failure",
+    "readonly": false,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Récompenser les meilleurs en cas d'échec ?",
+    "type": "boolean"
+  },
+  "reward_realtime": {
+    "change_default": false,
+    "groupable": true,
+    "help": "Si cette option est activée, un utilisateur ne peut recevoir le badge qu'une seule fois. Les 3 meilleurs badges ne sont toujours récompensés qu'à la fin du défi.",
+    "name": "reward_realtime",
+    "readonly": false,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Récompense dès qu'un objectif est atteint",
+    "type": "boolean"
+  },
+  "visibility_mode": {
+    "change_default": false,
+    "groupable": true,
+    "name": "visibility_mode",
+    "readonly": false,
+    "required": true,
+    "searchable": true,
+    "selection": [
+      [
+        "personal",
+        "Objectifs individuels"
+      ],
+      [
+        "ranking",
+        "Tableau des résultats (Classement)"
+      ]
+    ],
+    "sortable": true,
+    "store": true,
+    "string": "Mode d'affichage",
+    "type": "selection"
+  },
+  "report_message_frequency": {
+    "change_default": false,
+    "groupable": true,
+    "name": "report_message_frequency",
+    "readonly": false,
+    "required": true,
+    "searchable": true,
+    "selection": [
+      [
+        "never",
+        "Jamais"
+      ],
+      [
+        "onchange",
+        "En cas de modification"
+      ],
+      [
+        "daily",
+        "Quotidien"
+      ],
+      [
+        "weekly",
+        "Hebdomadaire"
+      ],
+      [
+        "monthly",
+        "Mensuel"
+      ],
+      [
+        "yearly",
+        "Annuel"
+      ]
+    ],
+    "sortable": true,
+    "store": true,
+    "string": "Fréquence des rapports",
+    "type": "selection"
+  },
+  "report_message_group_id": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": true,
+    "help": "Groupe qui recevra une copie du rapport outre l'utilisateur",
+    "name": "report_message_group_id",
+    "readonly": false,
+    "relation": "discuss.channel",
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Envoyer une copie à",
+    "type": "many2one"
+  },
+  "report_template_id": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": true,
+    "name": "report_template_id",
+    "readonly": false,
+    "relation": "mail.template",
+    "required": true,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Modèle de rapport",
+    "type": "many2one"
+  },
+  "remind_update_delay": {
+    "aggregator": "sum",
+    "change_default": false,
+    "groupable": true,
+    "help": "Jamais rappelé si vide ou à zéro.",
+    "name": "remind_update_delay",
+    "readonly": false,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Les objectifs manuels non mis à jour seront rappelés après",
+    "type": "integer"
+  },
+  "last_report_date": {
+    "change_default": false,
+    "groupable": true,
+    "name": "last_report_date",
+    "readonly": false,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Date du dernier rapport",
+    "type": "date"
+  },
+  "next_report_date": {
+    "change_default": false,
+    "groupable": true,
+    "name": "next_report_date",
+    "readonly": true,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Date du prochain rapport",
+    "type": "date"
+  },
+  "challenge_category": {
+    "change_default": false,
+    "groupable": true,
+    "help": "Définir la visibilité du défi via les menus",
+    "name": "challenge_category",
+    "readonly": false,
+    "required": true,
+    "searchable": true,
+    "selection": [
+      [
+        "hr",
+        "Ressources humaines / Engagement"
+      ],
+      [
+        "other",
+        "Paramètres / Outils de ludification"
+      ],
+      [
+        "certification",
+        "Certifications"
+      ]
+    ],
+    "sortable": true,
+    "store": true,
+    "string": "Apparaît sur",
+    "type": "selection"
+  },
+  "id": {
+    "change_default": false,
+    "groupable": true,
+    "name": "id",
+    "readonly": true,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "ID",
+    "type": "integer"
+  },
+  "display_name": {
+    "change_default": false,
+    "groupable": false,
+    "name": "display_name",
+    "readonly": true,
+    "required": false,
+    "searchable": true,
+    "sortable": false,
+    "store": false,
+    "string": "Nom d'affichage",
+    "translate": false,
+    "trim": true,
+    "type": "char"
+  },
+  "create_uid": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": true,
+    "name": "create_uid",
+    "readonly": true,
+    "relation": "res.users",
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Créé par",
+    "type": "many2one"
+  },
+  "create_date": {
+    "change_default": false,
+    "groupable": true,
+    "name": "create_date",
+    "readonly": true,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Créé le",
+    "type": "datetime"
+  },
+  "write_uid": {
+    "change_default": false,
+    "context": {},
+    "domain": [],
+    "groupable": true,
+    "name": "write_uid",
+    "readonly": true,
+    "relation": "res.users",
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Mis à jour par",
+    "type": "many2one"
+  },
+  "write_date": {
+    "change_default": false,
+    "groupable": true,
+    "name": "write_date",
+    "readonly": true,
+    "required": false,
+    "searchable": true,
+    "sortable": true,
+    "store": true,
+    "string": "Mis à jour le",
+    "type": "datetime"
+  }
+}

@@ -1,0 +1,29 @@
+<search string="Rechercher dans les contrats">
+                    <field name="name" string="Contrat"/>
+                    <field name="date_start"/>
+                    <field name="date_end"/>
+                    <field name="employee_id"/>
+                    <field name="job_id"/>
+                    <field name="department_id" operator="child_of"/>
+                    <field name="resource_calendar_id"/>
+                    <filter string="Contrats en cours" name="running" domain="[('state', '=', 'open')]"/>
+                    <filter string="Contrats à examiner" name="not_running" domain="[('state', 'in', ['draft', 'close'])]"/>
+                    <separator/>
+                    <filter string="Date de début" name="start_date" date="date_start"/>
+                    <filter string="Date de fin" name="end_date" date="date_end"/>
+                    <separator/>
+                    <filter string="Archivé" name="inactive" domain="[('active', '=', False)]"/>
+                    <separator/>
+                    <filter string="Activités en retard" name="activities_overdue" domain="[('my_activity_date_deadline', '&lt;', context_today().strftime('%Y-%m-%d'))]" help="Affichez tous les enregistrements dont la prochaine date d'action est antérieure à aujourd'hui"/>
+                    <filter string="Activités du jour" name="activities_today" domain="[('my_activity_date_deadline', '=', context_today().strftime('%Y-%m-%d'))]"/>
+                    <filter string="Activités futures" name="activities_upcoming_all" domain="[('my_activity_date_deadline', '&gt;', context_today().strftime('%Y-%m-%d'))]"/>
+                    <group expand="0" string="Regrouper par">
+                        <filter string="Statut" name="group_by_state" domain="[]" context="{'group_by': 'state'}"/>
+                        <filter string="Employé" name="group_by_employee" domain="[]" context="{'group_by': 'employee_id'}"/>
+                        <filter string="Date de début" name="group_by_date_start" domain="[]" context="{'group_by': 'date_start'}"/>
+                        <filter string="Poste" name="group_by_job" domain="[]" context="{'group_by': 'job_id'}"/>
+                        <filter string="Département" name="group_by_department" domain="[]" context="{'group_by': 'department_id'}"/>
+                        <filter string="Horaire de travail" name="group_by_resource_calendar_id" domain="[]" context="{'group_by': 'resource_calendar_id'}"/>
+                        <filter string="Type de structure salariale" name="group_by_structure_type_id" domain="[]" context="{'group_by': 'structure_type_id'}"/>
+                    </group>
+                </search>
