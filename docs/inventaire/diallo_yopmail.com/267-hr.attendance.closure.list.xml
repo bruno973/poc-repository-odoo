@@ -1,0 +1,9 @@
+<list string="Clôtures des Pointages">
+            <header>
+                
+            </header>
+                <field name="name"/>
+                <field name="date_start" on_change="1"/>
+                <field name="date_end" on_change="1"/>
+                <field name="month"/>
+            </list>

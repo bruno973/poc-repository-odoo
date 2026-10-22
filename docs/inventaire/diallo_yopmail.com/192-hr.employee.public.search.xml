@@ -1,0 +1,23 @@
+<search string="Employés" create="False" delete="False" edit="False">
+                    <field name="name" string="Employés" filter_domain="['|',('work_email','ilike',self),('name','ilike',self)]"/>
+                    <searchpanel create="False" delete="False" edit="False">
+                        
+                        <field name="department_id" icon="fa-users" enable_counters="1"/>
+                    </searchpanel>
+                    <field name="parent_id" string="Manager" domain="[('company_id', 'in', allowed_company_ids)]"/>
+                    <field name="job_title"/>
+                <field name="employee_skill_ids"/>
+                <field name="resume_line_ids" string="CV" filter_domain="['|', ('resume_line_ids.name', 'ilike', self), ('resume_line_ids.description', 'ilike', self)]"/>
+                    <separator/>
+                    <filter name="my_team" string="Mon équipe" domain="[('parent_id.user_id', '=', uid)]"/>
+                    <filter name="my_department" string="Mon département" domain="[('member_of_department', '=', True)]"/>
+                    <separator/>
+                    <filter name="newly_hired" string="Nouvelles recrues" domain="[('newly_hired', '=', True)]"/>
+                    <separator/>
+                    <filter name="archived" string="Archivé" domain="[('active', '=', False)]"/>
+                    <group expand="0" string="Regrouper par">
+                        <filter name="group_manager" string="Manager" domain="[]" context="{'group_by':'parent_id'}"/>
+                        <filter name="group_department" string="Département" domain="[]" context="{'group_by':'department_id'}"/>
+                        <filter name="group_company" string="Société" domain="[]" context="{'group_by':'company_id'}"/>
+                    </group>
+                </search>

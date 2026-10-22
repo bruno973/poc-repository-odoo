@@ -1,0 +1,19 @@
+<form string="Clôture de Pointage">
+            <header>
+                
+                
+            </header>
+            
+            <sheet>
+                <group>
+                    <group>
+                        <field name="name"/>
+                        <field name="date_start" on_change="1"/>
+                        <field name="date_end" on_change="1"/>
+                    </group>
+                    <group>
+                        <field name="month" readonly="1"/>
+                    </group>
+                </group>
+            </sheet>
+        </form>

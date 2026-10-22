@@ -1,0 +1,33 @@
+<list js_class="attendance_list_view" string="Pointages des employés" decoration-success="color == 10" decoration-danger="color == 1" duplicate="false">
+                <header>
+                    <button class="btn-secondary" string="Approuver les heures supplémentaires" name="action_approve_overtime" type="object"/>
+                    <button class="btn-secondary" string="Refuser les heures supplémentaires" name="action_refuse_overtime" type="object"/>
+                </header>
+                <field name="employee_id" widget="many2one_avatar_user" on_change="1"/>
+                <field name="check_in" on_change="1"/>
+                <field name="check_out" options="{}" on_change="1"/>
+          <field name="boat_arrival" string="Arrivée Transport" widget="boolean" readonly="1"/>
+          <field name="boat_departure" string="Départ Transport" widget="boolean" readonly="1"/>
+          <field name="break_entry" string="Arrivée break" widget="boolean" readonly="1"/>
+          <field name="break_exit" string="Part en break" widget="boolean" readonly="1"/>
+          <field name="meal_count" string="Repas sur place" readonly="1" optional="show"/>
+                <field name="worked_hours" string="Heures travaillées" widget="float_time"/>
+          <field name="overtime_hours_t1" string="H.S.25%" widget="float_time" optional="show"/>
+          <field name="overtime_hours_t2" string="H.S.50%" widget="float_time" optional="show"/>
+          <field name="overtime_hours_total" string="Total" widget="float_time" optional="show"/>
+                <field name="overtime_status" optional="hidden" widget="badge" decoration-warning="overtime_status == 'to_approve'" decoration-success="overtime_status == 'approved'" decoration-danger="overtime_status == 'refused'"/>
+                <field name="in_mode" string="Mode de saisie (début)" optional="hidden"/>
+                <field name="out_mode" string="Mode de saisie (fin)" optional="hidden"/>
+                <field name="in_latitude" string="Latitude (début)" optional="hidden"/>
+                <field name="in_longitude" string="Longitude (début)" optional="hidden"/>
+                <field name="out_latitude" string="Latitude (fin)" optional="hidden"/>
+                <field name="out_longitude" string="Longitude (fin)" optional="hidden"/>
+                <field name="in_city" string="Ville (début)" optional="hidden"/>
+                <field name="out_city" string="Ville (fin)" optional="hidden"/>
+                <field name="in_country_name" string="Pays (début)" optional="hidden"/>
+                <field name="out_country_name" string="Country (fin)" optional="hidden"/>
+                <field name="create_uid" optional="hidden"/>
+                <field name="write_uid" optional="hidden"/>
+                <field name="write_date" optional="hidden"/>
+                <field name="color" column_invisible="1"/>
+            </list>

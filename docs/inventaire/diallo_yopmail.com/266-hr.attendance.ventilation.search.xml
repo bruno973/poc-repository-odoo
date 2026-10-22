@@ -1,0 +1,10 @@
+<search>
+        <field name="employee_id" string="Employé"/>
+        <field name="department_id" string="Département"/>
+        <field name="closure_id" string="Période de travail"/>
+        <filter name="current_closure" string="Période Actuelle" domain="[('closure_id', '=', context.get('default_closure_id'))]"/>
+         
+        <filter name="hs_approved" string="H. Approuvées" domain="[('overtime_status','=','approved')]"/>
+        <filter name="hs_to_approve" string="H. à approuver" domain="[('overtime_status','=','to_approve')]"/>
+        <filter name="hs_refused" string="H. refusées" domain="[('overtime_status','=','refused')]"/>
+      </search>
