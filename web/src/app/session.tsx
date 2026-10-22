@@ -69,6 +69,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         if (error instanceof ApiError && error.status === 429) throw new Error("Trop de tentatives : réessaie dans une minute.");
         if (error instanceof ApiError && error.status === 401) throw new Error("Identifiant ou mot de passe incorrect.");
+        // Compte reconnu mais non admis (ex. compte portail) : le message du serveur est destiné à l'utilisateur
+        if (error instanceof ApiError && error.status === 403) throw new Error(error.message);
         throw new Error("Connexion impossible pour le moment.");
       }
       await refresh();

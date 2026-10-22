@@ -12,7 +12,8 @@
     "rapport": "tsx scripts/rapport-identite.ts",
     "simulateur": "tsx scripts/odoo-simulateur.ts",
     "inventaire": "tsx scripts/inventaire-vues.ts",
-    "classement": "tsx scripts/classement.ts"
+    "classement": "tsx scripts/classement.ts",
+    "sonde-portail": "tsx scripts/sonde-portail.ts"
   },
   "dependencies": {
     "@fastify/cors": "^9.0.1",
