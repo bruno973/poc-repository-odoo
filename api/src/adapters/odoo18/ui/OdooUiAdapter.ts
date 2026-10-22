@@ -116,7 +116,7 @@ export class OdooUiAdapter implements ViewRepository, RecordRepository, CommandD
   async navigation(viewer: ViewerContext): Promise<Navigation> {
     const t = this.transports.for(viewer);
     const owner = this.owner(viewer);
-    const menus = await t.callKw<Record<string, OdooMenu>>({ model: "ir.ui.menu", method: "load_web_menus", args: [false], kwargs: {} });
+    const menus = await loadMenus(t);
     const build = (id: number): MenuNode | null => {
       const m = menus[String(id)];
       if (!m) return null;
@@ -497,6 +497,22 @@ export class OdooUiAdapter implements ViewRepository, RecordRepository, CommandD
       pending.catch(() => this.groupsOf.delete(t));
     }
     return pending;
+  }
+}
+
+/**
+ * Menus de la session. Constaté sur amg (Odoo 18) : load_web_menus est appelée par
+ * call_kw comme une méthode d'enregistrements (décorateur de cache), donc le premier
+ * argument est la liste d'ids : [[], debug]. Repli sur la forme « modèle » ([debug])
+ * si l'instance la déclare autrement.
+ */
+async function loadMenus(t: OdooTransport): Promise<Record<string, OdooMenu>> {
+  const call = (args: unknown[]) => t.callKw<Record<string, OdooMenu>>({ model: "ir.ui.menu", method: "load_web_menus", args, kwargs: {} });
+  try {
+    return await call([[], false]);
+  } catch (error) {
+    if (error instanceof DomainError && error.code === "unavailable" && error.message.includes("TypeError")) return call([false]);
+    throw error;
   }
 }
 

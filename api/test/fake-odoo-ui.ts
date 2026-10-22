@@ -178,6 +178,10 @@ export function uiHandler(state: UiState): Handler {
     const allGroups = ["base.group_user", ...groups];
 
     if (model === "ir.ui.menu" && method === "load_web_menus") {
+      // Comme Odoo 18 (constaté sur amg) : premier argument = ids, puis debug
+      if (args.length !== 2 || !Array.isArray(args[0])) {
+        throw new OdooFault("builtins.TypeError", "IrUiMenu.load_web_menus() missing 1 required positional argument: 'debug'");
+      }
       return {
         root: { id: "root", name: "root", children: [100, 200, 900], actionID: false, actionModel: false, xmlid: "" },
         100: { id: 100, name: "Employés", children: [101, 102], actionID: false, actionModel: false, xmlid: "hr.menu_hr_root" },
