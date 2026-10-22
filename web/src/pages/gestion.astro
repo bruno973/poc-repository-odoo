@@ -2,7 +2,7 @@
 // pages/gestion.astro — Liste des pointages, correction des mouvements, approbation.
 // Filtres et pagination en rendu serveur ; actions par fetch vers le proxy /api/*.
 import Shell from "../components/Shell.astro";
-import { apiGet, ApiError } from "../lib/api.js";
+import { apiGet, ApiError, isUnauthenticated, loginUrl } from "../lib/api.js";
 import { STATUS_LABEL, fmtDateTime, hm } from "../lib/format.js";
 import type { AttendancePage, HoursStatus } from "../types/domain.js";
 
@@ -17,7 +17,7 @@ const offset = Math.max(0, Number(url.searchParams.get("offset")) || 0);
 let page: AttendancePage = { items: [], total: 0 };
 let error: string | null = null;
 try {
-  page = await apiGet<AttendancePage>("/api/attendances", {
+  page = await apiGet<AttendancePage>(Astro, "/api/attendances", {
     employeeId,
     withWorkedHours: withWorked ? "1" : undefined,
     status,
@@ -25,6 +25,7 @@ try {
     offset,
   });
 } catch (e) {
+  if (isUnauthenticated(e)) return Astro.redirect(loginUrl(Astro.url));
   error = e instanceof ApiError ? e.message : "Erreur inattendue.";
 }
 
@@ -88,14 +89,20 @@ const MOVES = [
             {MOVES.map((m) => (
               <td class="is-center">
                 <input type="checkbox" class="switch" data-key={m.key} checked={a.movements[m.key]}
+                  disabled={!a.capabilities.canEdit}
+                  title={a.capabilities.canEdit ? undefined : "Non modifiable pour toi (droits Odoo)"}
                   aria-label={`${m.label}, ${a.employee.label}, ${fmtDateTime(a.checkIn)}`} />
               </td>
             ))}
             <td class="is-num num" data-cell="worked">{hm(a.workedHours)}</td>
             <td data-cell="status">{a.hoursStatus && <span class={`status is-${a.hoursStatus}`}>{STATUS_LABEL[a.hoursStatus]}</span>}</td>
             <td class="actions">
-              <button type="button" class="link" data-action="approve" hidden={a.hoursStatus === "approved"}>Approuver</button>
-              <button type="button" class="link is-danger" data-action="refuse" hidden={a.hoursStatus === "refused"}>Refuser</button>
+              {a.capabilities.canApprove && (
+                <>
+                  <button type="button" class="link" data-action="approve" hidden={a.hoursStatus === "approved"}>Approuver</button>
+                  <button type="button" class="link is-danger" data-action="refuse" hidden={a.hoursStatus === "refused"}>Refuser</button>
+                </>
+              )}
             </td>
           </tr>
         ))}
@@ -126,6 +133,9 @@ const MOVES = [
     hoursStatus: "to_approve" | "approved" | "refused" | null;
   }
 
+  // Session expirée pendant une action : retour à la connexion (F-08)
+  const toLogin = () => (location.href = `/login?retour=${encodeURIComponent(location.pathname + location.search)}`);
+
   // Filtres : soumission automatique
   const filters = document.querySelector<HTMLFormElement>("form.filters");
   filters?.querySelectorAll("input[type=checkbox], select").forEach((el) =>
@@ -148,8 +158,11 @@ const MOVES = [
     row.querySelectorAll<HTMLInputElement>("input.switch").forEach((i) => {
       i.checked = Boolean(a.movements[i.dataset.key ?? ""]);
     });
-    row.querySelector<HTMLElement>('[data-action="approve"]')!.hidden = a.hoursStatus === "approved";
-    row.querySelector<HTMLElement>('[data-action="refuse"]')!.hidden = a.hoursStatus === "refused";
+    // Boutons absents quand Odoo refuse l'approbation (capabilities.canApprove)
+    const approve = row.querySelector<HTMLElement>('[data-action="approve"]');
+    const refuse = row.querySelector<HTMLElement>('[data-action="refuse"]');
+    if (approve) approve.hidden = a.hoursStatus === "approved";
+    if (refuse) refuse.hidden = a.hoursStatus === "refused";
   }
 
   async function act(row: HTMLElement, request: () => Promise<Response>, rollback?: () => void) {
@@ -157,6 +170,10 @@ const MOVES = [
     if (errorBox) errorBox.hidden = true;
     try {
       const res = await request();
+      if (res.status === 401) {
+        toLogin();
+        return;
+      }
       const data = await res.json();
       document.dispatchEvent(new Event("leila:api-call"));
       if (!res.ok) throw new Error(data.message ?? `Erreur ${res.status}`);

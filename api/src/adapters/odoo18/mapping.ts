@@ -243,11 +243,14 @@ function resolveRawValue(
  * - value = null si le champ Odoo n'est pas dans access.readable (jamais
  *   demandé à read(), donc jamais présent dans raw — comportement sûr par
  *   construction, pas de fuite possible).
- * - editable = true seulement si access.editable contient le champ Odoo.
+ * - editable = champ modifiable pour ce compte (fields_get) ∧ fiche modifiable
+ *   (has_access("write") : droits du modèle + règles d'enregistrement).
+ *   editableIf (règle Leila) est appliqué ensuite, côté domaine.
  */
 export function hydrateSkeleton(
   raw: OdooRawEmployee,
-  access: FieldAccess
+  access: FieldAccess,
+  recordWritable: boolean
 ): GroupNode[] {
   function hydrateNode(node: FormNode): FormNode {
     if (node.kind === "group") {
@@ -260,7 +263,7 @@ export function hydrateSkeleton(
     }
 
     const value = resolveRawValue(odooField as keyof OdooRawEmployee, raw, node.kind);
-    const editable = access.editable.has(odooField);
+    const editable = recordWritable && access.editable.has(odooField);
 
     return { ...node, value, editable } as FormNode;
   }
@@ -327,12 +330,13 @@ export function mapOrgChart(
 export function mapFormRecord(
   raw: OdooRawEmployee,
   allRaw: OdooRawEmployee[],
-  access: FieldAccess
+  access: FieldAccess,
+  recordWritable: boolean
 ): EmployeeFormRecord {
   return {
     id: raw.id,
     headerSummary: mapHeaderSummary(raw),
-    formTree: hydrateSkeleton(raw, access),
+    formTree: hydrateSkeleton(raw, access, recordWritable),
     orgChart: mapOrgChart(raw, allRaw),
   };
 }

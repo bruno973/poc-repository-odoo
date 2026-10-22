@@ -31,7 +31,11 @@ import {
 } from "../../domain/summary.js";
 import { SummaryGroupSchema, SummaryLineSchema } from "../../domain/summary.schema.js";
 import type { DepartmentNode, EmployeeSummary, ViewerContext } from "../../domain/tree.js";
-import { DEPARTMENTS, SUMMARIES } from "./fixtures.js";
+import { DEPARTMENTS, RECORDS, SUMMARIES } from "./fixtures.js";
+import { attendanceCapabilitiesFor, attendanceScope, canPunchFor } from "./rights.js";
+
+// La hiérarchie (manager) n'est pas modifiable dans le mock : les fixtures suffisent.
+const forbidden = (message: string) => new DomainError(message, "forbidden");
 
 const HOUR = 3_600_000;
 const OFFSET_MS = -3 * HOUR; // America/Cayenne, UTC-3, sans heure d'été
@@ -166,26 +170,29 @@ export class MockTimeStore {
 export class MockAttendanceRepository implements AttendanceRepository {
   constructor(private readonly store: MockTimeStore) {}
 
-  async listAttendances(params: AttendanceListParams, _viewer: ViewerContext): Promise<AttendancePage> {
+  async listAttendances(params: AttendanceListParams, viewer: ViewerContext): Promise<AttendancePage> {
+    const inScope = attendanceScope(viewer, RECORDS);
     const rows = this.store.attendances
+      .filter((a) => inScope(a.employeeId))
       .filter((a) => params.employeeId === undefined || a.employeeId === params.employeeId)
       .filter((a) => !params.onlyWithWorkedHours || worked(a) > 0.001)
       .filter((a) => params.status === undefined || a.hoursStatus === params.status)
       .sort((a, b) => b.checkIn - a.checkIn || b.id - a.id);
     return AttendancePageSchema.parse({
       total: rows.length,
-      items: rows.slice(params.offset, params.offset + params.limit).map((a) => this.toAttendance(a)),
+      items: rows.slice(params.offset, params.offset + params.limit).map((a) => this.toAttendance(a, viewer)),
     });
   }
 
-  async getOpenAttendance(employeeId: number, _viewer: ViewerContext): Promise<Attendance | null> {
+  async getOpenAttendance(employeeId: number, viewer: ViewerContext): Promise<Attendance | null> {
     this.store.employee(employeeId);
     const open = this.store.openFor(employeeId);
-    return open ? this.toAttendance(open) : null;
+    return open && attendanceScope(viewer, RECORDS)(employeeId) ? this.toAttendance(open, viewer) : null;
   }
 
-  async checkIn(command: CheckInCommand, _viewer: ViewerContext): Promise<Attendance> {
+  async checkIn(command: CheckInCommand, viewer: ViewerContext): Promise<Attendance> {
     this.store.employee(command.employeeId);
+    if (!canPunchFor(viewer, command.employeeId, RECORDS)) throw forbidden("Tu ne peux pas pointer pour cet employé.");
     if (this.store.openFor(command.employeeId)) {
       throw new DomainError("Cet employé a déjà une arrivée en cours : pointe d'abord son départ.", "conflict");
     }
@@ -204,10 +211,11 @@ export class MockAttendanceRepository implements AttendanceRepository {
       hoursStatus: "approved",
     };
     this.store.attendances.push(record);
-    return this.toAttendance(record);
+    return this.toAttendance(record, viewer);
   }
 
-  async checkOut(command: CheckOutCommand, _viewer: ViewerContext): Promise<Attendance> {
+  async checkOut(command: CheckOutCommand, viewer: ViewerContext): Promise<Attendance> {
+    if (!canPunchFor(viewer, command.employeeId, RECORDS)) throw forbidden("Tu ne peux pas pointer pour cet employé.");
     const open = this.store.openFor(command.employeeId);
     if (!open) throw new DomainError("Aucune arrivée en cours pour cet employé.", "conflict");
     const at = parseTime(command.at);
@@ -215,11 +223,12 @@ export class MockAttendanceRepository implements AttendanceRepository {
     open.checkOut = at;
     applyMovements(open.movements, command.movements ?? {});
     this.store.rebuildLines();
-    return this.toAttendance(open);
+    return this.toAttendance(open, viewer);
   }
 
-  async updateAttendance(id: number, patch: AttendancePatch, _viewer: ViewerContext): Promise<Attendance> {
+  async updateAttendance(id: number, patch: AttendancePatch, viewer: ViewerContext): Promise<Attendance> {
     const record = this.find(id);
+    if (!this.caps(record, viewer).canEdit) throw forbidden("Tu n'as pas le droit de modifier ce pointage.");
     const checkIn = patch.checkIn !== undefined ? parseTime(patch.checkIn) : record.checkIn;
     const checkOut =
       patch.checkOut === undefined ? record.checkOut : patch.checkOut === null ? null : parseTime(patch.checkOut);
@@ -234,19 +243,27 @@ export class MockAttendanceRepository implements AttendanceRepository {
     record.checkOut = checkOut;
     applyMovements(record.movements, patch.movements ?? {});
     this.store.rebuildLines();
-    return this.toAttendance(record);
+    return this.toAttendance(record, viewer);
   }
 
-  async approveHours(id: number, _viewer: ViewerContext): Promise<Attendance> {
-    this.find(id).hoursStatus = "approved";
-    this.store.rebuildLines();
-    return this.toAttendance(this.find(id));
+  async approveHours(id: number, viewer: ViewerContext): Promise<Attendance> {
+    return this.setStatus(id, "approved", viewer);
   }
 
-  async refuseHours(id: number, _viewer: ViewerContext): Promise<Attendance> {
-    this.find(id).hoursStatus = "refused";
+  async refuseHours(id: number, viewer: ViewerContext): Promise<Attendance> {
+    return this.setStatus(id, "refused", viewer);
+  }
+
+  private setStatus(id: number, status: HoursStatus, viewer: ViewerContext): Attendance {
+    const record = this.find(id);
+    if (!this.caps(record, viewer).canApprove) throw forbidden("Tu n'as pas le droit d'approuver ces heures.");
+    record.hoursStatus = status;
     this.store.rebuildLines();
-    return this.toAttendance(this.find(id));
+    return this.toAttendance(record, viewer);
+  }
+
+  private caps(a: StoredAttendance, viewer: ViewerContext) {
+    return attendanceCapabilitiesFor(viewer, a.employeeId, RECORDS);
   }
 
   private find(id: number): StoredAttendance {
@@ -255,7 +272,7 @@ export class MockAttendanceRepository implements AttendanceRepository {
     return record;
   }
 
-  private toAttendance(a: StoredAttendance): Attendance {
+  private toAttendance(a: StoredAttendance, viewer: ViewerContext): Attendance {
     const emp = this.store.employee(a.employeeId);
     return AttendanceSchema.parse({
       id: a.id,
@@ -265,6 +282,7 @@ export class MockAttendanceRepository implements AttendanceRepository {
       workedHours: worked(a),
       movements: { ...a.movements },
       hoursStatus: a.hoursStatus,
+      capabilities: this.caps(a, viewer),
     });
   }
 }
@@ -272,9 +290,9 @@ export class MockAttendanceRepository implements AttendanceRepository {
 export class MockSummaryRepository implements SummaryRepository {
   constructor(private readonly store: MockTimeStore) {}
 
-  async getGroups(params: SummaryGroupsParams, _viewer: ViewerContext): Promise<SummaryGroup[]> {
+  async getGroups(params: SummaryGroupsParams, viewer: ViewerContext): Promise<SummaryGroup[]> {
     const groups = new Map<string, SummaryGroup>();
-    for (const line of this.filter(params.path, params.status)) {
+    for (const line of this.filter(params.path, params.status, viewer)) {
       const k = line.keys[params.dimension];
       const id = String(k.value);
       let group = groups.get(id);
@@ -290,13 +308,15 @@ export class MockSummaryRepository implements SummaryRepository {
       .map((g) => SummaryGroupSchema.parse(g));
   }
 
-  async getLines(params: SummaryLinesParams, _viewer: ViewerContext): Promise<SummaryLine[]> {
-    return this.filter(params.path, params.status).map(({ keys: _keys, ...line }) => SummaryLineSchema.parse(line));
+  async getLines(params: SummaryLinesParams, viewer: ViewerContext): Promise<SummaryLine[]> {
+    return this.filter(params.path, params.status, viewer).map(({ keys: _keys, ...line }) => SummaryLineSchema.parse(line));
   }
 
-  private filter(path: SummaryKey[], status: HoursStatus | undefined): Line[] {
+  private filter(path: SummaryKey[], status: HoursStatus | undefined, viewer: ViewerContext): Line[] {
+    const inScope = attendanceScope(viewer, RECORDS);
     return this.store.lines.filter(
       (line) =>
+        inScope(line.employee.id) &&
         (status === undefined || line.hoursStatus === status) &&
         path.every((key) => String(line.keys[key.dimension].value) === String(key.value)),
     );

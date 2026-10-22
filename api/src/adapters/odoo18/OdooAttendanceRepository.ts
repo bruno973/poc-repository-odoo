@@ -1,10 +1,13 @@
 // adapters/odoo18/OdooAttendanceRepository.ts
 // Pointages : hr.attendance + champs ajoutés par le module leila_hr.
 // Aucun terme Odoo ne sort de ce fichier : tout est traduit en types domaine.
+// Chaque pointage porte ses capacités (canEdit / canApprove) calculées par Odoo
+// pour ce viewer ; correction et approbation les réévaluent avant d'écrire.
 
 import type { AttendanceRepository } from "../../domain/AttendanceRepository.js";
 import type {
   Attendance,
+  AttendanceCapabilities,
   AttendanceListParams,
   AttendancePage,
   AttendancePatch,
@@ -15,9 +18,19 @@ import type {
 } from "../../domain/attendance.js";
 import { AttendancePageSchema, AttendanceSchema } from "../../domain/attendance.schema.js";
 import { DomainError } from "../../domain/errors.js";
-import type { ViewerContext, ViewerRole } from "../../domain/tree.js";
-import { type OdooClient, fromOdooDatetime, toOdooDatetime } from "./client.js";
+import type { ViewerContext } from "../../domain/tree.js";
+import { attendanceCapabilities } from "./capabilities.js";
+import { fromOdooDatetime, toOdooDatetime } from "./client.js";
 import { m2o, type OdooM2O } from "./mapping.js";
+import type { OdooTransport, OdooTransportFactory } from "./transport.js";
+
+/** Groupe qui autorise l'approbation des heures (configurable : APPROVAL_GROUP). */
+export const DEFAULT_APPROVAL_GROUP = "hr_attendance.group_hr_attendance_officer";
+
+export interface OdooAttendanceOptions {
+  /** null : approuver = pouvoir modifier le pointage */
+  approvalGroup: string | null;
+}
 
 const MODEL = "hr.attendance";
 
@@ -59,10 +72,33 @@ interface OdooRawAttendance {
 }
 
 export class OdooAttendanceRepository implements AttendanceRepository {
-  constructor(private readonly clientsByRole: Record<ViewerRole, OdooClient>) {}
+  constructor(
+    private readonly transports: OdooTransportFactory,
+    private readonly options: OdooAttendanceOptions = { approvalGroup: DEFAULT_APPROVAL_GROUP },
+  ) {}
 
-  private clientFor(viewer: ViewerContext): OdooClient {
-    return this.clientsByRole[viewer.role];
+  private clientFor(viewer: ViewerContext): OdooTransport {
+    return this.transports.for(viewer);
+  }
+
+  private capabilities(client: OdooTransport, ids: readonly number[]): Promise<Map<number, AttendanceCapabilities>> {
+    return attendanceCapabilities(client, ids, this.options.approvalGroup);
+  }
+
+  private async withCapabilities(client: OdooTransport, rows: OdooRawAttendance[]): Promise<Attendance[]> {
+    const caps = await this.capabilities(client, rows.map((r) => r.id));
+    return rows.map((row) => toAttendance(row, caps.get(row.id) ?? NO_CAPABILITIES));
+  }
+
+  /** Réévalue la capacité côté Odoo avant d'écrire : même règle que l'affichage. */
+  private async require(client: OdooTransport, id: number, capability: keyof AttendanceCapabilities): Promise<void> {
+    const caps = (await this.capabilities(client, [id])).get(id) ?? NO_CAPABILITIES;
+    if (!caps[capability]) {
+      throw new DomainError(
+        capability === "canApprove" ? "Tu n'as pas le droit d'approuver ces heures." : "Tu n'as pas le droit de modifier ce pointage.",
+        "forbidden",
+      );
+    }
   }
 
   async listAttendances(params: AttendanceListParams, viewer: ViewerContext): Promise<AttendancePage> {
@@ -81,18 +117,21 @@ export class OdooAttendanceRepository implements AttendanceRepository {
       }),
       client.callKw<number>({ model: MODEL, method: "search_count", args: [domain], kwargs: {} }),
     ]);
-    return AttendancePageSchema.parse({ items: rows.map(toAttendance), total });
+    return AttendancePageSchema.parse({ items: await this.withCapabilities(client, rows), total });
   }
 
   async getOpenAttendance(employeeId: number, viewer: ViewerContext): Promise<Attendance | null> {
-    const rows = await this.clientFor(viewer).callKw<OdooRawAttendance[]>({
+    const client = this.clientFor(viewer);
+    const rows = await client.callKw<OdooRawAttendance[]>({
       model: MODEL,
       method: "search_read",
       args: [[["employee_id", "=", employeeId], ["check_out", "=", false]]],
       kwargs: { fields: [...ATTENDANCE_FIELDS], order: "check_in desc", limit: 1 },
     });
     const row = rows[0];
-    return row ? AttendanceSchema.parse(toAttendance(row)) : null;
+    if (!row) return null;
+    const [attendance] = await this.withCapabilities(client, [row]);
+    return AttendanceSchema.parse(attendance);
   }
 
   async checkIn(command: CheckInCommand, viewer: ViewerContext): Promise<Attendance> {
@@ -134,6 +173,7 @@ export class OdooAttendanceRepository implements AttendanceRepository {
   async updateAttendance(id: number, patch: AttendancePatch, viewer: ViewerContext): Promise<Attendance> {
     const client = this.clientFor(viewer);
     const values: Record<string, unknown> = toOdooMovements(patch.movements ?? {});
+    await this.require(client, id, "canEdit");
     if (patch.checkIn !== undefined) values["check_in"] = toOdooDatetime(patch.checkIn);
     if (patch.checkOut !== undefined) values["check_out"] = patch.checkOut === null ? false : toOdooDatetime(patch.checkOut);
     if (Object.keys(values).length > 0) {
@@ -144,17 +184,19 @@ export class OdooAttendanceRepository implements AttendanceRepository {
 
   async approveHours(id: number, viewer: ViewerContext): Promise<Attendance> {
     const client = this.clientFor(viewer);
+    await this.require(client, id, "canApprove");
     await client.callKw({ model: MODEL, method: "action_approve_overtime", args: [[id]], kwargs: {} });
     return this.read(id, client);
   }
 
   async refuseHours(id: number, viewer: ViewerContext): Promise<Attendance> {
     const client = this.clientFor(viewer);
+    await this.require(client, id, "canApprove");
     await client.callKw({ model: MODEL, method: "action_refuse_overtime", args: [[id]], kwargs: {} });
     return this.read(id, client);
   }
 
-  private async read(id: number, client: OdooClient): Promise<Attendance> {
+  private async read(id: number, client: OdooTransport): Promise<Attendance> {
     const rows = await client.callKw<OdooRawAttendance[]>({
       model: MODEL,
       method: "read",
@@ -163,7 +205,8 @@ export class OdooAttendanceRepository implements AttendanceRepository {
     });
     const row = rows[0];
     if (!row) throw new DomainError(`Pointage ${id} introuvable.`, "not_found");
-    return AttendanceSchema.parse(toAttendance(row));
+    const [attendance] = await this.withCapabilities(client, [row]);
+    return AttendanceSchema.parse(attendance);
   }
 }
 
@@ -176,7 +219,9 @@ function toOdooMovements(movements: Partial<Movements>): Record<string, unknown>
   return values;
 }
 
-function toAttendance(row: OdooRawAttendance): Attendance {
+const NO_CAPABILITIES: AttendanceCapabilities = { canEdit: false, canApprove: false };
+
+function toAttendance(row: OdooRawAttendance, capabilities: AttendanceCapabilities): Attendance {
   return {
     id: row.id,
     employee: m2o(row.employee_id) ?? { id: 0, label: "?" },
@@ -191,5 +236,6 @@ function toAttendance(row: OdooRawAttendance): Attendance {
       meals: Number(row.meal_count || 0),
     },
     hoursStatus: row.overtime_status || null,
+    capabilities,
   };
 }

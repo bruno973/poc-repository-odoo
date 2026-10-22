@@ -8,7 +8,8 @@
     "build": "tsc",
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
-    "test": "node --import tsx --test test/*.test.ts"
+    "test": "node --import tsx --test test/*.test.ts",
+    "rapport": "tsx scripts/rapport-identite.ts"
   },
   "dependencies": {
     "fastify": "^4.28.1",

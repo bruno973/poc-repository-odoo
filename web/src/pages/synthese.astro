@@ -3,7 +3,7 @@
 // Le premier niveau est rendu côté serveur ; chaque dépliage appelle le port
 // SummaryRepository via le proxy (un niveau = un appel = un read_group côté Odoo).
 import Shell from "../components/Shell.astro";
-import { apiGet, ApiError } from "../lib/api.js";
+import { apiGet, ApiError, isUnauthenticated, loginUrl } from "../lib/api.js";
 import { hm } from "../lib/format.js";
 import type { HoursStatus, SummaryDimension, SummaryGroup, SummaryTotals } from "../types/domain.js";
 
@@ -48,12 +48,13 @@ const COLUMNS: { key: keyof SummaryTotals; label: string; hours: boolean }[] = [
 let roots: SummaryGroup[] = [];
 let error: string | null = null;
 try {
-  roots = await apiGet<SummaryGroup[]>("/api/summary/groups", {
+  roots = await apiGet<SummaryGroup[]>(Astro, "/api/summary/groups", {
     dimension: dimensions[0],
     path: "[]",
     status,
   });
 } catch (e) {
+  if (isUnauthenticated(e)) return Astro.redirect(loginUrl(Astro.url));
   error = e instanceof ApiError ? e.message : "Erreur inattendue.";
 }
 

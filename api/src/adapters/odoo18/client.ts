@@ -8,10 +8,12 @@
 //  - ne dépend plus d'un cookie de session, donc plus de relance sur expiration ;
 //  - c'est ce client seul qu'il faudra remplacer pour l'API JSON-2 d'Odoo 19+.
 //
-// L'interface publique ne change pas : authenticate() et callKw({ model, method, args, kwargs }).
+// C'est le transport du mode `shared` (AUTH_MODE=shared) : un compte technique
+// par rôle. Le mode identité réelle utilise SessionTransport (transport.ts).
 
 import { DomainError } from "../../domain/errors.js";
 import type { BackendRecorder } from "../../app/trace.js";
+import type { OdooTransport } from "./transport.js";
 
 export interface OdooClientConfig {
   url: string;
@@ -38,7 +40,7 @@ interface OdooRpcError {
 
 type OdooResponse<T> = { jsonrpc: "2.0"; id: number; result: T } | { jsonrpc: "2.0"; id: number; error: OdooRpcError };
 
-export class OdooClient {
+export class OdooClient implements OdooTransport {
   private uid: number | null = null;
   private reqId = 1;
 
@@ -49,6 +51,10 @@ export class OdooClient {
 
   get login(): string {
     return this.config.user;
+  }
+
+  userId(): Promise<number> {
+    return this.authenticate();
   }
 
   async authenticate(): Promise<number> {
@@ -92,7 +98,7 @@ export class OdooClient {
       ok = false;
       throw error;
     } finally {
-      this.recorder?.recordBackend(`${params.model}.${params.method}`, performance.now() - started, ok);
+      this.recorder?.recordBackend(`${params.model}.${params.method}`, performance.now() - started, ok, uid);
     }
   }
 
@@ -119,6 +125,7 @@ export class OdooClient {
 export function mapOdooError(error: OdooRpcError): DomainError {
   const name = error.data?.name ?? "";
   const message = (error.data?.message || error.message || "Erreur Odoo").trim();
+  if (name.includes("SessionExpired")) return new DomainError("Session expirée : reconnecte-toi.", "unauthenticated");
   if (name.includes("AccessError") || name.includes("AccessDenied")) return new DomainError(message, "forbidden");
   if (name.includes("MissingError")) return new DomainError(message, "not_found");
   if (name.includes("ValidationError") || name.includes("UserError")) return new DomainError(message, "business_rule");

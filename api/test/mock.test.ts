@@ -5,6 +5,8 @@ import { after, before, describe, it } from "node:test";
 import type { FastifyInstance } from "fastify";
 import { createRepositories, driftGuard, type Repositories } from "../src/app/repositories.js";
 import { Tracer } from "../src/app/trace.js";
+import { DomainError } from "../src/domain/errors.js";
+import type { FormNode } from "../src/domain/tree.js";
 import { createServer } from "../src/server.js";
 import { runContract } from "./contract.js";
 
@@ -76,5 +78,98 @@ describe("API HTTP (adapter mock)", () => {
     await app.inject({ method: "GET", url: "/api/attendances?limit=1", headers: as("hr_admin") });
     const trace = await app.inject({ method: "GET", url: "/api/_trace" });
     assert.ok(trace.body.includes("AttendanceRepository.listAttendances"));
+  });
+});
+
+describe("Mock : droits simulés par rôle (F-10)", () => {
+  // Fixtures : Abigail (1) manage Bruno (2) et Camille (3)
+  const manager = { id: 101, role: "manager" as const, employeeId: 1 };
+  const employee = { id: 103, role: "employee" as const, employeeId: 3 };
+  const hrAdmin = { id: 102, role: "hr_admin" as const, employeeId: 2 };
+  let repos: Repositories;
+  before(async () => {
+    repos = await createRepositories({ ADAPTER: "mock" }, new Tracer());
+  });
+
+  const editable = async (id: number, viewer: typeof manager | typeof employee | typeof hrAdmin) => {
+    const record = await repos.employees.getEmployeeById(id, viewer);
+    const keys: string[] = [];
+    const walk = (nodes: readonly FormNode[]) => {
+      for (const n of nodes) n.kind === "group" ? walk(n.children) : n.editable && keys.push(n.key);
+    };
+    walk(record?.formTree ?? []);
+    return keys;
+  };
+
+  it("editable dépend du rôle et de l'équipe, plus jamais « true partout »", async () => {
+    assert.ok((await editable(3, hrAdmin)).includes("infoPrivee.ssnId"));
+    assert.deepEqual((await editable(3, manager)).sort(), ["header.jobTitle", "header.workEmail", "header.workMobile", "header.workPhone"]);
+    assert.deepEqual(await editable(1, manager), [], "un manager ne modifie pas sa propre fiche");
+    assert.deepEqual(await editable(3, employee), [], "pas d'auto-modification (Q-05)");
+  });
+
+  it("updateEmployee est implémenté en mémoire et applique la même règle", async () => {
+    const updated = await repos.employees.updateEmployee(3, { "header.jobTitle": "Lead dev" }, manager);
+    assert.equal(updated.headerSummary.jobTitle, "Lead dev");
+    const list = await repos.employees.listEmployees({ search: "Lead dev" }, hrAdmin);
+    assert.deepEqual(list.items.map((e) => e.id), [3]);
+    await assert.rejects(
+      repos.employees.updateEmployee(3, { "infoPrivee.ssnId": "x" }, manager),
+      (e: unknown) => e instanceof DomainError && e.code === "forbidden",
+    );
+    await assert.rejects(
+      repos.employees.updateEmployee(3, { "header.jobTitle": "x" }, employee),
+      (e: unknown) => e instanceof DomainError && e.code === "forbidden",
+    );
+  });
+
+  it("calcule les capacités des pointages et les applique", async () => {
+    const own = await repos.attendances.listAttendances({ limit: 200, offset: 0 }, employee);
+    assert.ok(own.items.length > 0 && own.items.every((a) => a.employee.id === 3), "un employé ne voit que ses pointages");
+    assert.ok(own.items.every((a) => !a.capabilities.canApprove && !a.capabilities.canEdit));
+    const id = own.items[0]?.id ?? 0;
+    await assert.rejects(repos.attendances.approveHours(id, employee), (e: unknown) => e instanceof DomainError && e.code === "forbidden");
+
+    const team = await repos.attendances.listAttendances({ limit: 200, offset: 0 }, manager);
+    for (const a of team.items) assert.equal(a.capabilities.canApprove, a.employee.id !== 1, `pointage ${a.id}`);
+    assert.equal((await repos.attendances.approveHours(id, manager)).hoursStatus, "approved");
+  });
+
+  it("refuse de pointer pour un employé hors équipe (S-10)", async () => {
+    await assert.rejects(
+      repos.attendances.checkIn({ employeeId: 1 }, employee),
+      (e: unknown) => e instanceof DomainError && e.code === "forbidden",
+    );
+  });
+
+  it("limite la synthèse au périmètre du viewer (S-02)", async () => {
+    const groups = await repos.summary.getGroups({ path: [], dimension: "employee" }, employee);
+    assert.deepEqual(groups.map((g) => g.key.value), [3]);
+  });
+});
+
+describe("API HTTP (adapter mock, AUTH_MODE=fake-jwt)", () => {
+  let app: FastifyInstance;
+  before(async () => {
+    const tracer = new Tracer();
+    app = await createServer(await createRepositories({ ADAPTER: "mock", AUTH_MODE: "fake-jwt" }, tracer), tracer, {
+      cookieSecure: false,
+    });
+  });
+  after(() => app.close());
+
+  it("connecte un utilisateur de démo et sert ses données, sans en-têtes x-viewer-*", async () => {
+    const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { login: "camille", password: "demo" } });
+    assert.equal(login.statusCode, 204);
+    const cookie = String(login.headers["set-cookie"]).split(";")[0] ?? "";
+    assert.doesNotMatch(String(login.headers["set-cookie"]), /Secure/, "COOKIE_SECURE=0 en local");
+    const me = await app.inject({ method: "GET", url: "/api/auth/me", headers: { cookie } });
+    assert.equal(me.json().role, "employee");
+    const meta = await app.inject({ method: "GET", url: "/api/meta" });
+    assert.equal(meta.json().authMode, "fake-jwt");
+    const sheet = await app.inject({ method: "GET", url: "/api/employees/3", headers: { cookie, "x-viewer-role": "hr_admin" } });
+    assert.ok(sheet.body.includes("infoPrivee.ssnId"), "sa propre fiche");
+    const other = await app.inject({ method: "GET", url: "/api/employees/2", headers: { cookie, "x-viewer-role": "hr_admin" } });
+    assert.ok(!other.body.includes("infoPrivee.ssnId"), "en-tête forgé pris en compte");
   });
 });

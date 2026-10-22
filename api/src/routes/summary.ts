@@ -5,7 +5,7 @@ import { z } from "zod";
 import { HoursStatusSchema } from "../domain/attendance.schema.js";
 import type { SummaryRepository } from "../domain/SummaryRepository.js";
 import { SummaryDimensionSchema, SummaryKeySchema } from "../domain/summary.schema.js";
-import { extractViewer } from "./viewer.js";
+import type { ViewerResolver } from "./viewer.js";
 
 /** path : tableau JSON de { dimension, value }, passé en query string. */
 const PathSchema = z
@@ -30,9 +30,9 @@ const GroupsQuery = z.object({
 
 const LinesQuery = z.object({ path: PathSchema, status: HoursStatusSchema.optional() });
 
-export function registerSummaryRoutes(fastify: FastifyInstance, repository: SummaryRepository): void {
+export function registerSummaryRoutes(fastify: FastifyInstance, repository: SummaryRepository, viewerOf: ViewerResolver): void {
   fastify.get("/api/summary/groups", async (request) => {
-    const viewer = extractViewer(request);
+    const viewer = viewerOf(request);
     const q = GroupsQuery.parse(request.query);
     return repository.getGroups(
       { dimension: q.dimension, path: q.path, ...(q.status !== undefined && { status: q.status }) },
@@ -41,7 +41,7 @@ export function registerSummaryRoutes(fastify: FastifyInstance, repository: Summ
   });
 
   fastify.get("/api/summary/lines", async (request) => {
-    const viewer = extractViewer(request);
+    const viewer = viewerOf(request);
     const q = LinesQuery.parse(request.query);
     return repository.getLines({ path: q.path, ...(q.status !== undefined && { status: q.status }) }, viewer);
   });

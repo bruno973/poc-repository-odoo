@@ -5,7 +5,8 @@
 // au moment du build : avant, VIEWER_ROLE n'avait d'effet que sur [id].astro.
 //
 // Le navigateur ne choisit jamais son rôle : le proxy /api/* injecte ces valeurs.
-// En production, elles viendront de la session Keycloak.
+// Mode shared seulement : en identité réelle (AUTH_MODE=odoo-session côté API),
+// le viewer est constaté par l'API à partir du cookie de session.
 
 import type { ViewerContext, ViewerRole } from "../types/domain.js";
 
@@ -34,3 +35,22 @@ export const ROLE_LABEL: Record<ViewerRole, string> = {
   manager: "Manager",
   hr_admin: "Admin RH",
 };
+
+/** Qui regarde la page, quel que soit le mode : constaté (identité réelle) ou déclaré (shared). */
+export interface CurrentViewer {
+  role: ViewerRole;
+  employeeId: number | undefined;
+  /** Libellé affiché dans la barre de navigation */
+  label: string;
+  /** Rôle constaté par l'API (true) ou déclaré par l'environnement (false) */
+  observed: boolean;
+}
+
+export function currentViewer(locals: App.Locals): CurrentViewer {
+  const me = locals.auth.me;
+  if (locals.auth.mode !== "shared" && me) {
+    return { role: me.role, employeeId: me.employeeId ?? undefined, label: me.displayName, observed: true };
+  }
+  const viewer = getViewer();
+  return { role: viewer.role, employeeId: viewer.employeeId, label: `#${viewer.id}`, observed: false };
+}

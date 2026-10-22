@@ -21,7 +21,15 @@ export type {
   DepartmentNode,
 } from "@api/domain/tree.js";
 
-export type { Attendance, AttendancePage, HoursStatus, Movements } from "@api/domain/attendance.js";
+export type {
+  Attendance,
+  AttendanceCapabilities,
+  AttendancePage,
+  HoursStatus,
+  Movements,
+} from "@api/domain/attendance.js";
+
+export type { PublicIdentity } from "@api/domain/identity.js";
 
 export type {
   SummaryDimension,
