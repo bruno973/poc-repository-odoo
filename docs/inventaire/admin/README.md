@@ -1,6 +1,6 @@
 # Inventaire des vues résolues — compte `admin`
 
-Base `amg-erp-test` · 2026-10-22T21:45:23.110Z · menus : hr.menu_hr_root, hr_attendance.menu_hr_attendance_root
+Base `amg-erp-test` · 2026-10-22T22:32:12.610Z · menus : hr.menu_hr_root, hr_attendance.menu_hr_attendance_root
 
 ## Employés / Employés / Employés
 
@@ -8,9 +8,9 @@ Action 194 · modèle `hr.employee` · domaine `[('company_id', 'in', allowed_co
 
 | Vue | id | Champs XML | Importés | Exclus (droits) | Non pris en charge | Boutons (registre) | Diagnostics à traiter |
 |---|---|---|---|---|---|---|---|
-| form | 547 | 100 | 90 | 0 | 25 | 0/15 | 13 / 51 |
-| list | 550 | 19 | 19 | 0 | 1 | 0/1 | 2 / 9 |
-| search | 546 | 11 | 10 | 0 | 1 | 0/0 | 0 / 15 |
+| form | 547 | 100 | 90 | 0 | 25 | 0/15 | 13 / 45 |
+| list | 550 | 19 | 19 | 0 | 1 | 0/1 | 2 / 6 |
+| search | 546 | 11 | 10 | 0 | 1 | 0/0 | 0 / 7 |
 
 ## Employés / Employés / Organigramme
 
@@ -18,9 +18,9 @@ Action 249 · modèle `hr.employee` · domaine `[]` · contexte `{'chat_icon': T
 
 | Vue | id | Champs XML | Importés | Exclus (droits) | Non pris en charge | Boutons (registre) | Diagnostics à traiter |
 |---|---|---|---|---|---|---|---|
-| form | 547 | 100 | 90 | 0 | 25 | 0/15 | 13 / 51 |
-| list | 550 | 19 | 19 | 0 | 1 | 0/1 | 2 / 9 |
-| search | 546 | 11 | 10 | 0 | 1 | 0/0 | 0 / 15 |
+| form | 547 | 100 | 90 | 0 | 25 | 0/15 | 13 / 45 |
+| list | 550 | 19 | 19 | 0 | 1 | 0/1 | 2 / 6 |
+| search | 546 | 11 | 10 | 0 | 1 | 0/0 | 0 / 7 |
 
 ## Employés / Employés / Contrats
 
@@ -29,7 +29,7 @@ Action 219 · modèle `hr.contract` · domaine `[('employee_id', '!=', False)]` 
 | Vue | id | Champs XML | Importés | Exclus (droits) | Non pris en charge | Boutons (registre) | Diagnostics à traiter |
 |---|---|---|---|---|---|---|---|
 | form | 605 | 24 | 23 | 0 | 2 | 0/1 | 2 / 9 |
-| list | 606 | 13 | 13 | 0 | 0 | 0/0 | 0 / 4 |
+| list | 606 | 13 | 13 | 0 | 0 | 0/0 | 0 / 3 |
 | search | 604 | 7 | 7 | 0 | 0 | 0/0 | 0 / 14 |
 
 ## Employés / Départements
@@ -38,8 +38,8 @@ Action 197 · modèle `hr.department` · domaine `[("has_read_access", "=", True
 
 | Vue | id | Champs XML | Importés | Exclus (droits) | Non pris en charge | Boutons (registre) | Diagnostics à traiter |
 |---|---|---|---|---|---|---|---|
-| form | 554 | 12 | 10 | 0 | 4 | 0/2 | 2 / 9 |
-| list | 555 | 6 | 6 | 0 | 0 | 0/0 | 0 / 2 |
+| form | 554 | 12 | 10 | 0 | 4 | 0/2 | 2 / 8 |
+| list | 555 | 6 | 6 | 0 | 0 | 0/0 | 0 / 1 |
 | search | 556 | 2 | 2 | 0 | 0 | 0/0 | 0 / 0 |
 
 ## Employés / Analyse / Compétences
@@ -81,8 +81,8 @@ Action 186 · modèle `mail.activity.plan` · domaine `[('res_model', '=', 'hr.e
 
 | Vue | id | Champs XML | Importés | Exclus (droits) | Non pris en charge | Boutons (registre) | Diagnostics à traiter |
 |---|---|---|---|---|---|---|---|
-| form | 529 | 7 | 7 | 0 | 0 | 0/0 | 1 / 5 |
-| list | 325 | 4 | 4 | 0 | 0 | 0/0 | 1 / 2 |
+| form | 529 | 7 | 7 | 0 | 0 | 0/0 | 1 / 3 |
+| list | 325 | 4 | 4 | 0 | 0 | 0/0 | 1 / 1 |
 | search | 324 | 1 | 1 | 0 | 0 | 0/0 | 0 / 1 |
 
 ## Employés / Configuration / Employé / Lieux de travail
@@ -91,7 +91,7 @@ Action 198 · modèle `hr.work.location` · domaine `[]` · contexte `{}`
 
 | Vue | id | Champs XML | Importés | Exclus (droits) | Non pris en charge | Boutons (registre) | Diagnostics à traiter |
 |---|---|---|---|---|---|---|---|
-| form | 559 | 5 | 5 | 0 | 0 | 0/0 | 0 / 2 |
+| form | 559 | 5 | 5 | 0 | 0 | 0/0 | 0 / 1 |
 | list | 558 | 3 | 3 | 0 | 0 | 0/0 | 0 / 1 |
 | search | false | 1 | 1 | 0 | 0 | 0/0 | 0 / 0 |
 
@@ -113,7 +113,7 @@ Action 251 · modèle `hr.skill.type` · domaine `[]` · contexte `{}`
 |---|---|---|---|---|---|---|---|
 | form | 710 | 6 | 6 | 0 | 0 | 0/0 | 2 / 6 |
 | list | 709 | 4 | 4 | 0 | 0 | 0/0 | 2 / 5 |
-| search | 708 | 4 | 4 | 0 | 0 | 0/0 | 0 / 3 |
+| search | 708 | 4 | 4 | 0 | 0 | 0/0 | 0 / 1 |
 
 ## Employés / Configuration / Recrutement / Postes
 
@@ -121,7 +121,7 @@ Action 190 · modèle `hr.job` · domaine `[]` · contexte `{"search_default_Cur
 
 | Vue | id | Champs XML | Importés | Exclus (droits) | Non pris en charge | Boutons (registre) | Diagnostics à traiter |
 |---|---|---|---|---|---|---|---|
-| form | 535 | 7 | 7 | 0 | 0 | 0/0 | 1 / 5 |
+| form | 535 | 7 | 7 | 0 | 0 | 0/0 | 1 / 3 |
 | list | 536 | 3 | 3 | 0 | 0 | 0/0 | 0 / 1 |
 | search | 538 | 2 | 2 | 0 | 0 | 0/0 | 0 / 2 |
 
@@ -141,8 +141,8 @@ Action 94 · modèle `resource.calendar` · domaine `['|', ('company_id', '=', F
 
 | Vue | id | Champs XML | Importés | Exclus (droits) | Non pris en charge | Boutons (registre) | Diagnostics à traiter |
 |---|---|---|---|---|---|---|---|
-| form | 252 | 12 | 10 | 0 | 7 | 0/5 | 1 / 12 |
-| list | 253 | 3 | 3 | 0 | 0 | 0/0 | 0 / 1 |
+| form | 252 | 12 | 10 | 0 | 7 | 0/5 | 1 / 10 |
+| list | 253 | 3 | 3 | 0 | 0 | 0/0 | 0 / 0 |
 | search | 251 | 1 | 1 | 0 | 0 | 0/0 | 0 / 0 |
 
 ## Employés / Configuration / Défis / Badges
@@ -151,7 +151,7 @@ Action 287 · modèle `gamification.badge` · domaine `[]` · contexte `{}`
 
 | Vue | id | Champs XML | Importés | Exclus (droits) | Non pris en charge | Boutons (registre) | Diagnostics à traiter |
 |---|---|---|---|---|---|---|---|
-| form | 814 | 19 | 18 | 0 | 3 | 0/2 | 5 / 16 |
+| form | 814 | 19 | 18 | 0 | 3 | 0/2 | 5 / 15 |
 | list | 813 | 5 | 5 | 0 | 0 | 0/0 | 0 / 0 |
 | search | 812 | 1 | 1 | 0 | 0 | 0/0 | 0 / 0 |
 
@@ -161,7 +161,7 @@ Action 369 · modèle `gamification.challenge` · domaine `[('challenge_category
 
 | Vue | id | Champs XML | Importés | Exclus (droits) | Non pris en charge | Boutons (registre) | Diagnostics à traiter |
 |---|---|---|---|---|---|---|---|
-| form | 825 | 22 | 21 | 0 | 5 | 0/4 | 3 / 15 |
+| form | 825 | 22 | 21 | 0 | 5 | 0/4 | 3 / 14 |
 | list | 824 | 4 | 4 | 0 | 0 | 0/0 | 0 / 0 |
 | search | 827 | 1 | 1 | 0 | 0 | 0/0 | 0 / 2 |
 
@@ -173,7 +173,7 @@ Action 368 · modèle `gamification.goal` · domaine `[('challenge_id.challenge_
 |---|---|---|---|---|---|---|---|
 | form | 818 | 12 | 12 | 0 | 4 | 0/4 | 0 / 7 |
 | list | 817 | 9 | 9 | 0 | 0 | 0/0 | 0 / 1 |
-| search | 819 | 3 | 3 | 0 | 0 | 0/0 | 0 / 7 |
+| search | 819 | 3 | 3 | 0 | 0 | 0/0 | 0 / 6 |
 
 ## Présences / Aperçu
 
@@ -186,9 +186,9 @@ Action 206 · modèle `hr.attendance` · domaine `[]` · contexte `
 
 | Vue | id | Champs XML | Importés | Exclus (droits) | Non pris en charge | Boutons (registre) | Diagnostics à traiter |
 |---|---|---|---|---|---|---|---|
-| form | 573 | 29 | 29 | 0 | 2 | 2/4 | 1 / 17 |
-| list | 571 | 27 | 27 | 0 | 2 | 0/2 | 0 / 11 |
-| search | 576 | 3 | 3 | 0 | 0 | 0/0 | 0 / 11 |
+| form | 573 | 29 | 29 | 0 | 2 | 2/4 | 1 / 10 |
+| list | 571 | 27 | 27 | 0 | 2 | 0/2 | 0 / 2 |
+| search | 576 | 3 | 3 | 0 | 0 | 0/0 | 0 / 8 |
 
 ## Présences / Gestion
 
@@ -196,9 +196,9 @@ Action 208 · modèle `hr.attendance` · domaine `[('check_out', '!=', False)]` 
 
 | Vue | id | Champs XML | Importés | Exclus (droits) | Non pris en charge | Boutons (registre) | Diagnostics à traiter |
 |---|---|---|---|---|---|---|---|
-| form | 573 | 29 | 29 | 0 | 2 | 2/4 | 1 / 17 |
-| list | 578 | 10 | 10 | 0 | 5 | 0/5 | 0 / 11 |
-| search | 577 | 2 | 2 | 0 | 0 | 0/0 | 0 / 3 |
+| form | 573 | 29 | 29 | 0 | 2 | 2/4 | 1 / 10 |
+| list | 578 | 10 | 10 | 0 | 5 | 0/5 | 0 / 5 |
+| search | 577 | 2 | 2 | 0 | 0 | 0/0 | 0 / 1 |
 
 ## Présences / Synthèse
 
@@ -213,7 +213,7 @@ Action 266 · modèle `hr.attendance.ventilation` · domaine `[]` · contexte `
 | Vue | id | Champs XML | Importés | Exclus (droits) | Non pris en charge | Boutons (registre) | Diagnostics à traiter |
 |---|---|---|---|---|---|---|---|
 | form | false | 41 | 41 | 0 | 0 | 0/0 | 0 / 0 |
-| list | 758 | 23 | 23 | 0 | 0 | 0/0 | 0 / 9 |
+| list | 758 | 23 | 23 | 0 | 0 | 0/0 | 0 / 0 |
 | search | 759 | 3 | 3 | 0 | 0 | 0/0 | 0 / 1 |
 
 ## Présences / Calendrier de clotures des Pointages
@@ -238,9 +238,9 @@ Action 207 · modèle `hr.attendance` · domaine `[]` · contexte `
 
 | Vue | id | Champs XML | Importés | Exclus (droits) | Non pris en charge | Boutons (registre) | Diagnostics à traiter |
 |---|---|---|---|---|---|---|---|
-| form | 573 | 29 | 29 | 0 | 2 | 2/4 | 1 / 17 |
-| list | 571 | 27 | 27 | 0 | 2 | 0/2 | 0 / 11 |
-| search | 576 | 3 | 3 | 0 | 0 | 0/0 | 0 / 11 |
+| form | 573 | 29 | 29 | 0 | 2 | 2/4 | 1 / 10 |
+| list | 571 | 27 | 27 | 0 | 2 | 0/2 | 0 / 2 |
+| search | 576 | 3 | 3 | 0 | 0 | 0/0 | 0 / 8 |
 
 ## Présences / Configuration
 

@@ -95,7 +95,7 @@ Lecture : un manque se traite **une fois** dans le moteur et disparaît de toute
 
 ## Boutons candidats au registre de commandes
 
-Le registre est fermé (ADR-003) : chaque bouton retenu demande une commande Leila explicite, testée avec les droits.
+Le registre est fermé (ADR-001) : chaque bouton retenu demande une commande Leila explicite, testée avec les droits.
 
 | Modèle | Bouton | Type | Libellé | Vues |
 |---|---|---|---|---|
