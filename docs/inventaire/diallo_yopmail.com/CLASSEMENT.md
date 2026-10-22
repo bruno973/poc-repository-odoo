@@ -1,4 +1,4 @@
-# Classement des manques — compte `diallo@yopmail.com`
+# Classement des manques — compte `diallo_yopmail.com`
 
 21 vues, 5 modèles. Généré par `npm run classement` (hors ligne, depuis les fichiers de l'inventaire).
 

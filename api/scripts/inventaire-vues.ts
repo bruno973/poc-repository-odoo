@@ -14,7 +14,7 @@
 
 import "dotenv/config";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { parseCondition } from "../src/adapters/odoo18/ui/OdooExpressionParser.js";
+import { type Literal, parseCondition, parseLiteral } from "../src/adapters/odoo18/ui/OdooExpressionParser.js";
 import { loadMenus, type OdooMenu, readWindowAction } from "../src/adapters/odoo18/ui/OdooUiAdapter.js";
 import { type OdooFieldMeta, parseArch } from "../src/adapters/odoo18/ui/OdooViewParser.js";
 import { ODOO_COMMANDS } from "../src/adapters/odoo18/ui/commands.js";
@@ -62,6 +62,9 @@ for (const [actionId, menuPath] of actions) {
     continue;
   }
   const model = String(action["res_model"]);
+  const rawContext = action["context"];
+  const parsedContext = typeof rawContext === "string" && rawContext.trim() ? parseLiteral(rawContext) : null;
+  const actionContext = parsedContext && typeof parsedContext === "object" && !Array.isArray(parsedContext) ? (parsedContext as Record<string, Literal>) : undefined;
   const views: Record<string, number | false> = { list: false, form: false, search: false };
   for (const [id, type] of (action["views"] as [number | false, string][]) ?? []) {
     if ((type === "list" || type === "tree") && views["list"] === false) views["list"] = id;
@@ -89,13 +92,15 @@ for (const [actionId, menuPath] of actions) {
       model,
       fields,
       commandFor: (b) => (b.type === "object" ? ODOO_COMMANDS.find((c) => c.model === model && c.method === b.name)?.id : undefined),
+      actionContext,
     });
     const s = p.stats;
     lines.push(`| ${type} | ${v.id ?? "?"} | ${s.fieldsInArch} | ${s.fieldsImported} | ${s.excluded} | ${s.unsupported} | ${s.buttonsImported}/${s.buttonsInArch} | ${p.diagnostics.filter((d) => d.severity !== "info").length} / ${p.diagnostics.length} |`);
     for (const m of v.arch.matchAll(EXPR)) {
       const [, attr, raw] = m as unknown as [string, string, string];
       const src = decode(raw);
-      const ok = attr === "domain" || attr === "context" || attr === "filter_domain" ? null : parseCondition(src).op !== "unsupported";
+      // Même contexte d'action que le BFF (context.get)
+      const ok = attr === "domain" || attr === "context" || attr === "filter_domain" ? null : parseCondition(src, actionContext).op !== "unsupported";
       if (ok === false) unsupported.set(`${attr}="${src}"`, (unsupported.get(`${attr}="${src}"`) ?? 0) + 1);
     }
   }
