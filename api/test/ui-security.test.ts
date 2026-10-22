@@ -140,9 +140,16 @@ describe("Moteur de présentation : sécurité", () => {
     const a = await attendances(admin);
     const search = (await admin.get(`/api/ui/v1/views/${a.views.search}`)).json() as ViewSchema;
     const key = (label: string) => search.root.find((n) => n.kind === "filter" && n.label === label);
+    const date = key("Date d'arrivée");
+    assert.ok(date && date.kind === "filter" && !date.available);
+    assert.equal((await admin.post(`/api/ui/v1/resources/${a.resourceKey}/query`, { filters: [date.filterKey] })).statusCode, 400);
+    // « Mes présences » ([('employee_id.user_id', '=', uid)]) : uid fourni par le serveur
     const mine = key("Mes présences");
-    assert.ok(mine && mine.kind === "filter" && !mine.available);
-    assert.equal((await admin.post(`/api/ui/v1/resources/${a.resourceKey}/query`, { filters: [mine.filterKey] })).statusCode, 400);
+    assert.ok(mine && mine.kind === "filter" && mine.available);
+    h.odoo.reset();
+    assert.equal((await admin.post(`/api/ui/v1/resources/${a.resourceKey}/query`, { filters: [mine.filterKey] })).statusCode, 200);
+    const sent = h.odoo.calls.find((c) => c.method === "search_read");
+    assert.deepEqual(sent?.args[0], [["employee_id.user_id", "=", 2]], "uid de l'utilisateur connecté");
     const present = key("Présent");
     const toApprove = key("À approuver");
     assert.ok(present?.kind === "filter" && toApprove?.kind === "filter");
@@ -153,10 +160,12 @@ describe("Moteur de présentation : sécurité", () => {
     assert.deepEqual((either.json() as { records: { id: number }[] }).records.map((r) => r.id), [13]);
   });
 
-  it("action à domaine dynamique : indisponible, et ses enregistrements aussi", async () => {
+  it("action à domaine dépendant de l'utilisateur : uid substitué par le serveur", async () => {
     const team = await openAction(admin, "Mon équipe");
-    assert.equal(team.available, false);
-    assert.equal((await admin.post(`/api/ui/v1/resources/${team.resourceKey}/query`, {})).statusCode, 403);
+    assert.equal(team.available, true);
+    h.odoo.reset();
+    assert.equal((await admin.post(`/api/ui/v1/resources/${team.resourceKey}/query`, {})).statusCode, 200);
+    assert.deepEqual(h.odoo.calls.find((c) => c.method === "search_read")?.args[0], [["parent_id.user_id", "=", 2]]);
   });
 
   it("anti-CSRF sur les écritures et commandes du moteur", async () => {

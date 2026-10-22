@@ -4,6 +4,8 @@
 // ADAPTER=odoo AUTH_MODE=odoo-session ODOO_URL=http://127.0.0.1:8069 ODOO_DB=simulateur,
 // front sur BASE_URL (défaut http://localhost:4321).
 // Contre amg : les mêmes étapes s'appliquent, avec les profils réels (cf. README).
+// Modifie l'état du simulateur (approbation, héritage, intitulé) : relancer le
+// simulateur avant chaque passage.
 
 import { chromium } from "playwright";
 

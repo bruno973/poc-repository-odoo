@@ -91,6 +91,8 @@ export const ActionDescriptorSchema = z.object({
   available: z.boolean(),
   views: z.object({ list: z.string().optional(), form: z.string().optional(), search: z.string().optional() }),
   defaultView: ViewTypeSchema,
+  /** Filtres actifs à l'ouverture (clés du schéma de recherche) */
+  defaultFilters: z.array(z.string()).optional(),
   diagnostics: z.array(DiagnosticSchema),
 });
 export type ActionDescriptor = z.infer<typeof ActionDescriptorSchema>;

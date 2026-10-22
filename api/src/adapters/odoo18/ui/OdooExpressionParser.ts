@@ -9,21 +9,21 @@
 
 import type { Condition, Flag, Scalar } from "@leila/ui-schema";
 
-type Token =
+export type Token =
   | { t: "num"; v: number }
   | { t: "str"; v: string }
   | { t: "name"; v: string }
   | { t: "op"; v: string }
   | { t: "end" };
 
-const OPERATORS = ["==", "!=", "<=", ">=", "<", ">", "(", ")", "[", "]", "{", "}", ",", ":", "."];
+const OPERATORS = ["==", "!=", "<=", ">=", "<", ">", "(", ")", "[", "]", "{", "}", ",", ":", ".", "+"];
 
-class Unsupported extends Error {}
+export class Unsupported extends Error {}
 
 /** Variables d'environnement d'Odoo : jamais résolues par Leila (repli prudent). */
-const ENVIRONMENT = ["uid", "context", "today", "now", "context_today", "current_date", "time", "datetime", "relativedelta", "self", "user"];
+export const ENVIRONMENT = ["uid", "context", "today", "now", "context_today", "current_date", "time", "datetime", "relativedelta", "self", "user"];
 
-function tokenize(src: string): Token[] {
+export function tokenize(src: string): Token[] {
   const out: Token[] = [];
   let i = 0;
   while (i < src.length) {
@@ -76,9 +76,19 @@ function lastIsValue(tokens: Token[]): boolean {
   return !!last && (last.t === "num" || last.t === "str" || last.t === "name" || (last.t === "op" && (last.v === ")" || last.v === "]")));
 }
 
+/**
+ * Clés du contexte apportées par la session de l'utilisateur (et non par l'action) :
+ * leur valeur n'est pas connue au moment de l'analyse → non pris en charge.
+ */
+const USER_CONTEXT_KEYS = ["lang", "tz", "uid", "allowed_company_ids", "tz_offset", "active_id", "active_ids", "active_model"];
+
 class Parser {
   private i = 0;
-  constructor(private readonly tokens: Token[]) {}
+  constructor(
+    private readonly tokens: Token[],
+    /** Contexte littéral de l'action : `context.get('clé')` y est lu (constaté sur amg). */
+    private readonly context?: Readonly<Record<string, Literal>>,
+  ) {}
 
   private peek(): Token {
     return this.tokens[this.i] as Token;
@@ -165,6 +175,7 @@ class Parser {
       if (t.v === "False") return { op: "const", value: false };
       if (t.v === "None") return { op: "const", value: null };
       if (["and", "or", "not", "in"].includes(t.v)) throw new Unsupported("mot-clé inattendu");
+      if (t.v === "context" && this.context && this.isOp(".")) return this.contextGet();
       if (t.v === "parent" && this.isOp(".")) {
         this.i++;
         const f = this.next();
@@ -182,6 +193,30 @@ class Parser {
     }
     throw new Unsupported("terme inattendu");
   }
+  /** context.get('clé'[, défaut]) → valeur du contexte de l'action, défaut ou None. */
+  private contextGet(): Condition {
+    this.i++; // .
+    const get = this.next();
+    if (get.t !== "name" || get.v !== "get") throw new Unsupported("context.?");
+    this.expectOp("(");
+    const key = this.next();
+    if (key.t !== "str") throw new Unsupported("clé de contexte");
+    let fallback: Condition = { op: "const", value: null };
+    if (this.isOp(",")) {
+      this.i++;
+      fallback = this.atom();
+    }
+    this.expectOp(")");
+    this.noTrailer();
+    if (USER_CONTEXT_KEYS.includes(key.v)) throw new Unsupported(`contexte utilisateur ${key.v}`);
+    const context = this.context as Readonly<Record<string, Literal>>;
+    if (!Object.prototype.hasOwnProperty.call(context, key.v)) return fallback;
+    const v = context[key.v];
+    if (v === null || ["string", "number", "boolean"].includes(typeof v)) return { op: "const", value: v as Scalar };
+    if (Array.isArray(v) && v.every((x) => x === null || ["string", "number", "boolean"].includes(typeof x))) return { op: "const", value: v as Scalar[] };
+    throw new Unsupported("valeur de contexte composée");
+  }
+
   /** Appels, attributs et indexation après un nom : hors sous-ensemble */
   private noTrailer(): void {
     if (this.isOp("(") || this.isOp(".") || this.isOp("[")) throw new Unsupported("appel ou attribut");
@@ -207,38 +242,31 @@ class Parser {
 }
 
 /** Expression de condition → AST ; jamais d'exception : l'inconnu devient « unsupported ». */
-export function parseCondition(source: string): Condition {
+export function parseCondition(source: string, context?: Readonly<Record<string, Literal>>): Condition {
   try {
-    return new Parser(tokenize(source)).parseAll();
+    return new Parser(tokenize(source), context).parseAll();
   } catch {
     return { op: "unsupported", source };
   }
 }
 
 /** Valeur d'attribut XML → Flag : "1"/"True" et "0"/"False" deviennent des booléens. */
-export function parseFlag(raw: string | undefined): Flag | undefined {
+export function parseFlag(raw: string | undefined, context?: Readonly<Record<string, Literal>>): Flag | undefined {
   if (raw === undefined) return undefined;
   const v = raw.trim();
   if (v === "" || v === "0" || v === "False") return false;
   if (v === "1" || v === "True") return true;
-  const cond = parseCondition(v);
+  const cond = parseCondition(v, context);
   return cond.op === "const" && !Array.isArray(cond.value) ? Boolean(cond.value) : cond;
 }
 
 // ─── Littéraux (domaines, contextes) ──────────────────────────────────────────
 
-/** Référence à une valeur de la fiche dans un domaine (substituée côté serveur). */
-export interface FieldRef {
-  $field: string;
-}
-export type Literal = Scalar | FieldRef | Literal[] | { [key: string]: Literal };
+export type Literal = Scalar | Literal[] | { [key: string]: Literal };
 
 class LiteralParser {
   private i = 0;
-  constructor(
-    private readonly tokens: Token[],
-    private readonly allowFields = false,
-  ) {}
+  constructor(private readonly tokens: Token[]) {}
   parseAll(): Literal {
     const v = this.value();
     if ((this.tokens[this.i] as Token).t !== "end") throw new Unsupported("suite");
@@ -251,8 +279,6 @@ class LiteralParser {
       if (t.v === "True") return true;
       if (t.v === "False") return false;
       if (t.v === "None") return null;
-      // Nom de champ de la fiche : accepté seulement pour un modèle de domaine, jamais suivi d'un appel ou d'un attribut
-      if (this.allowFields && !ENVIRONMENT.includes(t.v) && !this.atAny("(", ".", "[")) return { $field: t.v };
       throw new Unsupported(`variable ${t.v}`);
     }
     if (t.t === "op" && (t.v === "[" || t.v === "(")) return this.items(t.v === "[" ? "]" : ")");
@@ -287,9 +313,6 @@ class LiteralParser {
     const t = this.tokens[this.i] as Token;
     return t.t === "op" && t.v === v;
   }
-  private atAny(...vs: string[]): boolean {
-    return vs.some((v) => this.at(v));
-  }
 }
 
 /** Domaine / contexte littéral, ou null s'il dépend de variables ou n'est pas reconnu. */
@@ -301,56 +324,6 @@ export function parseLiteral(source: string | false | null | undefined | unknown
   } catch {
     return null;
   }
-}
-
-/**
- * Modèle de domaine : littéral, dont les valeurs peuvent référencer des champs de la
- * fiche (`[('company_id', 'in', [company_id, False])]`). null si uid, context, appel…
- */
-export function parseDomainTemplate(source: unknown): unknown[] | null {
-  if (source === undefined || source === false || source === null || source === "" || source === "[]") return [];
-  if (Array.isArray(source)) return asDomain(source as Literal);
-  if (typeof source !== "string") return null;
-  try {
-    return asDomain(new LiteralParser(tokenize(source), true).parseAll());
-  } catch {
-    return null;
-  }
-}
-
-const isRef = (v: unknown): v is FieldRef => typeof v === "object" && v !== null && !Array.isArray(v) && "$field" in v;
-
-/** Champs de la fiche dont dépend le domaine. */
-export function domainFields(template: readonly unknown[], out = new Set<string>()): Set<string> {
-  const visit = (v: unknown) => {
-    if (isRef(v)) out.add(v.$field);
-    else if (Array.isArray(v)) v.forEach(visit);
-  };
-  template.forEach((term) => Array.isArray(term) && visit(term[2]));
-  return out;
-}
-
-/**
- * Remplace les références par les valeurs de la fiche (référence → id, vide → False).
- * null si une valeur est inconnue (champ non lisible) : l'opération est alors désactivée.
- */
-export function substituteDomain(template: readonly unknown[], values: Readonly<Record<string, unknown>>): unknown[] | null {
-  let unknown = false;
-  const value = (v: unknown): unknown => {
-    if (isRef(v)) {
-      if (!Object.prototype.hasOwnProperty.call(values, v.$field)) {
-        unknown = true;
-        return false;
-      }
-      const raw = values[v.$field];
-      if (raw === null || raw === undefined) return false;
-      if (typeof raw === "object" && !Array.isArray(raw) && "id" in raw) return (raw as { id: number }).id;
-      return raw;
-    }
-    return Array.isArray(v) ? v.map(value) : v;
-  };
-  const out = template.map((term) => (Array.isArray(term) ? [term[0], term[1], value(term[2])] : term));
-  return unknown ? null : out;
 }
 
 /** Domaine Odoo littéral et bien formé (liste de termes [champ, opérateur, valeur] et '&' '|' '!'). */

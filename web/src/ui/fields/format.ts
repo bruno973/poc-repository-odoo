@@ -14,6 +14,7 @@ export function formatValue(d: FieldDescriptor, value: FieldValue | undefined, v
     case "integer":
       return typeof value === "number" ? value.toLocaleString("fr-FR", { maximumFractionDigits: 0 }) : "";
     case "decimal": {
+      if (d.format === "duration" && typeof value === "number") return hours(value);
       const digits = d.digits?.[1] ?? 2;
       return typeof value === "number" ? value.toLocaleString("fr-FR", { minimumFractionDigits: digits, maximumFractionDigits: digits }) : "";
     }
@@ -35,4 +36,20 @@ export function formatValue(d: FieldDescriptor, value: FieldValue | undefined, v
     default:
       return typeof value === "string" ? value : String(value);
   }
+}
+
+/** 7.5 → "07:30" (durée en heures, comme le widget float_time d'origine). */
+export function hours(value: number): string {
+  const sign = value < 0 ? "-" : "";
+  const total = Math.round(Math.abs(value) * 60);
+  return `${sign}${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+/** "07:30" ou "7,5" → 7.5 ; null si illisible. */
+export function parseHours(text: string): number | null {
+  const t = text.trim();
+  const hm = /^(-?)(\d{1,4}):([0-5]\d)$/.exec(t);
+  if (hm) return (hm[1] ? -1 : 1) * (Number(hm[2]) + Number(hm[3]) / 60);
+  const n = Number(t.replace(",", "."));
+  return t !== "" && Number.isFinite(n) ? n : null;
 }

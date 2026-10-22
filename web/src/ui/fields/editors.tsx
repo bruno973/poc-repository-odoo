@@ -1,7 +1,9 @@
 // ui/fields/editors.tsx — Éditeurs génériques par type. La conversion produit des
 // valeurs typées ; le serveur revalide tout (type, droits, conditions).
 
+import { useEffect, useState } from "react";
 import type { EditorProps } from "../FieldRegistry.js";
+import { hours, parseHours } from "./format.js";
 
 export function TextEditor({ id, descriptor, value, required, onChange, multiline = false }: EditorProps & { multiline?: boolean }) {
   const v = typeof value === "string" ? value : "";
@@ -13,7 +15,33 @@ export function TextEditor({ id, descriptor, value, required, onChange, multilin
   );
 }
 
-export function NumberEditor({ id, value, required, onChange, integer = false }: EditorProps & { integer?: boolean }) {
+/** Durée en heures saisie en HH:MM (widget float_time) ; la valeur transmise reste décimale. */
+function DurationEditor({ id, value, required, onChange }: EditorProps) {
+  const [text, setText] = useState(typeof value === "number" ? hours(value) : "");
+  useEffect(() => setText(typeof value === "number" ? hours(value) : ""), [value]);
+  const invalid = text.trim() !== "" && parseHours(text) === null;
+  return (
+    <input
+      id={id}
+      className="field__input"
+      inputMode="numeric"
+      placeholder="HH:MM"
+      required={required}
+      aria-invalid={invalid}
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={() => {
+        const v = parseHours(text);
+        if (text.trim() === "") onChange(null);
+        else if (v !== null) onChange(v);
+      }}
+    />
+  );
+}
+
+export function NumberEditor(props: EditorProps & { integer?: boolean }) {
+  const { id, value, required, onChange, integer = false } = props;
+  if (!integer && props.descriptor.format === "duration") return <DurationEditor {...props} />;
   return (
     <input
       id={id}

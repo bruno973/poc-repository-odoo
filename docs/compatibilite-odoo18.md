@@ -59,12 +59,32 @@ Ajout : `api/src/adapters/odoo18/ui/commands.ts`. Tout autre bouton est affiché
 
 Restent, conformes aux arbitrages : boutons hors registre (statistiques, création d'utilisateur…), `one2many` / `many2many` / `binary` / `html` / `properties`, `chatter`.
 
-## À établir sur `amg` (UI-001, Q-08)
+## Inventaire réel (compte admin, 23 actions, 69 vues) — 22/10/2026
 
-Script : `cd api && INVENTAIRE_LOGIN=… INVENTAIRE_PASSWORD=… npm run inventaire` (un passage par profil) → `docs/inventaire/<compte>/` : architectures résolues, métadonnées de champs (aucune donnée d'enregistrement) et liste exacte des expressions non comprises.
+Fichiers : `docs/inventaire/admin/`. Rejoué à chaque `npm test` (`test/ui-inventaire-amg.test.ts`) : aucune erreur d'analyse, parité respectée, schémas conformes, **100 % des conditions comprises**, tous les domaines d'action évaluables.
 
-Les tests reposent sur des **reconstructions** des vues standard (`api/test/fixtures/odoo18`). À faire depuis un poste du tailnet :
-1. extraire les architectures réellement résolues de `hr.employee` (fiche, liste, recherche), `hr.attendance` et `hr.attendance.closure` pour chacun des 5 profils ;
-2. les déposer comme fixtures et mesurer le taux de nœuds / expressions pris en charge ;
-3. constaté sur `amg` (22/10/2026) : `ir.ui.menu.load_web_menus` s'appelle par `call_kw` avec `[[], debug]` (ids en premier argument) — corrigé, et reproduit par le simulateur ;
-4. vérifier les autres points d'Odoo 18 supposés ici : `has_access` sur une liste vide (droit du modèle), signature de `name_search`, forme `models[modèle].fields` de `get_views`, lecture de `groups_id`.
+| Constat | Correction |
+|---|---|
+| Action « Employés » : domaine `[('company_id', 'in', allowed_company_ids)]` → action **indisponible** | `allowed_company_ids` = société courante, `uid` = utilisateur (serveur) |
+| Champs « même société » : `(company_id and [...] or [...]) + ([])` | Évaluateur de domaines restreint côté serveur |
+| `context.get('chat_icon')`, `context.get('default_res_model')` | Lus dans le contexte de l'action |
+| 19 champs de recherche à `filter_domain` (`self`) | `self` = texte saisi |
+| 45 filtres « regrouper par » affichés grisés | Retirés des filtres (diagnostic seul) ; filtres `invisible="1"` masqués |
+| Filtres par défaut des actions (`search_default_*`) ignorés | Appliqués à l'ouverture |
+| Widgets `float_time` (30), `boolean_toggle` / `boolean` / `boolean_switch` (24), `radio`, `badge`, `text` | Reconnus ; `float_time` en HH:MM |
+| Paramètres (`res.config.settings`, 105 éléments non pris en charge) | Action indisponible : écran natif requis |
+
+Fiche employé (`hr.employee`, vue 547) : **0 sélection désactivée** (9 auparavant). Restent : 15 boutons hors registre, `one2many` / `many2many` / image / `html` / `properties`, `chatter`, 5 regroupements.
+
+## Points encore à vérifier sur `amg`
+
+Script : `cd api && INVENTAIRE_LOGIN=… INVENTAIRE_PASSWORD=… npm run inventaire` (un passage par profil) → `docs/inventaire/<compte>/`. Seul le compte admin est inventorié : les profils non administrateurs (manager, employé) restent à passer, leurs vues diffèrent (groupes).
+
+Constaté sur `amg` (inventaire admin du 22/10/2026) :
+- `ir.ui.menu.load_web_menus` s'appelle par `call_kw` avec `[[], debug]` (ids en premier argument) — corrigé, et reproduit par le simulateur ;
+- `get_views` renvoie bien les champs sous `models[modèle].fields` ;
+- 100 % des conditions (`invisible`, `readonly`, `required`, `column_invisible`) des vues inventoriées sont comprises (test `ui-inventaire-amg.test.ts`).
+
+Reste à vérifier :
+1. inventorier les profils non administrateurs (manager, employé) et rejouer `ui-inventaire-amg.test.ts` sur leurs dossiers ;
+2. `has_access` sur une liste vide (droit du modèle), signature positionnelle de `name_search`, lecture de `groups_id` pour un compte non administrateur.

@@ -5,17 +5,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import type { Node } from "@leila/ui-schema";
-import {
-  asDomain,
-  combineDomains,
-  domainFields,
-  normalizeDomain,
-  parseCondition,
-  parseDomainTemplate,
-  parseFlag,
-  parseLiteral,
-  substituteDomain,
-} from "../src/adapters/odoo18/ui/OdooExpressionParser.js";
+import { domainRefs, evaluateDomain, parseDomain } from "../src/adapters/odoo18/ui/OdooDomain.js";
+import { asDomain, combineDomains, normalizeDomain, parseCondition, parseFlag, parseLiteral } from "../src/adapters/odoo18/ui/OdooExpressionParser.js";
 import { type OdooFieldMeta, parseArch } from "../src/adapters/odoo18/ui/OdooViewParser.js";
 import { uiState } from "./fake-odoo-ui.js";
 
@@ -74,17 +65,35 @@ describe("Expressions Odoo → AST", () => {
     assert.equal(parseLiteral("[('user_id', '=', uid)]"), null);
     assert.equal(asDomain(parseLiteral("[('a', '=')]")), null);
   });
-  it("modèles de domaine : valeurs de la fiche substituées côté serveur, variables refusées", () => {
-    const t = parseDomainTemplate("['|', ('company_id', '=', False), ('company_id', 'in', [company_id, False])]");
-    assert.ok(t);
-    assert.deepEqual([...domainFields(t)], ["company_id"]);
-    assert.deepEqual(substituteDomain(t, { company_id: { id: 4, label: "B" } }), ["|", ["company_id", "=", false], ["company_id", "in", [4, false]]]);
-    assert.equal(substituteDomain(t, {}), null, "valeur non lisible → opération désactivée");
-    assert.deepEqual(substituteDomain(t, { company_id: null }), ["|", ["company_id", "=", false], ["company_id", "in", [false, false]]]);
-    for (const bad of ["[('user_id', '=', uid)]", "[('x', '=', context.get('a'))]", "[('x', '=', company_id.id)]", "[('x', '=', f(1))]"]) {
-      assert.equal(parseDomainTemplate(bad), null, bad);
+  it("domaines : valeurs de la fiche, uid, société et texte cherché, évalués côté serveur", () => {
+    const company = parseDomain("['|', ('company_id', '=', False), ('company_id', 'in', [company_id, False])]");
+    assert.ok(company);
+    assert.deepEqual([...domainRefs(company).fields], ["company_id"]);
+    assert.deepEqual(evaluateDomain(company, { values: { company_id: { id: 4, label: "B" } } }), ["|", ["company_id", "=", false], ["company_id", "in", [4, false]]]);
+    assert.equal(evaluateDomain(company, { values: {} }), null, "valeur non lisible → opération désactivée");
+    // Motif constaté sur amg (champs « même société »)
+    const checkCompany = parseDomain("(company_id and [('company_id', 'in', [company_id] + [False])] or [('company_id', '=', False)]) + ([])");
+    assert.ok(checkCompany);
+    assert.deepEqual(evaluateDomain(checkCompany, { values: { company_id: { id: 1, label: "A" } } }), [["company_id", "in", [1, false]]]);
+    assert.deepEqual(evaluateDomain(checkCompany, { values: { company_id: null } }), [["company_id", "=", false]]);
+    const allowed = parseDomain("[('company_id', 'in', allowed_company_ids)]");
+    assert.ok(allowed);
+    assert.deepEqual(evaluateDomain(allowed, { env: { allowed_company_ids: [1] } }), [["company_id", "in", [1]]]);
+    assert.equal(evaluateDomain(allowed, {}), null, "société inconnue → indisponible, jamais élargi");
+    const search = parseDomain("['|', ('work_email', 'ilike', self), ('name', 'ilike', self)]");
+    assert.ok(search);
+    assert.deepEqual(evaluateDomain(search, { env: { self: "ali" } }), ["|", ["work_email", "ilike", "ali"], ["name", "ilike", "ali"]]);
+    for (const bad of ["[('x', '=', context.get('a'))]", "[('x', '=', company_id.id)]", "[('x', '=', f(1))]", "[('d', '<', context_today().strftime('%Y-%m-%d'))]"]) {
+      assert.equal(parseDomain(bad), null, bad);
     }
-    assert.equal(parseLiteral("[('a', '=', company_id)]"), null, "les filtres et actions restent littéraux");
+    assert.equal(evaluateDomain({ k: "list", items: [{ k: "lit", v: "x" }] }), null, "terme mal formé");
+  });
+  it("conditions : context.get lu dans le contexte de l'action", () => {
+    const ctx = { chat_icon: true, default_res_model: "hr.employee" };
+    assert.deepEqual(parseCondition("not context.get('chat_icon')", ctx), { op: "not", arg: { op: "const", value: true } });
+    assert.deepEqual(parseCondition("context.get('absent', 3)", ctx), { op: "const", value: 3 });
+    assert.equal(parseCondition("context.get('tz')", ctx).op, "unsupported", "clé du contexte utilisateur");
+    assert.equal(parseCondition("context.get('chat_icon')").op, "unsupported", "sans contexte d'action");
   });
   it("combine les domaines comme Odoo (notation préfixée)", () => {
     assert.deepEqual(normalizeDomain([["a", "=", 1], ["b", "=", 2]]), ["&", ["a", "=", 1], ["b", "=", 2]]);
@@ -127,12 +136,18 @@ describe("Fiche employé (form)", () => {
   });
   it("sélection de référence : domaines constants ou dépendant de la fiche", () => {
     assert.equal(view.fields["coach_id"]?.relation?.lookup, true);
-    assert.deepEqual(view.fieldDomains["coach_id"], []);
+    const coach = view.fieldDomains["coach_id"];
+    assert.ok(coach);
+    assert.deepEqual(evaluateDomain(coach), []);
     assert.equal(view.fields["department_id"]?.relation?.lookup, true, "domaine du champ dépendant de company_id");
-    assert.deepEqual(view.fieldDomains["department_id"], [["company_id", "in", [{ $field: "company_id" }, false]]]);
+    const d = view.fieldDomains["department_id"];
+    assert.ok(d);
+    assert.deepEqual(evaluateDomain(d, { values: { company_id: { id: 2, label: "B" } } }), [["company_id", "in", [2, false]]]);
     assert.equal(view.fields["resource_calendar_id"]?.relation?.lookup, true, "domaine de vue dépendant de company_id");
     assert.ok(view.conditionFields.has("company_id"), "valeur nécessaire au domaine chargée avec la fiche");
-    assert.deepEqual(view.fieldDomains["work_location_id"], [["active", "=", true]]);
+    const wl = view.fieldDomains["work_location_id"];
+    assert.ok(wl);
+    assert.deepEqual(evaluateDomain(wl), [["active", "=", true]]);
   });
   it("boutons hors registre : non exécutables, signalés", () => {
     const buttons = nodes.filter((n) => n.kind === "button");
@@ -181,18 +196,21 @@ describe("Liste et recherche des présences", () => {
     assert.deepEqual(list.decorations.map((d) => d.style), ["warning", "danger"]);
     assert.ok(list.diagnostics.some((d) => d.code === "unsupported_command"));
   });
-  it("filtres : domaines littéraux utilisables, uid et dates désactivés", () => {
+  it("filtres : uid pris en charge (serveur), dates désactivées", () => {
     const filters = search.root.filter((n) => n.kind === "filter");
     const byLabel = Object.fromEntries(filters.map((f) => [f.kind === "filter" && f.label, f.kind === "filter" && f.available]));
-    assert.deepEqual(byLabel, { "Mes présences": false, Présent: true, "À approuver": true, Refusées: true, "Date d'arrivée": false });
+    assert.deepEqual(byLabel, { "Mes présences": true, Présent: true, "À approuver": true, Refusées: true, "Date d'arrivée": false });
     assert.deepEqual(search.filters.map((f) => f.group), [0, 0, 1, 1, 1]);
-    assert.deepEqual(search.filters.find((f) => f.key === "f1")?.domain, [["check_out", "=", false]]);
+    const present = search.filters.find((f) => f.key === "f1")?.domain;
+    assert.ok(present);
+    assert.deepEqual(evaluateDomain(present), [["check_out", "=", false]]);
   });
-  it("recherche employé : filter_domain non pris en charge → désactivée (sens préservé)", () => {
+  it("recherche employé : filter_domain avec « self », regroupements non proposés comme filtres", () => {
     const emp = parseArch(fixture("hr.employee.search.xml"), "search", ctx("hr.employee"));
-    assert.equal(emp.searchFields["name"]?.usable, false);
+    assert.equal(emp.searchFields["name"]?.usable, true);
     assert.equal(emp.searchFields["department_id"]?.usable, true);
-    assert.ok(emp.root.some((n) => n.kind === "filter" && n.label === "Département" && !n.available), "regroupement");
+    assert.ok(!emp.root.some((n) => n.kind === "filter" && n.label === "Département"), "regroupement affiché comme filtre");
+    assert.ok(emp.diagnostics.some((d) => d.message.includes("Regroupement")));
     assert.ok(emp.diagnostics.some((d) => d.sourceTag === "searchpanel"));
   });
   it("refuse une architecture avec DOCTYPE/ENTITY", () => {

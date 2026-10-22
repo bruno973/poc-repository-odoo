@@ -21,7 +21,8 @@ import type {
   Node,
 } from "@leila/ui-schema";
 import { conditionFields, isSupported } from "@leila/ui-schema";
-import { asDomain, domainFields, parseCondition, parseDomainTemplate, parseFlag, parseLiteral } from "./OdooExpressionParser.js";
+import { concatDomains, type DomainEnvName, type DomainExpr, domainRefs, parseDomain } from "./OdooDomain.js";
+import { type Literal, parseCondition, parseFlag, parseLiteral } from "./OdooExpressionParser.js";
 
 /** Métadonnées d'un champ telles que renvoyées par get_views / fields_get (Odoo 18). */
 export interface OdooFieldMeta {
@@ -44,14 +45,23 @@ export interface ParseContext {
   fields: Readonly<Record<string, OdooFieldMeta>>;
   /** Clé de commande si ce bouton est dans le registre fermé, sinon undefined */
   commandFor(button: { name: string; type: string }): string | undefined;
+  /** Contexte littéral de l'action (lu par `context.get(…)` dans les conditions) */
+  actionContext?: Readonly<Record<string, Literal>> | undefined;
 }
 
 /** Filtre de recherche : la clé est publiée, le domaine reste côté BFF. */
 export interface ServerFilter {
   key: string;
-  domain: unknown[] | null;
+  /** Nom technique (search_default_<name> du contexte d'action) */
+  name: string;
+  domain: DomainExpr | null;
   group: number;
 }
+
+/** Variables qu'un domaine peut utiliser selon l'usage (ADR-002, OdooDomain.ts). */
+const RECORD_ENV: readonly DomainEnvName[] = ["uid", "allowed_company_ids"];
+const SEARCH_ENV: readonly DomainEnvName[] = ["uid", "allowed_company_ids", "self"];
+const envOk = (expr: DomainExpr, allowed: readonly DomainEnvName[]) => [...domainRefs(expr).env].every((e) => allowed.includes(e));
 
 export interface ParsedView {
   root: Node[];
@@ -62,12 +72,13 @@ export interface ParsedView {
   conditionFields: Set<string>;
   /** Recherche : filtres et champs de recherche, côté serveur uniquement */
   filters: ServerFilter[];
-  searchFields: Record<string, { usable: boolean }>;
+  /** filterDomain : domaine de recherche avec `self` = texte saisi ; absent : `ilike` sur le champ */
+  searchFields: Record<string, { usable: boolean; filterDomain?: DomainExpr }>;
   /**
    * Domaines de champ (sélection d'une référence) : modèle pris en charge (constantes et
    * valeurs de la fiche, substituées côté serveur), ou null.
    */
-  fieldDomains: Record<string, unknown[] | null>;
+  fieldDomains: Record<string, DomainExpr | null>;
   /**
    * Parité (champs et boutons) : fieldsInArch + buttonsInArch = fieldsImported +
    * buttonsImported + excluded + unsupported. unsupportedNodes : autres éléments non pris en charge.
@@ -109,6 +120,14 @@ const PRESENTATION_WIDGETS: Record<string, FieldDescriptor["format"] | null> = {
   email: "email",
   phone: "phone",
   url: "url",
+  // Inventaire amg : les plus fréquents après float_time
+  float_time: "duration",
+  boolean_toggle: null,
+  boolean: null,
+  boolean_switch: null,
+  text: null,
+  radio: null,
+  badge: null,
   many2one_avatar: null,
   many2one_avatar_user: null,
   many2one_avatar_employee: null,
@@ -161,7 +180,7 @@ export function parseArch(arch: string, viewType: "list" | "form" | "search", ct
 
   const diag = (d: Diagnostic) => out.diagnostics.push(d);
   const flag = (raw: string | undefined, path: string, attr: string): Flag | undefined => {
-    const f = parseFlag(raw);
+    const f = parseFlag(raw, ctx.actionContext);
     if (f !== undefined && typeof f !== "boolean") {
       conditionFields(f, out.conditionFields);
       if (!isSupported(f)) {
@@ -206,7 +225,7 @@ export function parseArch(arch: string, viewType: "list" | "form" | "search", ct
       ...(Array.isArray(meta.digits) ? { digits: meta.digits } : {}),
       ...(type === "money" ? { currencyField: meta.currency_field ?? "currency_id" } : {}),
       ...(meta.help ? { help: meta.help } : {}),
-      ...(format && type === "text" ? { format } : {}),
+      ...(format && ((type === "text" && format !== "duration") || (type === "decimal" && format === "duration")) ? { format } : {}),
     };
     if (type === "selection" && !Array.isArray(meta.selection)) {
       descriptor.type = "unsupported";
@@ -214,13 +233,14 @@ export function parseArch(arch: string, viewType: "list" | "form" | "search", ct
       diag({ code: "unsupported_field_type", severity: "warning", path, message: "Sélection dynamique non prise en charge." });
     }
     if (type === "reference") {
-      // Sélection possible si les domaines (champ ET vue) sont des constantes ou des valeurs
-      // de la fiche ; uid, context, appels… → sélection désactivée (ADR-002)
-      const fieldDomain = parseDomainTemplate(meta.domain);
-      const viewDomain = parseDomainTemplate(attrs["domain"]);
-      const ok = fieldDomain !== null && viewDomain !== null && !readonly;
-      out.fieldDomains[name] = ok ? [...(fieldDomain ?? []), ...(viewDomain ?? [])] : null;
-      if (ok) domainFields(out.fieldDomains[name] as unknown[], out.conditionFields);
+      // Sélection possible si les domaines (champ ET vue) restent dans le sous-ensemble
+      // évaluable côté serveur (valeurs de la fiche, uid, société) ; sinon désactivée (ADR-002)
+      const fieldDomain = parseDomain(meta.domain);
+      const viewDomain = parseDomain(attrs["domain"]);
+      const both = fieldDomain && viewDomain ? concatDomains(fieldDomain, viewDomain) : null;
+      const ok = both !== null && envOk(both, RECORD_ENV) && !readonly;
+      out.fieldDomains[name] = ok ? both : null;
+      if (ok && both) domainRefs(both).fields.forEach((f) => out.conditionFields.add(f));
       if (!ok && !readonly) {
         diag({ code: "unsupported_domain", severity: "info", path, message: "Domaine de sélection non pris en charge : sélection désactivée." });
       }
@@ -392,7 +412,7 @@ export function parseArch(arch: string, viewType: "list" | "form" | "search", ct
     for (const [attr, style] of Object.entries(DECORATIONS)) {
       const raw = rootAttrs[attr];
       if (!raw) continue;
-      const when = parseCondition(raw);
+      const when = parseCondition(raw, ctx.actionContext);
       if (!isSupported(when)) {
         diag({ code: "unsupported_expression", severity: "info", path: `list/@${attr}`, message: "Décoration non prise en charge : style neutre." });
         continue;
@@ -453,13 +473,18 @@ export function parseArch(arch: string, viewType: "list" | "form" | "search", ct
         } else if (tag === "filter") {
           const key = `f${out.filters.length}`;
           const context = attrs["context"] ? parseLiteral(attrs["context"]) : null;
-          const groupBy = context && typeof context === "object" && !Array.isArray(context) && "group_by" in context;
-          const domain = attrs["date"] || groupBy ? null : asDomain(parseLiteral(attrs["domain"] ?? "[]"));
-          const usable = domain !== null && (!attrs["context"] || (context !== null && !groupBy));
-          if (!usable) {
-            diag({ code: "unsupported_domain", severity: "info", path: here, message: groupBy ? "Regroupement non pris en charge." : "Filtre non pris en charge : désactivé." });
+          const groupBy = context !== null && typeof context === "object" && !Array.isArray(context) && "group_by" in context;
+          if (groupBy) {
+            // Regroupement (hors MVP) : ce n'est pas un filtre, il n'est pas proposé comme tel
+            diag({ code: "unsupported_domain", severity: "info", path: here, message: "Regroupement non pris en charge." });
+            continue;
           }
-          out.filters.push({ key, domain: usable ? domain : null, group });
+          const domain = attrs["date"] ? null : parseDomain(attrs["domain"] ?? "[]");
+          const usable = domain !== null && envOk(domain, RECORD_ENV) && (!attrs["context"] || context !== null);
+          out.filters.push({ key, name: attrs["name"] ?? key, domain: usable ? domain : null, group });
+          // Filtre invisible : utilisable seulement par le contexte de l'action (search_default_*), comme dans Odoo
+          if (attrs["invisible"] === "1" || attrs["invisible"] === "True") continue;
+          if (!usable) diag({ code: "unsupported_domain", severity: "info", path: here, message: "Filtre non pris en charge : désactivé." });
           out.root.push({ kind: "filter", filterKey: key, label: attrs["string"] ?? attrs["name"] ?? key, available: usable, group });
         } else if (tag === "field") {
           out.stats.fieldsInArch++;
@@ -471,10 +496,15 @@ export function parseArch(arch: string, viewType: "list" | "form" | "search", ct
             continue;
           }
           out.stats.fieldsImported++;
-          // filter_domain : expression avec « self » → hors MVP ; le remplacer par un ilike changerait le sens
-          const usable = !attrs["filter_domain"] && ["char", "text", "many2one", "selection"].includes(meta.type);
+          // filter_domain : `self` = texte saisi ; sinon recherche « ilike » sur le champ (comportement d'Odoo)
+          const filterDomain = attrs["filter_domain"] ? parseDomain(attrs["filter_domain"]) : undefined;
+          const usable =
+            filterDomain === undefined
+              ? // Comme Odoo : recherche « ilike » (nom affiché pour les relations) ; dates : sélecteur non pris en charge
+                ["char", "text", "many2one", "many2many", "one2many", "selection"].includes(meta.type)
+              : filterDomain !== null && envOk(filterDomain, SEARCH_ENV);
           if (!usable) diag({ code: "unsupported_domain", severity: "info", path: here, message: "Recherche sur ce champ non prise en charge : désactivée." });
-          out.searchFields[name] = { usable };
+          out.searchFields[name] = { usable, ...(usable && filterDomain ? { filterDomain } : {}) };
           out.root.push({ kind: "searchField", field: name, label: attrs["string"] ?? meta.string ?? name, available: usable });
         } else if (tag === "group") {
           visit(childrenOf(el, tag), here);

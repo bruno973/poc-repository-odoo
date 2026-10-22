@@ -55,8 +55,11 @@ export const FieldDescriptorSchema = z.object({
   options: z.array(z.object({ value: z.string(), label: z.string() })).optional(),
   digits: z.tuple([z.number().int(), z.number().int()]).optional(),
   currencyField: z.string().optional(),
-  /** text : présentation en lien (n'ouvre ni ne restreint rien) */
-  format: z.enum(["email", "phone", "url"]).optional(),
+  /**
+   * Présentation : text → lien (email, phone, url) ; decimal → durée en heures
+   * affichée et saisie en HH:MM (duration). N'ouvre ni ne restreint rien.
+   */
+  format: z.enum(["email", "phone", "url", "duration"]).optional(),
   /** reference : sélection d'un enregistrement lié possible (domaine pris en charge, recherche autorisée) */
   relation: z.object({ lookup: z.boolean() }).optional(),
   help: z.string().optional(),

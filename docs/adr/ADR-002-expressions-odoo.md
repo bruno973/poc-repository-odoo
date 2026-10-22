@@ -46,9 +46,16 @@ Une valeur **inconnue**, c'est-à-dire un champ absent des valeurs lisibles, ren
 
 `id` désigne l'identifiant de la fiche (constaté sur `amg` : `invisible="not id"`).
 
-**Domaines de sélection** (arbitrage « domain inconnu → opération désactivée ») : un domaine dont les valeurs sont des constantes ou des **champs de la fiche** est accepté comme modèle ; le BFF y substitue les valeurs lisibles par l'utilisateur au moment de la sélection et de l'écriture. Si une valeur référencée n'est pas lisible, ou si le domaine contient `uid`, `context`, un appel ou un attribut, l'opération est désactivée — jamais élargie.
+**Domaines** (arbitrage « domain inconnu → opération désactivée ») — d'après l'inventaire réel de `amg` (`api/src/adapters/odoo18/ui/OdooDomain.ts`) : les domaines sont des expressions restreintes **évaluées côté serveur**, jamais exécutées : constantes, listes / tuples, champs de la fiche, `and` / `or` / `not`, concaténation `+` (motif `(company_id and [...] or [...]) + ([])` des champs « même société »), et trois variables connues avec certitude par le BFF :
+- `uid` → l'utilisateur connecté ;
+- `allowed_company_ids` → sa société courante (ce qu'Odoo applique par défaut ; jamais un périmètre plus large) ;
+- `self` → le texte saisi (`filter_domain` des champs de recherche).
 
-Non pris en charge en MVP : appels de fonction, indexation, `context.get(…)`, `uid`, `today`, `now`, `context_today()`. On les ajoutera au vu de l'inventaire réel des vues de `amg` (UI-001, Q-08).
+Si une valeur référencée n'est pas lisible, ou si le domaine contient `context`, `context_today()`, un appel ou un attribut, l'opération est désactivée — jamais élargie.
+
+**Contexte d'action** : `context.get('clé'[, défaut])` est lu dans le contexte **littéral** de l'action (connu au moment de l'analyse) ; les clés du contexte utilisateur (`lang`, `tz`, `uid`, `allowed_company_ids`, `active_*`) restent non prises en charge.
+
+Non pris en charge dans les conditions : appels de fonction (hors `context.get`), indexation, `uid`, `today`, `now`, `context_today()`. Sur les 23 actions de l'inventaire admin de `amg`, **toutes** les conditions sont désormais comprises. On les ajoutera au vu de l'inventaire réel des vues de `amg` (UI-001, Q-08).
 
 ## 4. Replis quand une condition est inconnue ou indéterminée (arbitrage)
 
