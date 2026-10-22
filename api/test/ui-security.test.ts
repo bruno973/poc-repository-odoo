@@ -160,3 +160,25 @@ describe("Moteur de présentation : sécurité", () => {
     assert.equal(res.statusCode, 401);
   });
 });
+
+describe("Diagnostics : détail réservé au mode diagnostic (§ 5.2)", () => {
+  let h: UiHarness;
+  before(async () => {
+    h = await startUiHarness();
+  });
+  after(() => h.close());
+
+  it("emplacements techniques pour l'administrateur technique, message seul pour les autres", async () => {
+    const admin = await h.as("p.admin", "admin-pw");
+    const manager = await h.as("p.manager", "manager-pw");
+    const formOf = async (c: UiClient) => {
+      const a = await openAction(c, "Employés");
+      return (await c.get(`/api/ui/v1/views/${a.views.form}`)).json() as ViewSchema;
+    };
+    const full = await formOf(admin);
+    const reduced = await formOf(manager);
+    assert.ok(full.diagnostics.some((d) => d.path.includes("field[")));
+    assert.ok(reduced.diagnostics.length > 0 && reduced.diagnostics.every((d) => d.path === "" && d.sourceTag === undefined));
+    assert.ok(!JSON.stringify(reduced.root).includes("action_open_attendances"), "nom de méthode exposé comme libellé");
+  });
+});

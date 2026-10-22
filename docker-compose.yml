@@ -7,7 +7,9 @@ name: poc-odoo-repository
 
 services:
   api:
-    build: ./api
+    build:
+      context: .
+      dockerfile: api/Dockerfile
     env_file:
       - path: ./api/.env
         required: false # sans .env : ADAPTER=mock + AUTH_MODE=fake-jwt (démo)
@@ -29,7 +31,9 @@ services:
 
   web:
     # SPA React servie par nginx, qui relaie /api vers l'API (même origine)
-    build: ./web
+    build:
+      context: .
+      dockerfile: web/Dockerfile
     ports:
       - "4321:80"
     depends_on:

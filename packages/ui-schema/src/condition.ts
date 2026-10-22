@@ -51,7 +51,7 @@ const UNKNOWN: unique symbol = Symbol("inconnu");
 type Value = Scalar | Value[] | typeof UNKNOWN;
 
 /**
- * Normalise une valeur Leila vers ce que voit une expression Odoo :
+ * Normalise une valeur Leila vers ce que voit une expression de condition :
  * vide → False, référence { id, label } → id, liste de références → liste d'ids.
  */
 function normalize(raw: unknown): Value {

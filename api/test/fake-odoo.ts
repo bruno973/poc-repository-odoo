@@ -183,7 +183,7 @@ export class FakeOdoo {
     this.bodies = [];
   }
 
-  async start(): Promise<this> {
+  async start(port = 0): Promise<this> {
     this.server = createServer((req, res) => {
       let body = "";
       req.on("data", (c: Buffer) => (body += c.toString()));
@@ -243,7 +243,7 @@ export class FakeOdoo {
         }
       });
     });
-    await new Promise<void>((resolve) => this.server?.listen(0, "127.0.0.1", resolve));
+    await new Promise<void>((resolve) => this.server?.listen(port, "127.0.0.1", resolve));
     this.url = `http://127.0.0.1:${(this.server.address() as AddressInfo).port}`;
     return this;
   }

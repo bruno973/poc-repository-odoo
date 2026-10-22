@@ -9,7 +9,8 @@
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
     "test": "node --import tsx --test test/*.test.ts",
-    "rapport": "tsx scripts/rapport-identite.ts"
+    "rapport": "tsx scripts/rapport-identite.ts",
+    "simulateur": "tsx scripts/odoo-simulateur.ts"
   },
   "dependencies": {
     "@fastify/cors": "^9.0.1",

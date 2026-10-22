@@ -1,4 +1,4 @@
-/* styles/global.css — Styles Leila One (repris des écrans Astro du PoC). */
+/* styles/global.css — Styles Leila One. */
 
 *, *::before, *::after { box-sizing: border-box; }
 body { font-family: system-ui, sans-serif; margin: 0; background: #f4f6fb; color: #222; }
@@ -150,3 +150,58 @@ table.grid { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .tree .toggle:disabled { cursor: default; color: #8a8fa3; }
 .tree .caret { width: 0.9rem; color: #4c6ef5; }
 .tree .count { font-size: 0.78rem; color: #8a8fa3; font-weight: 400; }
+
+/* Moteur de présentation (Leila UI Schema) */
+.btn--ghost { background: #fff; color: #364fc7; }
+.btn--ghost:hover { background: #f0f3ff; }
+.btn:disabled { cursor: not-allowed; }
+.chip { border: 1px solid #dfe3f0; background: #fff; border-radius: 999px; padding: 0.25rem 0.7rem; font: inherit; font-size: 0.85rem; cursor: pointer; margin: 0; }
+.chip--active { background: #e8edff; border-color: #4c6ef5; color: #364fc7; font-weight: 600; }
+.chip:disabled { opacity: 0.45; cursor: not-allowed; }
+.apps { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; margin-top: 1rem; }
+.apps__app { padding: 1rem 1.25rem; }
+.apps__app h2 { margin: 0 0 0.5rem; font-size: 1.05rem; }
+.apps__menu { list-style: none; margin: 0; padding-left: 0.75rem; display: grid; gap: 0.3rem; }
+.apps__folder { font-weight: 600; color: #555; }
+.ui-search { display: grid; gap: 0.6rem; margin-bottom: 1rem; }
+.ui-search__chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.ui-list__bar { margin-bottom: 0.5rem; }
+.ui-sort { background: none; border: 0; padding: 0; font: inherit; color: inherit; font-weight: 600; cursor: pointer; text-align: left; }
+.ui-row { cursor: pointer; }
+.ui-row.is-success td { color: #2b8a3e; }
+.ui-row.is-info td { color: #1971c2; }
+.ui-row.is-warning td { color: #b06d00; }
+.ui-row.is-danger td { color: #c92a2a; }
+.ui-row.is-muted td { color: #8a8fa3; }
+.ui-row.is-bold td { font-weight: 700; }
+.ui-row.is-italic td { font-style: italic; }
+.ui-form { display: grid; gap: 1rem; }
+.ui-header { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; padding-bottom: 0.75rem; border-bottom: 1px solid #eaecf5; }
+.ui-header .field { border: 0; flex-direction: row; gap: 0.5rem; align-items: center; margin-left: auto; }
+.ui-sheet { display: grid; gap: 1rem; }
+.ui-group__title { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: #4c6ef5; margin: 0 0 0.5rem; }
+.ui-group__body { display: grid; gap: 0 1.5rem; }
+.ui-group--cols-2 > .ui-group__body { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ui-group--cols-3 > .ui-group__body { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ui-group--cols-4 > .ui-group__body { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 720px) { .ui-group__body { grid-template-columns: 1fr !important; } }
+.ui-notebook .tabs__tab { background: none; font: inherit; cursor: pointer; }
+.ui-label { margin-top: 0.5rem; }
+.ui-separator { margin: 0.75rem 0 0.25rem; font-size: 0.9rem; color: #555; border-bottom: 1px solid #eaecf5; padding-bottom: 0.25rem; }
+.ui-multiline { white-space: pre-wrap; }
+.ui-unsupported { border: 1px dashed #d0d5e3; border-radius: 8px; padding: 0.5rem 0.75rem; color: #8a8fa3; font-size: 0.85rem; background: #fafbfe; }
+.ui-unsupported-value { color: #8a8fa3; font-style: italic; font-size: 0.88rem; }
+.ui-status { font-size: 0.88rem; color: #2b8a3e; }
+.ui-status.is-error { color: #c92a2a; }
+.ui-readonly-note { margin: 0 0 0.75rem; }
+.ui-diagnostics { margin-top: 1rem; }
+.ui-diagnostics__table { margin-top: 0.5rem; font-size: 0.82rem; background: #fff; }
+.ui-diagnostics__table td { white-space: normal; }
+.ui-diagnostics__table tr.is-blocking td:first-child { color: #c92a2a; font-weight: 700; }
+.ui-diagnostics__table tr.is-warning td:first-child { color: #b06d00; font-weight: 700; }
+.ref-editor { position: relative; display: flex; gap: 0.25rem; align-items: center; }
+.ref-editor .field__input { flex: 1; }
+.ref-editor__options { position: absolute; top: 100%; left: 0; right: 0; z-index: 10; list-style: none; margin: 2px 0 0; padding: 0.25rem; background: #fff; border: 1px solid #dfe3f0; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.1); max-height: 220px; overflow: auto; }
+.ref-editor__options button { width: 100%; text-align: left; background: none; border: 0; padding: 0.35rem 0.5rem; font: inherit; cursor: pointer; border-radius: 6px; }
+.ref-editor__options button:hover { background: #f0f3ff; }
+textarea.field__input { resize: vertical; }

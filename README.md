@@ -5,8 +5,15 @@ module `leila_hr` par des ports métier (Repository Pattern). Le front ne sait r
 Cahier de développement : [DEV.md](DEV.md) (v0.3) · baseline : [docs/baseline-L0.md](docs/baseline-L0.md) ·
 décisions : [docs/adr/](docs/adr/).
 
-Écrans : **Employés** (annuaire + fiche), **Pointer**, **Gestion**, **Synthèse**. La fiche repose encore
-sur le squelette `employee.skeleton.ts` ; le moteur générique (Leila UI Schema, ADR-001/002) est le lot suivant.
+Deux familles d'écrans :
+- **écrans génériques** (menu *Applications*) : générés depuis les vues Odoo 18 résolues, traduites dans
+  le langage de présentation Leila (**Leila UI Schema**, package `@leila/ui-schema`) — un champ ajouté
+  dans une vue Odoo apparaît sans toucher au front ;
+- **écrans métier Leila** : Employés, Pointer, Gestion, Synthèse, sur des contrats métier indépendants d'Odoo.
+
+Compatibilité : [docs/compatibilite-odoo18.md](docs/compatibilite-odoo18.md) · jalon : [docs/jalon-moteur-generique.md](docs/jalon-moteur-generique.md).
+
+Monorepo npm workspaces (`packages/ui-schema`, `api`, `web`) : **`npm install` à la racine**.
 
 ## Démarrage
 
@@ -45,8 +52,17 @@ Diagnostic réseau vers Odoo (ton Dockerfile racine) : `docker compose --profile
 ### Sans Docker
 
 ```bash
-cd api && npm install && npm run dev     # API sur http://localhost:3001 (api/.env : COOKIE_SECURE=0)
-cd web && npm install && npm run dev     # Leila One sur http://localhost:4321, /api relayé par Vite
+npm install                              # à la racine : dépendances + build du package partagé
+cd api && npm run dev                    # API sur http://localhost:3001 (api/.env : COOKIE_SECURE=0)
+cd web && npm run dev                    # Leila One sur http://localhost:4321, /api relayé par Vite
+```
+
+### Simulateur Odoo 18 (moteur générique sans accès à amg)
+
+```bash
+cd api && npm run simulateur             # Odoo simulé sur :8069 (p.admin/admin-pw, p.manager/manager-pw, p.employe/employe-pw)
+ADAPTER=odoo AUTH_MODE=odoo-session ODOO_URL=http://127.0.0.1:8069 ODOO_DB=simulateur COOKIE_SECURE=0 npm run dev
+curl -X POST http://127.0.0.1:8070/heritage   # simule un héritage de vue (nouveau champ sur la fiche employé)
 ```
 
 ## Vérifications
@@ -54,7 +70,7 @@ cd web && npm install && npm run dev     # Leila One sur http://localhost:4321, 
 ```bash
 cd api
 npm run typecheck     # TypeScript strict, sources + tests
-npm test              # 75 tests : contrat mock, droits simulés, visibilité, HTTP, protocole Odoo
+npm test              # 122 tests : contrat mock, droits simulés, visibilité, HTTP, protocole Odoo
                       # (faux serveur : /jsonrpc ET session), contrat d'identité (Odoo + faux JWT),
                       # sécurité (cookie, TTL, 429, en-têtes forgés, CSRF, CORS, mot de passe introuvable),
                       # frontières, répétition de la matrice de droits sur le mock
@@ -65,6 +81,10 @@ npm run typecheck     # TypeScript strict (types partagés avec l'API)
 npm run build         # build Vite
 npm run e2e           # parcours navigateur (API mock + faux JWT et `npm run dev` lancés ;
                       # la première fois : npx playwright install chromium)
+npm run e2e:ui        # jalon du moteur générique (simulateur Odoo + API odoo-session + front)
+
+cd ../packages/ui-schema
+npm test              # schéma, sémantique des conditions, replis prudents
 
 # Pas de fuite Odoo dans le domaine ni dans le front : vérifié par test/boundaries.test.ts
 # Plus aucune trace d'Astro : rg 'astro|@astrojs|\.astro' web/ docker-compose.yml → vide
@@ -104,6 +124,15 @@ api/src/
 api/test/           Contrats (ports, identité), faux Odoo, sécurité, matrice de droits
 api/scripts/        rapport-identite.ts (docs/rapport-identite.md)
 
+packages/ui-schema/  Leila UI Schema : types, Zod, conditions + évaluateur pur (zod seul, aucune dépendance ERP/DOM)
+
+api/src/  (suite)
+  domain/ui/        Ports ViewRepository, RecordRepository, CommandDispatcher
+  app/ui/           Clés opaques (HMAC par utilisateur), cache des définitions, règle d'édition, restrictions Leila
+  adapters/odoo18/ui/  get_views → schéma (OdooViewParser), expressions → AST, registre fermé de commandes
+  adapters/mock/ui/ Ressource portable « employés » (moteur sans ERP)
+  routes/ui.ts      /api/ui/v1/*
+
 web/                 Leila One : SPA React + Vite (ADR-003)
   vite.config.ts    /api relayé vers l'API en développement
   nginx.conf        Production : fichiers statiques + /api relayé, même origine, CSP
@@ -113,6 +142,8 @@ web/                 Leila One : SPA React + Vite (ADR-003)
     layout/         AppShell, Navigation (identité constatée, déconnexion), journal des appels
     features/       auth/ (connexion), employees/ (annuaire, fiche, TreeForm transitoire),
                     attendance/ (Pointer, Gestion), summary/ (Synthèse)
+    ui/             Moteur générique : ActionManager, AppsPage, renderers (Form, List, Search),
+                    FieldRegistry (par type), diagnostics — aucune connaissance d'un champ ou d'un modèle
     lib/format.ts   Formats d'affichage (fuseau de Cayenne)
     types/domain.ts Ré-exporte les types de api/src/domain (imports « type » seulement)
 ```
@@ -131,6 +162,9 @@ web/                 Leila One : SPA React + Vite (ADR-003)
 | GET | `/api/summary/groups`, `/api/summary/lines` | SummaryRepository |
 | POST | `/api/auth/login`, `/api/auth/logout` | IdentityProvider (identité réelle) |
 | GET | `/api/auth/me` | IdentityProvider |
+| GET | `/api/ui/v1/navigation`, `/actions/:k`, `/views/:k`, `/resources/:k/records/:id`, `/resources/:k/fields/:f/options` | ViewRepository / RecordRepository |
+| POST | `/api/ui/v1/resources/:k/query`, `/commands/:k`, `/cache/refresh` | RecordRepository / CommandDispatcher / ViewRepository |
+| PATCH | `/api/ui/v1/resources/:k/records/:id` | RecordRepository (revalidation serveur) |
 | GET | `/api/meta` (`authMode` seul), `/healthz` | — |
 | GET | `/api/_trace` | — (`DEBUG_ENDPOINTS=1` uniquement) |
 

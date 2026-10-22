@@ -1,8 +1,0 @@
-# Jamais dans l'image : secrets, dépendances de l'hôte, sorties de build
-.env
-.env.*
-node_modules
-dist
-npm-debug.log*
-.DS_Store
-coverage

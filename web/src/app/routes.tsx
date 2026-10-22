@@ -8,6 +8,8 @@ import { EmployeePage } from "../features/employees/EmployeePage.js";
 import { EmployeesPage } from "../features/employees/EmployeesPage.js";
 import { SummaryPage } from "../features/summary/SummaryPage.js";
 import { AppShell } from "../layout/AppShell.js";
+import { ActionManager } from "../ui/ActionManager.js";
+import { AppsPage } from "../ui/AppsPage.js";
 import { match, useRouter } from "./router.js";
 import { loginPath, useSession } from "./session.js";
 
@@ -23,6 +25,14 @@ const ROUTES: Route[] = [
   { path: "/pointer", title: "Pointer", render: () => <AttendanceKioskPage /> },
   { path: "/gestion", title: "Gestion", render: () => <AttendanceManagementPage /> },
   { path: "/synthese", title: "Synthèse", render: () => <SummaryPage /> },
+  // Écrans génériques (Leila UI Schema) : navigation importée, aucune page par écran
+  { path: "/app", title: "Applications", render: () => <AppsPage /> },
+  { path: "/app/:actionKey", title: "Application", render: (p) => <ActionManager key={p["actionKey"]} actionKey={p["actionKey"] ?? ""} recordId={null} /> },
+  {
+    path: "/app/:actionKey/:id",
+    title: "Fiche",
+    render: (p) => <ActionManager key={p["actionKey"]} actionKey={p["actionKey"] ?? ""} recordId={Number(p["id"]) || null} />,
+  },
 ];
 
 function Redirect({ to }: { to: string }) {

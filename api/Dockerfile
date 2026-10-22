@@ -1,29 +1,34 @@
-# ─── Étape 1 : compilation TypeScript ─────────────────────────────────────────
+# Contexte de build : la RACINE du dépôt (monorepo npm workspaces).
+#   docker compose build api   (cf. docker-compose.yml)
+
+# ─── Étape 1 : compilation (package partagé puis API) ────────────────────────
 FROM node:22-alpine AS build
 WORKDIR /app
+COPY package.json package-lock.json ./
+COPY packages/ui-schema/package.json packages/ui-schema/
+COPY api/package.json api/
+COPY web/package.json web/
+# --ignore-scripts : le postinstall racine (build du package) est fait explicitement ci-dessous
+RUN npm ci --ignore-scripts
+COPY packages/ui-schema packages/ui-schema
+COPY api/tsconfig.json api/
+COPY api/src api/src
+RUN npm run build -w @leila/ui-schema && npm run build -w poc-odoo-repository-api
 
-# Dépendances d'abord (cache Docker) ; npm ci = versions exactes du package-lock
-COPY package*.json ./
-RUN npm ci
-
-COPY tsconfig.json ./
-COPY src ./src
-RUN npm run build
-
-# ─── Étape 2 : image d'exécution, sans TypeScript ni outils de dev ───────────
+# ─── Étape 2 : exécution, sans TypeScript ni outils de dev ───────────────────
 FROM node:22-alpine
 WORKDIR /app
 ENV NODE_ENV=production
+COPY package.json package-lock.json ./
+COPY packages/ui-schema/package.json packages/ui-schema/
+COPY api/package.json api/
+COPY web/package.json web/
+RUN npm ci --omit=dev --ignore-scripts -w poc-odoo-repository-api -w @leila/ui-schema && npm cache clean --force
+COPY --from=build /app/packages/ui-schema/dist packages/ui-schema/dist
+COPY --from=build /app/api/dist api/dist
 
-COPY package*.json ./
-RUN npm ci --omit=dev && npm cache clean --force
-
-COPY --from=build /app/dist ./dist
-
-# Pas de root dans le conteneur
+# Pas de root dans le conteneur ; configuration par variables d'environnement
 USER node
-
-# Port de l'API (Fastify) ; la configuration arrive par variables d'environnement
-# (docker compose : env_file api/.env), jamais par un .env copié dans l'image.
+WORKDIR /app/api
 EXPOSE 3001
 CMD ["node", "dist/main.js"]

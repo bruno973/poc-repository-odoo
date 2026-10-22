@@ -308,7 +308,8 @@ export function parseArch(arch: string, viewType: "list" | "form" | "search", ct
           const commandKey = ctx.commandFor({ name: attrs["name"] ?? "", type: attrs["type"] ?? "" });
           const node: ButtonNode = {
             kind: "button",
-            label: attrs["string"] ?? attrs["title"] ?? attrs["name"] ?? "",
+            // Jamais le nom de méthode : c'est un identifiant technique du moteur
+            label: attrs["string"] ?? attrs["title"] ?? "Action",
             primary: /\b(oe_highlight|btn-primary)\b/.test(attrs["class"] ?? ""),
           };
           const inv = flag(attrs["invisible"], here, "invisible");

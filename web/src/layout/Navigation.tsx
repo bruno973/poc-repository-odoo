@@ -15,6 +15,7 @@ const LINKS = [
   { href: "/pointer", label: "Pointer" },
   { href: "/gestion", label: "Gestion" },
   { href: "/synthese", label: "Synthèse" },
+  { href: "/app", label: "Applications" },
 ] as const;
 
 export function Navigation() {

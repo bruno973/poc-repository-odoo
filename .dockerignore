@@ -1,0 +1,12 @@
+# Contexte Docker = racine du dépôt. Jamais dans les images : secrets, dépendances
+# de l'hôte, sorties de build, historique Git.
+.git
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+!**/.env.example
+docs
+**/coverage
+**/*.log
+.DS_Store

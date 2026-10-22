@@ -8,9 +8,11 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "e2e": "node e2e/smoke.mjs"
+    "e2e": "node e2e/smoke.mjs",
+    "e2e:ui": "node e2e/ui-engine.mjs"
   },
   "dependencies": {
+    "@leila/ui-schema": "1.0.0",
     "react": "18.3.1",
     "react-dom": "18.3.1"
   },

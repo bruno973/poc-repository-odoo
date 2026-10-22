@@ -139,6 +139,7 @@ export async function createRepositories(env: NodeJS.ProcessEnv, tracer: Tracer)
         .filter(Boolean),
       cacheTtlMs: parseFloat(env["UI_VIEW_CACHE_TTL_SECONDS"] ?? "300") * 1000,
       keys: new KeyRegistry(),
+      debugDiagnostics: env["DEBUG_ENDPOINTS"] === "1",
     });
     raw = {
       label: `Odoo, base ${base.db}${authMode === "odoo-session" ? " · identité réelle" : " · comptes partagés"}`,

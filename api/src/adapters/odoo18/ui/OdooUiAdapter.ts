@@ -37,7 +37,7 @@ import { leilaRestriction, type ResourceSemantic } from "../../../app/ui/restric
 import { DomainError } from "../../../domain/errors.js";
 import type { ViewerContext } from "../../../domain/tree.js";
 import type { CommandDispatcher, RecordRepository, ViewRepository } from "../../../domain/ui/ports.js";
-import { recordAccess } from "../capabilities.js";
+import { hasGroup, recordAccess } from "../capabilities.js";
 import { fromOdooDatetime, toOdooDatetime } from "../client.js";
 import type { OdooTransport, OdooTransportFactory } from "../transport.js";
 import { ODOO_COMMANDS, type OdooCommand } from "./commands.js";
@@ -52,6 +52,8 @@ export interface OdooUiConfig {
   cacheTtlMs: number;
   keys: KeyRegistry;
   commands?: readonly OdooCommand[];
+  /** Diagnostics détaillés (emplacements, balises) pour tous : développement uniquement */
+  debugDiagnostics?: boolean;
 }
 
 /** Sémantique Leila des modèles (restrictions métier propres à Leila). */
@@ -164,6 +166,10 @@ export class OdooUiAdapter implements ViewRepository, RecordRepository, CommandD
     const t = this.transports.for(viewer);
     const bundle = await this.bundle(t, viewer, target.actionId);
     const parsed = bundle.parsed[target.viewType];
+    // Mode diagnostic (§ 5.2) : détail technique pour les administrateurs techniques ;
+    // pour les autres, le message seul (sans emplacement ni balise d'origine).
+    const detailed = this.config.debugDiagnostics === true || (await hasGroup(t, "base.group_system").catch(() => false));
+    const diagnostics = detailed ? parsed.diagnostics : parsed.diagnostics.map(({ code, severity, message }) => ({ code, severity, path: "", message }));
     return ViewSchemaSchema.parse({
       schemaVersion: SCHEMA_VERSION,
       viewKey,
@@ -175,7 +181,7 @@ export class OdooUiAdapter implements ViewRepository, RecordRepository, CommandD
       fields: parsed.fields,
       root: this.withCommandKeys(parsed.root, viewer),
       ...(parsed.decorations.length ? { decorations: parsed.decorations } : {}),
-      diagnostics: parsed.diagnostics,
+      diagnostics,
     });
   }
 
