@@ -1,363 +1,651 @@
-# Cahier de dev — PoC Repository Leila ⇄ Odoo : identité réelle par utilisateur
+# Cahier de développement — Leila One : client React indépendant, compatible Odoo 18
 
-**Version :** 0.2 — DRAFT (réponses aux questions ouvertes intégrées)
-**Date :** 12/10/2026
-**Owner :** Bruno SOSIN
-**Statut :** En attente de validation
-**Dépôt :** `poc-odoo-repository` (api Fastify/TS + web Astro, Docker)
+**Version :** 0.3 — DRAFT / cadrage de la refonte frontend  
+**Date :** 22/10/2026  
+**Owner :** Bruno SOSIN  
+**Statut :** Spécification à confier au développeur ; réalisation non commencée dans le cadre de ce document  
+**Dépôt :** `poc-odoo-repository`  
+**Périmètre :** backend Fastify/TypeScript existant, frontend React + Vite remplaçant intégralement Astro, Odoo **18 Community** + `leila_hr`
 
----
+> **Instruction au développeur.** Ne pas implémenter un clone monolithique du client web Odoo. Construire **Leila One**, un client React fondé sur un **schéma de présentation indépendant du moteur ERP** (« Leila UI Schema »). Un adaptateur **Odoo 18** importe les vues XML résolues dans ce schéma ; des écrans Leila natifs consomment les contrats métier existants. **Astro doit disparaître complètement du code et de l'exécution.** Conserver le Repository Pattern et l'isolation des règles métier et des droits.
 
-## 1. Objectif
+## 0. Décisions structurantes et lecture du cahier
 
-> Prouver que si chaque utilisateur Leila agit dans Odoo **avec sa propre identité**, les droits d'Odoo (droits sur les modèles, règles d'enregistrement, groupes de champs, règles de `leila_hr`) pilotent l'interface Leila **sans qu'aucune règle de droit soit recodée** dans Leila — et chiffrer ce que l'identité partagée actuelle fait perdre.
+### 0.1 Décisions actées pour cet axe (v0.3)
 
-Ce PoC utilise la connexion Odoo directe (login + mot de passe Odoo) comme **remplaçant temporaire** de Keycloak. Il ne construit pas Keycloak : il démontre que l'identité réelle vaut l'investissement, et il prépare la jointure où Keycloak viendra se brancher.
-
-**Définition de succès (Go Keycloak) :**
-
-| # | Critère | Cible |
+| ID | Décision | Implication impérative |
 |---|---|---|
-| S-1 | Scénarios de la matrice de droits (§ 4.3) corrects en mode identité réelle | 100 % (≥ 10 scénarios) |
-| S-2 | Scénarios dont le résultat diffère entre comptes partagés et identité réelle | ≥ 60 % |
-| S-3 | Règles de droit recodées dans l'API ou le front en mode identité réelle | 0 |
-| S-4 | Jointure identité prouvée : un 2ᵉ fournisseur d'identité (faux JWT) passe le même contrat | Oui |
-| S-5 | Surcoût de latence lié aux contrôles de droits (`has_access`) | < 150 ms par fiche |
-| S-6 | Mot de passe Odoo retrouvé dans un log, un cookie, une réponse ou un stockage | 0 occurrence |
+| D-01 | **Suppression complète d'Astro** | Zéro package `astro` / `@astrojs/*`, fichier `.astro`, middleware SSR Astro, adaptateur Node Astro, route proxy Astro ou commande `astro` dans la cible finale. |
+| D-02 | **React + Vite + TypeScript strict** | SPA servie par un serveur statique et un reverse proxy ; développement Vite avec proxy `/api`. |
+| D-03 | **Fastify reste le BFF/API** | Conserver les ports, repositories métier, adaptateurs `mock` / `odoo18`, validations Zod, contrats et tests existants ; ne pas reconstruire le backend. |
+| D-04 | **Leila UI Schema, pas XML Odoo dans React** | Le moteur React rend un AST/JSON neutre, versionné et validé. XML, identifiants techniques Odoo, `ir.actions.*`, domaines et sessions Odoo restent confinés à l'adaptateur / couche BFF. |
+| D-05 | **Les vues XML Odoo 18 restent une source d'écrans** | Lire les architectures **résolues** via `get_views()` / `get_view()` ; ne pas analyser directement les fichiers XML des addons ni reproduire les mécanismes d'héritage. |
+| D-06 | **Deux familles d'écrans** | Écrans génériques importés depuis Odoo ; écrans stratégiques natifs Leila (pointage, kiosque, validations avancées, synthèses spécialisées). |
+| D-07 | **Identité réelle et règles métier côté serveur** | Le frontend n'est jamais source d'autorisation ; les opérations restent exécutées sous l'identité du véritable utilisateur Odoo. |
+| D-08 | **Indépendance progressive, non fictive** | Le moteur React et le schéma restent réutilisables sans Odoo. Les fonctions métier implémentées seulement dans `leila_hr`, les données et les écrans de modules Odoo spécifiques ne deviennent pas automatiquement portables. |
+| D-09 | **Compatibilité explicite, pas silencieuse** | Une balise, un widget, une action ou une expression non pris en charge produit un diagnostic visible/testable et une stratégie de repli définie ; aucun champ ou bouton critique supprimé silencieusement. |
+| D-10 | **Odoo 18 uniquement** | Pas de compatibilité multi-version, utiliser exclusivement `<list>` pour les nouvelles vues en liste. Aucun chantier de migration d'ERP dans ce lot. |
 
-**No-go (Keycloak repoussé ou repensé) si :** S-1 < 100 % parce que les règles Odoo ne couvrent pas le besoin métier. Dans ce cas, les droits devront de toute façon être modélisés côté Leila, et le sujet prioritaire devient le modèle de droits, pas le fournisseur d'identité.
+### 0.2 Deux objectifs distincts : continuité et autonomie
+
+1. **Continuité Odoo** : installer un module Odoo 18 comportant des vues classiques doit pouvoir faire apparaître ses écrans dans Leila **sans créer de page React spécifique**, pour les fonctionnalités couvertes par notre moteur.
+2. **Autonomie Leila** : remplacer ultérieurement Odoo par un autre moteur doit laisser réutilisables la SPA React, la navigation abstraite, les composants génériques, les contrats de présentation et les **contrats métier Leila**. Le remplacement de la logique métier et la reprise des données restent des projets à part entière.
+
+**Ne pas promettre « 100 % des écrans Odoo automatiquement ».** Les vues OWL personnalisées, `ir.actions.client`, certains templates Kanban, widgets et processus propres aux modules exigent des composants/adaptateurs dédiés.
+
+### 0.3 Conservation des acquis du cahier v0.2
+
+Le précédent objectif — **prouver les droits Odoo avec une identité réelle par utilisateur** — devient une **condition préalable de sécurité et un chantier de non-régression**, et non plus l'unique finalité du projet. Ses scénarios S-01 à S-12, ses cinq profils de test, ses décisions Q-01/Q-03/Q-05/Q-06 et ses livrables de comparaison sont **conservés** aux § 8 et 11.
+
+**État réel à revalider au démarrage :** le cahier v0.2 rapporte 31 tests verts et des fonctionnalités d'identité déjà développées ; le bundle transmis contient notamment `OdooSessionIdentity.ts`, `SessionTransport`, `rights-matrix.test.ts` et `FakeJwtIdentity.ts`. Cette présence de fichiers **n'atteste pas** de leur réussite actuelle : exécuter les suites de tests et constater leurs résultats avant toute modification.
 
 ---
 
-## 2. Contexte & périmètre
+## 1. Objectifs, périmètre, livrables
 
-### 2.1 Existant (acquis, à ne pas refaire)
+### 1.1 Résultat attendu
 
-- Ports `EmployeeRepository`, `AttendanceRepository`, `SummaryRepository` ; adaptateurs `mock` et `odoo18` ; schémas Zod en sortie ; garde anti-dérive (502).
-- Visibilité de la fiche évaluée côté serveur ; opérateur `and` ; `HAS_SPOUSE` corrigé.
-- Client Odoo sur l'API externe (`/jsonrpc`, clé d'API), `fields_get` en cache par compte.
-- Erreurs typées (`DomainError`), journal des appels, 31 tests verts **dont le contrat en lecture contre la base `amg`** (`erp.ts.beatitude973.fr`, via Tailscale).
-- Écrans Astro : Employés, Pointer, Gestion, Synthèse. Proxy `/api/*` qui injecte le viewer côté serveur.
-- Docker (multi-étapes, `.dockerignore`, compose). Contrainte réseau connue : le serveur Linux n'atteint pas le tailnet depuis le pont Docker ; le Mac oui.
+Un utilisateur se connecte à **Leila One** et peut :
 
-### 2.2 Limites actuelles que ce PoC lève
+- Parcourir les menus et actions **autorisés** par sa session, via une navigation React.
+- Ouvrir une **liste** et une **fiche** dont les champs, la structure, les libellés et les états proviennent des **définitions effectives** des vues Odoo 18, y compris les héritages installés.
+- Filtrer, trier, paginer, consulter et, lorsque pris en charge **et autorisé**, modifier des enregistrements ; déclencher les actions métier approuvées.
+- Utiliser les pages métier de l'ancien PoC (Employés, Pointer, Gestion, Synthèse) **sans Astro** et sans régression des droits.
+- Accéder aux écrans natifs Leila par les mêmes mécanismes de navigation et de session.
+- Constater clairement lorsqu'un type de vue ou un widget d'un module installé est **non supporté**, avec diagnostic permettant de développer l'adaptateur manquant.
 
-| Limite | Conséquence aujourd'hui |
+### 1.2 Périmètre du MVP de validation (obligatoire)
+
+- Connexion / déconnexion sous identité utilisateur réelle ; barre de navigation, routes protégées.
+- Navigation et actions Odoo **autorisées**, converties en contrats Leila (périmètre menus choisi sur `amg`).
+- Un **`ListRenderer`**, un **`FormRenderer`**, un **`SearchRenderer`**, un `FieldRegistry` minimal.
+- **Preuve sans squelette statique** : fiche `hr.employee` et liste `hr.attendance` générées depuis leurs vues résolues, avec personnalisation `leila_hr` visible quand elle existe.
+- Types de champs MVP : `char`, `text`, `boolean`, `integer`, `float`, `monetary` (si utilisé), `date`, `datetime`, `selection`, `many2one` ; lecture pour `one2many` et `many2many` au minimum avec diagnostic si édition non prise en charge.
+- Lecture/écriture en environnement de recette avec contrôles d'accès, limitations d'actions et conversion typée.
+- Variante `mock` du service UI pour tester hors Odoo.
+- Conteneur de frontend **statique** à la place du serveur Astro ; API uniquement sur réseau interne derrière proxy.
+
+**Jalon technique central :** ajouter/modifier dans **Odoo 18** une vue héritée qui introduit un champ simple sur la fiche employé, actualiser l'écran Leila et constater le changement **sans modifier le code React ni le schéma à la main**. Prouver aussi que le changement est refusé ou masqué selon les droits du compte.
+
+### 1.3 Extensions prévues, hors MVP initial
+
+- Kanban à partir d'un sous-ensemble documenté des templates QWeb, avec journalisation des constructeurs non supportés.
+- Regroupements avancés, édition de masse, pivot, graph, calendrier, actions contextuelles, assistants modaux.
+- Organigramme et messagerie/chatter.
+- Kiosque Leila React dédié, puis **mode hors ligne sécurisé** (chantier séparé : horodatage, identité, cache et synchronisation).
+- Schéma matérialisé/versionné avec workflow de synchronisation et arbitrage des modifications Odoo.
+- Keycloak/SSO, multi-client, migrations vers d'autres ERP, haute disponibilité des sessions.
+
+### 1.4 Livrables du développeur
+
+1. Nouveau frontend React + Vite compilable et déployable ; Astro totalement retiré.
+2. **Contrat `Leila UI Schema` v1**, spécification JSON/TypeScript et validations Zod (avec jeux de fixtures).
+3. Ports `ViewRepository` et `RecordRepository` **neutres**, adaptateur de métadonnées Odoo 18, adaptateur mock.
+4. `ListRenderer`, `FormRenderer`, `SearchRenderer`, `FieldRegistry`, `ActionManager` et journal des nœuds non supportés.
+5. Routes API BFF versionnées, documentation des entrées/sorties, gestion homogène des erreurs.
+6. Tests unitaires, de contrats, d'intégration Odoo 18 et E2E des parcours principaux, dont la matrice d'identité.
+7. `README.md`, `DEV.md`/ADR, guide de déploiement, tableau de compatibilité XML, journal de couverture, captures de recette.
+8. **Rapport de sortie** : ce qui fonctionne, ce qui ne fonctionne pas, risques persistants, commandes testées et recommandations du lot suivant.
+
+---
+
+## 2. Existant : conserver / faire évoluer / supprimer
+
+### 2.1 Backend à préserver
+
+| Fichier / sous-système existant | Traitement |
 |---|---|
-| Trois comptes Odoo partagés par rôle | Les règles Odoo s'appliquent au compte « manager », pas au vrai manager |
-| Viewer déclaré par `VIEWER_ROLE` / en-têtes `x-viewer-*` | Rôle choisi par configuration, pas constaté |
-| `editable` = `fields_get` seul | Champs affichés modifiables puis refusés (403) |
-| Filtre par département recodé dans `listEmployees` | Droit dupliqué hors d'Odoo |
-| Mock : `editable: true` partout, enregistrement en 501 | Le mock ne représente pas les droits |
+| `api/src/domain/EmployeeRepository.ts` | Conserver le contrat métier. |
+| `api/src/domain/AttendanceRepository.ts` | Conserver le contrat métier, les protections d'écriture. |
+| `api/src/domain/SummaryRepository.ts` | Conserver. |
+| `api/src/domain/identity.ts` | Conserver `Principal` / `IdentityProvider` ; séparer clairement contexte serveur et DTO exposé. |
+| `api/src/app/repositories.ts` | Étendre la composition des dépendances ; ne pas remplacer les repositories métier par des CRUD génériques. |
+| `api/src/adapters/odoo18/` | Conserver clients, transports, identité, mapping métier ; **ajouter** l'adaptateur de métadonnées UI. |
+| `api/src/adapters/mock/`, `api/src/adapters/fake/` | Conserver et enrichir pour les contrats UI et d'identité. |
+| `api/src/domain/tree.ts`, `tree.schema.ts` | Source d'inspiration pour les nœuds de présentation ; migration progressive vers `ui/` versionné. |
+| `api/src/domain/employee.skeleton.ts` | **Décommissionner comme source des écrans génériques** ; à conserver temporairement comme fixture de non-régression si utile. |
+| `api/test/*` | Ne pas supprimer les suites de droits, d'identité, de sécurité ou de contrat. |
+| `api/src/routes/*` | Conserver les endpoints métier ; ajouter des endpoints de navigation, vues, ressources et commandes contrôlées. |
 
-### 2.3 Ce que ce projet fait
+Le `formTree` existant contient `group`, `text`, `select`, `many2one` et des règles `visibleIf` / `editableIf`. Il démontre une première approche de rendu mais **repose sur un squelette `employee.skeleton.ts` codé dans le backend**, pas sur les vues XML installées. Ce n'est pas le moteur cible.
 
-- Connexion à Leila avec les identifiants Odoo ; session Odoo **par utilisateur**, conservée côté serveur.
-- Viewer **déduit d'Odoo** (utilisateur, employé, groupes).
-- Capacités calculées par Odoo : `editable` par champ, `canEdit` / `canApprove` par pointage.
-- Mode comparatif `AUTH_MODE=shared | odoo-session` pour rejouer les mêmes scénarios.
-- Matrice de scénarios de droits automatisée, rapport de comparaison.
-- Port `IdentityProvider` prêt à recevoir un adaptateur Keycloak.
+### 2.2 Frontend à remplacer intégralement
 
-### 2.4 Ce que ce projet ne fait PAS
+| Élément Astro existant | Remplacement |
+|---|---|
+| `web/astro.config.mjs` | `web/vite.config.ts` |
+| `web/src/middleware.ts` | Protection des routes via session/API dans React |
+| `web/src/pages/index.astro` | `HomePage.tsx` ou route d'action générique |
+| `web/src/pages/login.astro`, `logout.ts` | `LoginPage.tsx`, session React, API Fastify |
+| `web/src/pages/employees/*.astro` | Navigation action + vues génériques ; composants métier Leila conservables |
+| `web/src/pages/pointer.astro` | `AttendanceKioskPage.tsx` (écran natif Leila) |
+| `web/src/pages/gestion.astro`, `synthese.astro` | `ListRenderer` si vue standard ; composant natif si agrégat métier spécialisé |
+| `web/src/components/TreeForm.astro`, `nodes/*.astro` | `FormRenderer.tsx`, `FieldRegistry`, composants de champs React |
+| `web/src/components/Shell.astro`, `AppNav.astro` | `AppShell.tsx`, `Navigation.tsx` |
+| `web/src/pages/api/[...path].ts` | Proxy `/api` au niveau Vite (dev) et reverse proxy HTTP (prod) |
+| `web/src/lib/api.ts`, `format.ts`, `types/domain.ts` | Réutiliser ce qui est indépendant du framework ; refactoriser vers client typé / contrat partagé |
+| `web/astro.config.mjs`, dépendances et lock Astro, SSR Docker | **Supprimer** et remplacer par dépendances React + Vite / Docker statique |
 
-- Keycloak (ni serveur, ni realm, ni vérification JWT côté Odoo).
-- Double authentification Odoo (TOTP) : comptes de test sans 2FA.
-- Auto-modification de sa propre fiche par un employé : **hors besoin Leila** (décision Q-05). Aucune méthode dédiée ne sera prévue dans le connecteur.
-- Multi-client (une base Odoo par exécution, configurable).
-- Mode hors ligne, haute disponibilité, stockage de session distribué (mémoire seulement).
-- Migration Odoo 19 (`hr.version`, API JSON-2).
+**Condition de clôture :** `rg 'astro|@astrojs|\.astro' web/ docker-compose.yml` ne doit plus trouver de dépendances effectives (hors documentation historique explicitement exclue de la recherche).
 
-### 2.5 Dépendances externes
+### 2.3 Problèmes constatés dans le bundle (à corriger, non à recopier)
 
-| Dépendance | Détail | Bloquant ? |
-|---|---|---|
-| Base de test Odoo 18 | `amg` (base de test, décision Q-01), `leila_hr` installé ; écritures autorisées | Non |
-| 5 utilisateurs de test | Profils du § 4.2 sur `amg`, sans 2FA, rattachés à des employés | Oui |
-| Accès réseau | Mac sur le tailnet (ou conteneur Tailscale côté serveur) | Oui |
-
----
-
-## 3. Contraintes
-
-| Type | Contrainte | Dure/Souple |
-|---|---|---|
-| Temps | 3 semaines calendaires, 12–16 j de dev | Souple |
-| Stack | Fastify 4 + TS strict + Zod ; Astro 4 SSR ; Docker | Dure |
-| Moteur | Odoo 18 Community, multibase, `dbfilter = ^%d$` | Dure |
-| Réseau | Odoo joignable uniquement via Tailscale | Dure |
-| Données | Écritures autorisées sur `amg` (base de test) ; interdites sur toute base non listée dans `ODOO_WRITE_ALLOWED_DBS` | Dure |
-| RGPD | Si `amg` contient des données personnelles réelles (sécu, adresse, conjoint), accès restreint aux personnes du PoC | Souple |
-| Sécurité | Mot de passe Odoo en transit uniquement : jamais stocké, jamais journalisé | Dure |
-| Performance | P95 < 600 ms par opération via le tailnet | Souple |
-
-**Bottleneck identifié :** des utilisateurs de test aux droits **réellement différenciés** sur `amg` (managers, validateurs leila_hr, employés). Sans eux, la matrice ne prouve rien.
+- Le `docker-compose.yml` publie actuellement l'API par `3001:3001`, alors que le mode `shared` interprète des en-têtes d'identité. **Ne jamais exposer ce mode à des utilisateurs finaux.**
+- Le serveur Fastify configure actuellement CORS avec `origin: true`. Passer à une politique d'origine restreinte, ou ne pas utiliser CORS lorsque le proxy fournit une même origine.
+- Le proxy Astro est limité à une liste de chemins ; ne pas répliquer cette liste incomplète dans le nouveau frontend.
+- Le squelette actuel et les composants de formulaires ne couvrent pas le rendu récursif complet, toutes les relations et toutes les conversions de types.
+- Le droit d'écriture d'un champ doit être **recontrôlé côté serveur lors du `write`** et ne peut pas dépendre uniquement d'un attribut de présentation. Vérifier aussi l'élagage de visibilité et les règles métier personnalisées.
+- Le `SessionStore` est en mémoire : maintien accepté pour PoC, non pour déploiement multi-instance ; aucun cookie Odoo ni mot de passe exposé au navigateur.
 
 ---
 
-## 4. Exigences fonctionnelles
+## 3. Architecture cible et frontières de dépendance
 
-### 4.1 Exigences
-
-| ID | Exigence | MoSCoW | Critère d'acceptance |
-|---|---|---|---|
-| F-01 | En tant qu'utilisateur, je me connecte à Leila avec mon login et mon mot de passe Odoo afin d'agir sous ma propre identité. | Must | `POST /api/auth/login` → 204 + cookie `leila_sid` (httpOnly, SameSite=Lax, Secure hors local). Mauvais mot de passe → 401 générique, sans indiquer lequel des deux champs est faux. |
-| F-02 | En tant que système, je déduis le viewer d'Odoo (uid, employé lié, rôle) afin de ne plus dépendre d'une configuration. | Must | `GET /api/auth/me` renvoie `{ userId, employeeId, role, displayName, company }` ; `employeeId` = `hr.employee` où `user_id = uid` ; rôle selon la table § 6.4. |
-| F-03 | En tant que système, chaque appel de port en mode `odoo-session` utilise la session Odoo de l'utilisateur. | Must | Le journal des appels affiche l'uid Odoo de chaque appel ; aucun appel par compte partagé dans ce mode (test automatisé). |
-| F-04 | En tant qu'utilisateur, je ne vois modifiables que les champs que je peux réellement modifier. | Must | `editable = fields_get.readonly === false ∧ has_access("write") sur la fiche ∧ editableIf (squelette)`. Aucun 403 après un enregistrement de champs affichés modifiables (scénarios S-05, S-06). |
-| F-05 | En tant que système, `updateEmployee` applique exactement la même règle que l'affichage. | Must | Champ non modifiable → 403 **avant** l'appel `write` (test protocole). |
-| F-06 | En tant que manager ou validateur, je ne vois « Approuver », « Refuser » et les interrupteurs de Gestion que sur les pointages où j'en ai le droit. | Must | `Attendance.capabilities = { canEdit, canApprove }` calculé via `has_access` ; boutons masqués sinon ; scénarios S-03, S-04. |
-| F-07 | En tant qu'utilisateur, je me déconnecte. | Must | `POST /api/auth/logout` détruit la session Leila **et** la session Odoo ; le cookie est supprimé ; l'appel suivant → 401. |
-| F-08 | En tant qu'utilisateur dont la session Odoo a expiré, je suis renvoyé vers la connexion sans message technique. | Must | Session Odoo expirée → `DomainError("unauthenticated")` → 401 → redirection `/login?retour=…`. |
-| F-09 | En tant que développeur, je bascule `AUTH_MODE=shared` / `odoo-session` sans changer de code afin de comparer les deux modes. | Must | Les deux modes passent le contrat des ports ; la matrice produit un rapport des écarts. |
-| F-10 | En tant que développeur, le mock reflète les droits par rôle. | Should | `editable` et `capabilities` calculés depuis `editableIf` et le rôle ; `updateEmployee` implémenté en mémoire (plus de 501). |
-| F-11 | En tant qu'architecte, je dispose d'un port `IdentityProvider` avec deux adaptateurs. | Must | `OdooSessionIdentity` (réel) + `FakeJwtIdentity` (tests) passent le même contrat d'identité (critère S-4). |
-| F-12 | En tant que développeur, le cycle d'écriture (arrivée, départ, correction, approbation) est validé contre `amg`. | Must | Suite `ODOO_TEST_WRITES=1` verte sur `amg`, avec chacun des 5 profils. |
-| F-13 | En tant que décideur, je dispose d'un rapport Go/No-go. | Must | `docs/rapport-identite.md` généré : matrice, écarts, latences, constats. |
-| F-14 | En tant qu'utilisateur, je vois mon nom et mon rôle constaté dans la barre de navigation. | Could | Remplace `VIEWER_ROLE` dans `AppNav` en mode `odoo-session`. |
-
-### 4.2 Profils de test (base `amg`)
-
-| Profil | Groupes Odoo (à confirmer, cf. Q-02) | Rattachement leila_hr | But |
-|---|---|---|---|
-| `p.admin` | Employés : Administrateur ; Présences : Administrateur | — | Référence « tout voir » |
-| `p.manager` | Employés : Officier ; Présences : Officier | `attendance_manager_id` de 3 employés | Périmètre d'équipe |
-| `p.validateur` | Présences : utilisateur | Dans `attendance_validator_ids` de 2 employés hors de l'équipe de `p.manager` | Règle leila_hr de validation |
-| `p.employe` | Employés : aucun droit RH ; Présences : ses propres présences | Employé de l'équipe de `p.manager` | Cas « soi-même » |
-| `p.autre_societe` | Comme `p.manager`, société B | — | Règle multi-société |
-
-### 4.3 Matrice de scénarios (livrable central)
-
-Chaque scénario est un test automatisé (`api/test/rights-matrix.test.ts`) exécuté dans les deux modes. La colonne « attendu » décrit le comportement **défini par Odoo et leila_hr**, constaté dans l'interface Odoo avant d'écrire le test (T-01).
-
-| ID | Profil | Action | Attendu (Odoo) | Partagé (prévision) | Identité réelle |
-|---|---|---|---|---|---|
-| S-01 | p.manager | Lister les présences (Gestion) | Seulement son équipe (règle leila_hr) | Équipe du compte partagé, ou tout | à mesurer |
-| S-02 | p.manager | Ouvrir la Synthèse | Totaux de son équipe uniquement | Totaux d'un autre périmètre | à mesurer |
-| S-03 | p.employe | Approuver ses propres heures | Refusé, bouton absent | Selon le compte « employee » | à mesurer |
-| S-04 | p.validateur | Corriger un pointage d'un employé qu'il valide / qu'il ne valide pas | Autorisé / refusé | Indifférencié | à mesurer |
-| S-05 | p.manager | Modifier l'intitulé de poste d'un membre de son équipe | Selon droits Odoo | Champ affiché modifiable, 403 à l'enregistrement | à mesurer |
-| S-06 | p.employe | Ouvrir sa fiche : champs modifiables | Aucun (pas d'auto-modification, Q-05) | Champs affichés modifiables | à mesurer |
-| S-07 | p.employe | Ouvrir la fiche d'un collègue : données privées | Absentes | Absentes (élagage serveur) | à mesurer |
-| S-07b | p.manager | Ouvrir la fiche d'un membre de l'équipe : contact d'urgence | Absent (décision Q-03) | Absent | à mesurer |
-| S-08 | p.manager | Lire le n° de sécurité sociale d'un membre de l'équipe | Selon groupes de champ Odoo | Selon le compte partagé | à mesurer |
-| S-09 | p.autre_societe | Lister les employés | Société B uniquement | Société du compte partagé | à mesurer |
-| S-10 | p.manager | Pointer pour un employé hors équipe | Refusé | Indifférencié | à mesurer |
-| S-11 | p.validateur | Modifier une période clôturée | Refusé (règle de clôture leila_hr) | Indifférencié | à mesurer |
-| S-12 | tout profil | Ancien en-tête `x-viewer-role: hr_admin` forgé en mode `odoo-session` | Ignoré | Accepté | à mesurer |
-
-**Lecture du résultat :** chaque ligne où « Partagé » diffère de « Attendu » est un défaut que seule l'identité réelle corrige sans recodage. Le ratio de ces lignes alimente S-2.
-
----
-
-## 5. Exigences non fonctionnelles
-
-| Catégorie | Exigence | Valeur cible | Méthode de mesure |
-|---|---|---|---|
-| Performance | Connexion (authenticate + profil + rôle) | < 1,5 s | Chrono dans le test d'identité, 10 essais |
-| Performance | P95 par opération de port via tailnet | < 600 ms | Journal des appels, export JSON, 100 appels |
-| Performance | Surcoût `has_access` à l'ouverture d'une fiche | < 150 ms | Comparaison avec / sans, 20 fiches |
-| Sécurité | Mot de passe jamais stocké ni journalisé | 0 occurrence | Recherche du mot de passe de test dans logs, store, réponses, cookies (test automatisé) |
-| Sécurité | Cookie de session | httpOnly, SameSite=Lax, Secure (hors local), 256 bits d'aléa | Test HTTP |
-| Sécurité | Durée de session | Inactivité 1 h, absolue 8 h | Test avec horloge simulée |
-| Sécurité | Limitation des tentatives de connexion | 5 / min / IP, puis 429 | Test HTTP |
-| Sécurité | En-têtes `x-viewer-*` en mode `odoo-session` | Ignorés | Scénario S-12 |
-| Maintenabilité | Aucun terme Odoo dans `domain/` et `web/src` | 0 (hors commentaire d'en-tête) | `grep` en CI |
-| Maintenabilité | Contrat des ports | Vert sur mock, odoo-apikey, odoo-session | `npm test` |
-
----
-
-## 6. Architecture cible du PoC
-
-### 6.1 Vue d'ensemble
-
-```
-Navigateur ──cookie leila_sid──▶ Astro (proxy /api/*, relaie Cookie / Set-Cookie)
-                                   │
-                                   ▼
-                               API Fastify
-   routes/auth.ts ──▶ IdentityProvider ──▶ SessionStore (mémoire)
-   routes/*       ──▶ Principal (viewer + poignée de session opaque)
-                  ──▶ ports (Employee / Attendance / Summary)
-                         └─▶ adapters/odoo18 ──▶ OdooTransportFactory.for(principal)
-                                                   ├─ ApiKeyTransport   (/jsonrpc)        mode shared
-                                                   └─ SessionTransport  (/web/dataset/call_kw + cookie)  mode odoo-session
+```text
+Navigateur
+  └─ Leila One (React + Vite, SPA)
+       ├─ AppShell / Navigation / Session
+       ├─ Leila UI Schema v1 (AST/JSON NEUTRE)
+       ├─ ViewEngine : list / form / search / ...
+       ├─ FieldRegistry / ActionManager
+       └─ écrans natifs Leila : pointage, validations, synthèses
+                 │ HTTPS même origine : /api/*
+                 ▼
+       Reverse proxy (statique React + /api vers Fastify)
+                 │
+                 ▼
+       Fastify BFF / application Leila
+         ├─ IdentityProvider / SessionStore / Principal
+         ├─ UI contracts : ViewRepository / RecordRepository / CommandDispatcher
+         ├─ Domain contracts : EmployeeRepository / AttendanceRepository / SummaryRepository
+         ├─ Odoo18UiAdapter (XML résolu → Leila UI Schema)
+         ├─ Odoo18Transport / OdooSessionIdentity / Odoo18 domain adapters
+         └─ Mock UI + Mock domain adapters
+                 │ réseau privé, session utilisateur
+                 ▼
+       Odoo 18 Community + leila_hr
+         ├─ ir.ui.view, ir.actions.*, ir.ui.menu
+         ├─ hr.employee, hr.attendance et modèles Leila
+         ├─ ORM, ACL, ir.rule, groupes de champs
+         └─ PostgreSQL
 ```
 
-### 6.2 Nouveaux éléments du domaine (aucun terme Odoo)
+### 3.1 Règles d'isolation obligatoires
 
-```ts
-// domain/identity.ts
-export interface Principal {
-  viewer: ViewerContext;          // userId, role, employeeId, companyId
-  displayName: string;
-  /** Poignée opaque vers la session moteur ; jamais exposée au client. */
-  backendHandle: string;
+- **`web/src/` :** aucune importation d'un SDK Odoo, aucune balise ou chaîne de traitement XML Odoo, aucune logique de permission métier, aucun `execute_kw`, `call_kw` ou RPC vers Odoo.
+- **`api/src/domain/` :** contrats fonctionnels génériques uniquement, sans nom de modèle Odoo et sans conditions fondées sur des groupes Odoo.
+- **`api/src/app/` :** orchestration des ports, autorisations d'usage Leila si elles sont réellement propres à Leila, schémas de sorties, métriques.
+- **`api/src/adapters/odoo18/` :** seule couche connaissant la signification de `hr.employee`, `ir.actions.act_window`, `get_views()`, `context`, `domain` et la session Odoo.
+- **Aucune migration de données ni logique de calcul RH dans React.** Les opérations de pointage, ventilation, correction, approbation et clôture restent exécutées via les ports métier et Odoo 18.
+- **Réutilisation ≠ autonomie fonctionnelle automatique.** Les écrans de modules tiers auto-importés appartiennent à la **couche de compatibilité Odoo** ; leur présentation est réutilisable mais leurs modèles/commandes pourront nécessiter de nouveaux adaptateurs ERP.
+
+### 3.2 Deux catégories de ressources
+
+- **Ressources métier portables** (`employees`, `attendances`, `attendanceSummaries`, etc.) : noms et contrats stables appartenant à Leila ; données fournies par les repositories métier. Les écrans stratégiques passent par elles.
+- **Ressources de compatibilité** : enregistrées dynamiquement lors de l'import de vues Odoo. React reçoit une clé opaque et une description de capacités ; seul l'adaptateur connaît le modèle, les champs et l'action Odoo associés. Ces ressources peuvent être dépendantes d'Odoo dans leur sémantique : le document de couverture doit le signaler.
+
+Les capacités d'un écran (`canCreate`, `canEdit`, `canDelete`, actions disponibles) servent à **configurer l'interface**, jamais à remplacer les contrôles d'accès réels sur chaque opération.
+
+### 3.3 Navigation et découverte
+
+La navigation doit être construite côté BFF à partir des menus/actions **accessibles à la session courante**. Ne pas supposer qu'un menu donne un droit sur les données ; les opérations sur les modèles restent contrôlées séparément.
+
+Cycle attendu :
+
+1. La session réelle détermine l'utilisateur, les sociétés autorisées, la langue et le contexte.
+2. L'adaptateur Odoo récupère menus/actions autorisés et identifie le type d'action (au minimum `ir.actions.act_window`).
+3. Pour l'action sélectionnée, l'adaptateur charge les types et identifiants de vues associés, puis récupère les vues résolues avec `get_views()` ou `get_view()` et les métadonnées de champs.
+4. Le normaliseur produit le `Leila UI Schema` correspondant, applique le contrôle de compatibilité et expose les diagnostics.
+5. React sélectionne le renderer et charge les enregistrements via une **ressource autorisée**.
+6. Si l'action est `ir.actions.client`, un widget OWL personnalisé ou une vue non couverte, utiliser un **registre d'extensions React** ; sinon afficher un état explicitement non supporté. Ne pas exécuter de JS Owl dans React.
+
+**Ne jamais assimiler XML récupéré à du HTML fiable** : pas d'injection DOM directe, assainir contenus et liens, interpréter les éléments sur liste blanche.
+
+### 3.4 Schéma de présentation Leila v1
+
+Le schéma est un contrat **propre à Leila**, versionné, validé par Zod et documenté. Il doit permettre des écrans natifs et des écrans importés sans distinction pour les renderers.
+
+Exemple **illustratif du contrat Leila** (ce JSON n'est **pas** la réponse native de `get_views()` d'Odoo) :
+
+```json
+{
+  "schemaVersion": "1.0",
+  "viewKey": "employees-list",
+  "viewType": "list",
+  "title": "Employés",
+  "resourceKey": "employees",
+  "capabilities": { "canCreate": false, "canEdit": false, "canDelete": false },
+  "nodes": [
+    { "kind": "field", "key": "fullName", "label": "Nom", "fieldType": "text" },
+    { "kind": "field", "key": "department", "label": "Département", "fieldType": "reference" },
+    { "kind": "field", "key": "jobPosition", "label": "Fonction", "fieldType": "text" }
+  ]
 }
-
-export interface IdentityProvider {
-  login(credentials: { login: string; password: string }): Promise<Principal>;
-  logout(principal: Principal): Promise<void>;
-  /** Vérifie que la session moteur est toujours valide ; null si expirée. */
-  refresh(principal: Principal): Promise<Principal | null>;
-}
-
-// Capacités calculées par le moteur, jamais par Leila
-export interface AttendanceCapabilities { canEdit: boolean; canApprove: boolean }
 ```
 
-`Attendance` gagne `capabilities: AttendanceCapabilities`. `FormNode` garde `editable`, dont le calcul change (§ 6.5).
+Le résultat réel devra inclure les propriétés nécessaires à `form` / `search` : composants conteneurs (`page`, `group`, `notebook`, `header`), nœuds `field`, `button`, `label`, valeurs typées, dépendances, états, actions autorisées, options d'affichage, ressources relationnelles et contexte de requête. Définir un **schéma strict par discriminants** pour les variantes de nœud.
 
-### 6.3 Adaptateurs
+**Deux niveaux à distinguer :**
 
-| Fichier | Rôle |
+- **Description statique** : structure/ordre/libellés/types de champs, filtres, fonctions supportées ; cache possible sous une clé de contexte contrôlée.
+- **État dynamique** : valeurs d'enregistrement, `readonly` / `required` / `invisible` dépendant des valeurs, droits par enregistrement, domaine de sélection, actions disponibles ; ne jamais réutiliser cet état entre utilisateurs ou enregistrements.
+
+### 3.5 Expressions XML Odoo 18 : traitement sécurisé
+
+Odoo 18 autorise des **expressions Python** dans `readonly`, `required`, `invisible`, `domain`, `context`, `column_invisible` et les décorations. Elles peuvent dépendre des champs du record, de `parent`, de `context`, de `uid`, de `today`, de `now` et du contexte utilisateur.
+
+- **Interdiction :** `eval()` JavaScript, transformation naïve de syntaxe Python en JS, exécution de code XML libre, ou confiance dans des capacités envoyées par le navigateur.
+- **Choix de conception à documenter :** parseur d'un **sous-ensemble sûr** des expressions Odoo, normalisé en AST neutre ; l'évaluation de la présentation peut être faite côté front si AST sûr **sans donnée secrète** ou côté BFF si elle dépend des droits/contexte serveur.
+- **Support MVP minimal testé :** constantes booléennes, comparaisons simples, `and`, `or`, `not`, vérifications de valeur de champs ; enrichissement progressif suivant les expressions réellement rencontrées dans `hr`/`hr_attendance`/`leila_hr`.
+- **Non pris en charge :** diagnostic explicite et comportement prudent ; jamais transformer une condition de sécurité inconnue en autorisation d'écriture.
+- **Actions et domaines :** sérialiser des opérations structurées et validées ; **ne jamais** fournir un endpoint d'exécution Python ou ORM arbitraire pilotable depuis le navigateur.
+
+### 3.6 Contrats de données, commandes et actions
+
+`ViewRepository` sert les écrans **sans** exécuter les transactions métier. `RecordRepository` fournit lecture, filtres, regroupements et écritures **explicitement autorisées**. `CommandDispatcher` invoque une commande métier déclarée et validée. Les actions React sont des identifiants de contrat, jamais des noms de méthodes Odoo adressables librement.
+
+Routes proposées (noms internes sujets à ADR ; la séparation des responsabilités, elle, est obligatoire) :
+
+| Méthode | Route BFF | Contrat / garde-fou |
+|---|---|---|
+| GET | `/api/ui/navigation` | Menus et actions visibles de l'utilisateur connecté. |
+| GET | `/api/ui/actions/:actionKey` | Action normalisée, ses vues disponibles et sa cible ; `actionKey` opaque. |
+| GET | `/api/ui/views/:viewKey` | Leila UI Schema validé + liste des parties non supportées. |
+| POST | `/api/ui/resources/:resourceKey/query` | Recherche paginée, tri et filtres dans un format borné et typé. |
+| GET | `/api/ui/resources/:resourceKey/records/:id` | Record autorisé + état des capacités nécessaire à la vue. |
+| PATCH | `/api/ui/resources/:resourceKey/records/:id` | **Pas ouvert par défaut** ; contrôle explicite des ressources/champs modifiables et des droits à l'écriture. |
+| POST | `/api/ui/commands/:commandKey` | Répertoire fermé de commandes approuvées ; pas d'appel générique d'une méthode ORM arbitraire. |
+
+Chaque route de métadonnées est elle aussi soumise à authentification/autorisation. Toute donnée sensible est absente des réponses si l'utilisateur ne possède pas le droit de la lire.
+
+### 3.7 Cache, multi-société et invalidation
+
+- Cache de vues **côté BFF**, jamais partagé sans clé d'isolation correcte : base Odoo, identité/ensemble de droits, langue, sociétés autorisées, options de vue, action, références de vues, contexte pertinent et révision de métadonnées.
+- Les résultats de `get_views()` peuvent dépendre notamment des droits, de la langue, du type de vue et de certaines options ; ne pas déduire une clé simpliste `model + type`.
+- À installation/upgrade de module, modification d'une vue, changement de droits, société ou langue : invalider les métadonnées concernées. Pour le PoC, un TTL court et un **rafraîchissement explicite** suffisent si leur comportement est testé et documenté.
+- Ne pas mélanger cache des **descriptions** de vues et cache des **données** métier ; ces dernières sont toujours filtrées par session, société et droits applicables.
+
+---
+
+## 4. Convention de code et arborescence cible
+
+```text
+api/
+  src/
+    domain/
+      EmployeeRepository.ts                # existant
+      AttendanceRepository.ts              # existant
+      SummaryRepository.ts                 # existant
+      ui/
+        view.ts                            # types/contrats UI neutres
+        view.schema.ts                     # Zod / version schema
+        ViewRepository.ts
+        RecordRepository.ts
+        CommandDispatcher.ts
+    app/
+      repositories.ts                      # composition existante, étendue
+      ui/
+        normalize.ts                       # orchestration neutre
+        capabilities.ts                    # contrat, sans groupe Odoo
+    adapters/
+      odoo18/
+        ...                                 # transports/repos métier conservés
+        ui/
+          OdooViewRepository.ts
+          OdooRecordRepository.ts
+          OdooActionMapper.ts
+          OdooViewParser.ts
+          OdooExpressionParser.ts
+          OdooFieldMapper.ts
+      mock/
+        ...                                 # existant, ajouter UI
+    routes/
+      ...                                   # métier et auth conservés
+      ui.ts                                # nouvelles routes contrôlées
+  test/
+    ...                                     # existant non supprimé
+    ui-schema.test.ts
+    ui-odoo18-parser.test.ts
+    ui-contract.test.ts
+    ui-security.test.ts
+
+web/
+  index.html
+  package.json
+  vite.config.ts
+  src/
+    main.tsx
+    app/
+      App.tsx
+      routes.tsx
+      session.ts
+      api-client.ts
+    ui/
+      ViewEngine.tsx
+      ActionManager.tsx
+      FieldRegistry.tsx
+      renderers/
+        ListRenderer.tsx
+        FormRenderer.tsx
+        SearchRenderer.tsx
+      fields/
+        TextField.tsx
+        BooleanField.tsx
+        DateField.tsx
+        SelectionField.tsx
+        RelationField.tsx
+      diagnostics/
+        UnsupportedNode.tsx
+    layout/
+      AppShell.tsx
+      Navigation.tsx
+    features/
+      attendance/
+      employees/
+      summary/
+    styles/
+  Dockerfile                                  # build Vite + service statique
+```
+
+Les répertoires sont **proposés**, pas imposés octet par octet. Le développeur peut les ajuster dans une ADR, à condition que les frontières d'architecture restent mesurables et que les imports inter-couches soient vérifiés en CI.
+
+### Politique de dépendances frontend
+
+- React et ReactDOM, Vite, TypeScript strict.
+- Router et bibliothèque de cache de données possibles, mais choix justifié (taille, maintenance, compatibilité).
+- Pas de dépendance à OWL, à l'environnement navigateur d'Odoo ou à ses registries frontend.
+- Pas de logique métier ou permissions développées dans les widgets : uniquement représentation et capture d'intentions utilisateur.
+- CSS/style global maîtrisé dans Leila ; ne pas recopier les SCSS du frontend Odoo comme dépendance de fonctionnement.
+
+---
+
+## 5. Compatibilité Odoo 18 : périmètre réel du moteur
+
+| Objet / syntaxe Odoo 18 | MVP | Après MVP / restriction |
+|---|---|---|
+| `ir.actions.act_window` et navigation par menus | **Oui** | Résolution de la bonne vue et contexte de l'action. |
+| `<list>` : champs, ordre, pagination, tri, filtres basiques | **Oui** | Édition en ligne, regroupements complexes, totaux, décorations avancées à phaser. |
+| `<form>` : `sheet`, `group`, `notebook`, `page`, `field`, `label` | **Oui** | Boutons métier et relations à contrôler séparément. |
+| `<search>` : recherche, filtres simples, domaines validés | **Oui** | Expressions complexes et combinaisons avancées à phaser. |
+| Types simples, date/datetime, selection, many2one | **Oui** | Validation de type, fuseau horaire, devise et requêtes de relation. |
+| `one2many` / `many2many` | Lecture ou état « non supporté » explicite | Sous-vues, commandes relationnelles, éditions imbriquées. |
+| `invisible`, `readonly`, `required` | **Sous-ensemble sûr** | Étendre sur fixtures réelles sans changer le principe de sécurité. |
+| `groups`, ACL, règles d'enregistrement | **Oui, côté serveur** | Aucune conversion en contrôle d'accès uniquement visuel. |
+| `<kanban>` / QWeb | Non bloquant pour MVP | Renderer + traduction d'un sous-ensemble ; pas de prétention de compatibilité universelle. |
+| `<calendar>`, `<graph>`, `<pivot>` | Hors MVP | Renderers spécialisés et requêtes/agrégations adaptées. |
+| `ir.actions.client`, widget OWL, `js_class` | Hors moteur générique | `CustomViewRegistry` React / écran Leila natif. |
+| Chatter, activités, pièces jointes et messagerie | Hors MVP | Projet fonctionnel spécifique, permissions, flux, notifications. |
+| Assistant / dialogue / actions de bouton `type="object"` | Cas approuvés seulement | Commandes déclarées, jamais passerelle générique vers n'importe quelle méthode. |
+
+**Règle d'acceptation :** aucune erreur de parsing ou nœud non supporté n'est absorbé silencieusement. Les tests doivent pouvoir comparer le nombre de champs/boutons du XML résolu avec ceux importés, exclus pour droits ou explicitement non pris en charge.
+
+### 5.1 Comment tester une vue réellement importée
+
+Utiliser les vues **effectives** chargées pour l'utilisateur concerné, et non seulement des fichiers `views/*.xml` du module : elles prennent en compte les héritages appliqués en base. Le rapprochement doit être réalisé sur l'action, le type de vue et la langue, puis validé visuellement sur Odoo 18 et Leila.
+
+Cas obligatoire : vue de fiche employé + une modification via héritage `leila_hr` ; cas liste : présences / Gestion ; cas formulaire personnalisé : clôtures (`hr.attendance.closure`). Les identifiants de vues existants présents dans le bundle doivent être vérifiés sur `amg` avant d'être retenus comme fixtures de référence.
+
+### 5.2 Contrats de secours / extensions
+
+- **Mode diagnostic** (`dev`/admin technique) : affiche source de l'action, type de nœud inconnu, vue concernée, identifiant de corrélation, version du schéma ; sans exposer de données personnelles hors autorisation.
+- **Mode utilisateur** : message clair « Cette fonctionnalité n'est pas encore disponible dans Leila », possibilité de retourner à la navigation ; aucun lien de contournement vers une session Odoo plus privilégiée.
+- Les écrans stratégiques Leila peuvent surcharger la représentation d'une action précise **sans altérer** ses droits ou ses commandes métier.
+
+---
+
+## 6. Identité, droits et sécurité — exigences conservées et renforcées
+
+### 6.1 Modes d'authentification
+
+- **`odoo-session`** : mode de référence pour toute navigation utilisateur réelle. Connexion via l'identité Odoo de l'utilisateur ; session Odoo conservée **sur le serveur** ; cookie opaque `leila_sid` dans le navigateur.
+- **`shared`** : réservé aux comparaisons de tests en environnement isolé, jamais accessible depuis l'interface publique. Les en-têtes `x-viewer-*` ne sont jamais une preuve d'identité.
+- **`FakeJwtIdentity`** : tests du contrat d'identité ; **ne signifie pas** que Keycloak est implémenté.
+- **Keycloak** : hors périmètre de ce développement. Son futur connecteur devra garantir une **identité effectivement appliquée à Odoo** sans élévation de privilèges ; un JWT validé côté BFF ne vaut pas, à lui seul, une session Odoo correctement établie.
+
+### 6.2 Invariants de sécurité
+
+1. API Fastify non publiée directement sur Internet en production/recette accessible à d'autres utilisateurs : exposition uniquement par le reverse proxy contrôlé ; isoler les ports Docker.
+2. Session utilisateur réelle exigée pour les métadonnées, les données et les écritures ; les requêtes `shared` ne passent pas par le proxy public.
+3. Mot de passe Odoo jamais enregistré ni retourné. Cookies `HttpOnly`, `Secure` hors local et `SameSite=Lax` ; protection CSRF adaptée aux opérations mutantes par cookie ; CORS restrictif et contrôle d'origine.
+4. **Jamais de `sudo` Odoo** dans les routes de consultation/écriture utilisateur ; aucune ACL, règle d'enregistrement ou restriction de champ ne doit être remplacée par un filtre frontend.
+5. `fields_get` et les métadonnées de formulaire ne suffisent **pas** à établir un droit d'écriture effectif. Appliquer les ACL/règles d'enregistrement et revalider les champs/actions à chaque demande d'écriture ; laisser les contraintes métier Odoo contrôler la transaction.
+6. En plus des droits Odoo, le serveur applique les restrictions métier Leila convenues (notamment pas d'auto-modification de la fiche par l'employé) de façon identique à l'affichage et à l'écriture.
+7. Pas de proxy ORM générique accessible au navigateur (`model`, `method`, `args`, `kwargs` libres). Registre de ressources et de commandes autorisées avec validation Zod, taille maximale et contrôle de périmètre.
+8. Validation / sanitation des libellés, liens, HTML et données XML ; protections contre les XSS, les appels externes involontaires et l'exposition de données inter-sociétés.
+9. Diagnostics `_trace`, `/api/meta` et endpoints de debug à restreindre à l'environnement de développement ou aux administrateurs techniques authentifiés.
+10. Journaux d'audit pour modification, approbation, refus et clôture ; tracer auteur réel, commande, référence métier et résultat sans secrets ni données sensibles inutiles.
+
+### 6.3 Règles métier préservées du cahier précédent
+
+- `editable` : doit tenir compte de `fields_get`, des droits effectifs sur le record, de l'état de la vue et des restrictions Leila ; l'écriture réévalue **les mêmes règles** au moment de la commande.
+- Les capacités `canEdit` et `canApprove` sur présences sont **calculées sur le serveur** et recoupées avec la règle métier appropriée. Une simple appartenance à un groupe ne garantit pas qu'une approbation donnée est valide.
+- Les `AccessError` et erreurs de validation métier doivent être distinguées dans les résultats de test. **Le fait d'afficher « modifiable » n'est pas une promesse qu'une contrainte métier arbitraire ne refusera jamais l'enregistrement.**
+- Préserver la configuration `ODOO_WRITE_ALLOWED_DBS` : toute suite qui écrit s'arrête si la base courante n'y figure pas.
+
+### 6.4 Contrats d'identité à maintenir
+
+- `POST /api/auth/login` : 204, cookie `leila_sid` ; 401 générique en cas d'échec ; limitation des tentatives.
+- `GET /api/auth/me` : identité de présentation `{ userId, employeeId, role, displayName, company }` sans `backendHandle` ni secret.
+- `POST /api/auth/logout` : destruction des sessions Leila et Odoo ; suppression du cookie ; requête suivante 401.
+- Expiration : 401, nettoyage de session, redirection React vers `/login?retour=…` (avec validation de la destination de retour).
+- Un ancien en-tête `x-viewer-role: hr_admin` forgé par un utilisateur ne change jamais son identité réelle.
+
+Les profils et scénarios exacts de validation historique figurent au § 8.
+
+---
+
+## 7. Découpage des travaux et estimation
+
+**Estimation indicative pour 1 développeur expérimenté TypeScript/React + Odoo 18, hors création d'un client web Odoo complet.** Revoir après le lot 0, une fois confirmée la maturité de l'identité réelle et le volume des expressions/vues du périmètre.
+
+| Lot | Travail attendu | Charge indicative | Validation de sortie |
+|---|---|---:|---|
+| **L0 — Baseline / risques** | Relever versions et suites de tests existantes ; établir le catalogue réel de vues/actions/champs du périmètre ; sauvegarde de `amg` ; sécuriser le mode `shared` et l'exposition API. | **3–5 j** | Baseline documentée, API non directement exposée, tests initiaux consignés. |
+| **L1 — Sortie totale d'Astro** | Initialiser React + Vite, migrer navigation/auth/pages métier sans changer les contrats existants, remplacer proxy SSR par proxy HTTP/Vite, mettre à jour Docker/compose. | **5–8 j** | Tous parcours PoC existants utilisables sans aucun processus/package Astro. |
+| **L2 — Métadonnées & Leila UI Schema** | Définir schéma v1 et Zod, ports UI, mock UI, récupérer menus/actions/vues résolues Odoo 18, normaliser champs et structures, diagnostics. | **7–12 j** | Fixtures et contrat pour une vue `list` et une vue `form` vérifiés sur Odoo. |
+| **L3 — Renderers génériques lecture** | `FormRenderer`, `ListRenderer`, `SearchRenderer`, types de champs MVP, filtres, navigation, expressions sûres simples, chargement de données. | **12–20 j** | Fiche employé + liste présences générées **sans squelette statique**, vues héritées reflétées. |
+| **L4 — Écriture et actions sécurisées** | Conversions typées, édition autorisée, vérifications serveur, actions/commandes approuvées, erreurs métier, tests de droits/CSRF/XSS. | **6–10 j** | Modification autorisée réussie ; refus empêchés côté API ; matrice de droits inchangée. |
+| **L5 — Écrans Leila et compatibilité étendue** | Stabiliser Pointer/Gestion/Synthèse, registre de vues natives, Kanban restreint si jugé nécessaire, gestion des widgets inconnus et couverture. | **6–10 j** | Parcours fonctionnels conservés et écarts documentés ; les vues non supportées sont explicites. |
+| **L6 — Stabilisation et transfert** | E2E, perf, contrôle des caches/identités multi-sociétés, déploiement, documentation, vidéo démo, rapport et ADR. | **5–8 j** | Critères § 9 remplis et procédure de déploiement reproductible. |
+
+**Total estimé : 44–73 jours développeur (~9–15 semaines pleines)** pour le périmètre décrit, sous réserve que l'identité réelle existante soit suffisamment fonctionnelle. Un premier démonstrateur **lecture seule** sur 2 vues peut être extrait après L0–L3 ; ne pas confondre ce démonstrateur avec le périmètre complet. Si les travaux du PoC identité v0.2 ne sont pas terminés, ajouter leur reste à faire sur la base d'une nouvelle estimation ; les **12,5–15 j** de l'ancien cahier ne couvraient **pas** ce nouveau moteur UI.
+
+### 7.1 Ordre de dépendance
+
+- **Ne pas entamer les écritures génériques** tant que L0 (exposition API, identité) et L2 (contrats) ne sont pas validés.
+- L1 peut avancer en parallèle de la conception de L2, mais L3 doit consommer **le schéma versionné**, jamais un DTO XML Odoo temporaire.
+- Les écrans natifs métier demeurent opérationnels durant la migration ; préférer un basculement progressif local/recette plutôt qu'un « big bang » risqué.
+- Tout lot est livré avec tests, capture de démo, décisions d'architecture et liste des limitations restantes.
+
+### 7.2 Tâches de développement assignables (tickets suggérés)
+
+| Ticket | Contenu | Lot |
+|---|---|---|
+| UI-001 | Inventaire des vues/actions Odoo et matrice de compatibilité initiale | L0 |
+| SEC-001 | Isoler Fastify, désactiver identité forgée hors tests, restreindre CORS | L0 |
+| UI-010 | Créer l'application React/Vite et routes protégées | L1 |
+| UI-011 | Remplacer proxy Astro, Dockerfile et docker-compose | L1 |
+| UI-012 | Migrer les parcours métier existants à contrats inchangés | L1 |
+| UI-020 | Publier `Leila UI Schema v1` + Zod + fixtures | L2 |
+| UI-021 | Créer ports UI + mock et endpoints Fastify sécurisés | L2 |
+| UI-022 | Créer `OdooViewRepository` (`get_views`, actions, menus) | L2 |
+| UI-023 | Parser/normaliser XML et métadonnées, gestion des inconnus | L2 |
+| UI-030 | `FormRenderer` + champs simples et groupes/onglets | L3 |
+| UI-031 | `ListRenderer` + pagination/tri | L3 |
+| UI-032 | `SearchRenderer` + filtres contrôlés | L3 |
+| UI-033 | Expressions Odoo → AST sûr ; cache isolé | L3 |
+| UI-034 | Test « champ ajouté par héritage XML sans changement React » | L3 |
+| UI-040 | Éditions typées et permissions serveur en double vérification | L4 |
+| UI-041 | Registre de commandes métier et actions autorisées | L4 |
+| UI-042 | Sécurité écritures, multi-société, tests négatifs | L4 |
+| UI-050 | Registre d'écrans natifs Leila + migration Gestion/Pointer/Synthèse | L5 |
+| UI-051 | Matrice support XML et rapport d'incompatibilités | L5 |
+| QA-060 | E2E, test Odoo 18 `amg`, performances, recette et transfert | L6 |
+
+---
+
+## 8. Non-régression identité / droits (héritée du cahier v0.2)
+
+### 8.1 Profils de test sur la base `amg`
+
+| Profil | Droits/groupes à constater sur `amg` | Rattachement `leila_hr` | Objectif |
+|---|---|---|---|
+| `p.admin` | Employés : Administrateur ; Présences : Administrateur | — | Référence « tout voir ». |
+| `p.manager` | Employés : Officier ; Présences : Officier | `attendance_manager_id` de 3 employés | Périmètre d'équipe. |
+| `p.validateur` | Présences : utilisateur | Dans `attendance_validator_ids` de 2 employés hors équipe du manager | Validation métier. |
+| `p.employe` | Aucun droit RH global ; présences propres | Employé de l'équipe manager | Cas « soi-même ». |
+| `p.autre_societe` | Droits analogues au manager, société B | — | Cloisonnement inter-sociétés. |
+
+**À vérifier (Q-02) :** XML IDs des groupes utilisés sur la base réelle. La table de rôle Leila est une représentation d'interface, pas un moteur d'autorisation.
+
+### 8.2 Scénarios existants à rejouer **avant et après** migration
+
+| ID | Profil | Action / résultat attendu |
+|---|---|---|
+| S-01 | `p.manager` | Gestion : uniquement les présences de son équipe selon règles `leila_hr`. |
+| S-02 | `p.manager` | Synthèse : totaux de son périmètre uniquement. |
+| S-03 | `p.employe` | Approbation de ses propres heures interdite ; bouton absent. |
+| S-04 | `p.validateur` | Corriger un pointage autorisé vs non autorisé selon rattachement. |
+| S-05 | `p.manager` | Modifier l'intitulé de poste d'un membre de l'équipe selon les droits réels. |
+| S-06 | `p.employe` | Aucun champ de sa fiche modifiable (décision Q-05). |
+| S-07 | `p.employe` | Données privées d'un collègue non exposées. |
+| S-07b | `p.manager` | Contact d'urgence d'un membre de l'équipe non exposé (Q-03). |
+| S-08 | `p.manager` | Numéro de sécurité sociale : lecture limitée aux groupes de champs habilités. |
+| S-09 | `p.autre_societe` | Employés d'autres sociétés non exposés. |
+| S-10 | `p.manager` | Pointage pour un employé hors équipe refusé. |
+| S-11 | `p.validateur` | Période clôturée non modifiable. |
+| S-12 | tous | En-tête `x-viewer-role: hr_admin` forgé, ignoré en identité réelle. |
+
+**Ne pas supprimer** `api/test/rights-matrix.test.ts`, `identity.test.ts`, `security.test.ts`, `odoo-protocol.test.ts`, `contract.ts`, `odoo-live.test.ts`. Ces tests doivent survivre au changement de technologie et être complétés par des tests API de métadonnées et de compatibilité XML.
+
+### 8.3 Indicateurs du PoC identité (héritage, objectif distinct de la livraison React)
+
+| ID | Cible historique | Décision de maintien |
+|---|---|---|
+| S-I1 | 100 % des scénarios de droits sous identité réelle | **Bloquant pour la recette sécurisée**. |
+| S-I2 | ≥ 60 % d'écarts observés entre shared et identité réelle | **Mesure comparative** pour décider du fournisseur d'identité ; pas une condition logique de rendu UI. |
+| S-I3 | 0 règle de droit Odoo recodée dans le frontend ou les services génériques | **Bloquant** (les restrictions métier spécifiques Leila restent explicites et testées). |
+| S-I4 | `FakeJwtIdentity` et `OdooSessionIdentity` satisfont le même port | **À conserver**. |
+| S-I5 | Surcoût droits < 150 ms par fiche | **À mesurer**, objectif de performance hérité. |
+| S-I6 | 0 mot de passe dans logs, cookies, réponses, stockages | **Bloquant**. |
+
+**Écritures sur `amg` :** conserver sauvegarde préalable et garde `ODOO_WRITE_ALLOWED_DBS` (PoC : `amg`). Les tests doivent être idempotents ou nettoyer leurs créations ; jamais d'exécution involontaire sur une base cliente.
+
+---
+
+## 9. Plan de tests et critères de recette
+
+### 9.1 Tests à automatiser
+
+| Suite | Assertions obligatoires |
 |---|---|
-| `adapters/odoo18/transport.ts` | Interface `OdooTransport { callKw(params) }` ; `ApiKeyTransport` (client actuel) et `SessionTransport` (cookie `session_id`, reprise du client d'origine) |
-| `adapters/odoo18/OdooSessionIdentity.ts` | `login` : `/web/session/authenticate` → uid ; lecture de `hr.employee` (`user_id = uid`) ; rôle via `res.users.has_group` ; `logout` : `/web/session/destroy` |
-| `adapters/odoo18/capabilities.ts` | `has_access("write")` par lot d'ids (`hr.employee`, `hr.attendance`) ; `canApprove` via le groupe d'approbation des heures |
-| `adapters/fake/FakeJwtIdentity.ts` | Tests uniquement : accepte un JWT signé localement → prouve la jointure Keycloak (S-4) |
-| `app/sessions.ts` | `SessionStore` en mémoire : id aléatoire 256 bits → `Principal` ; TTL inactivité / absolue ; purge périodique |
-| `app/repositories.ts` | Remplace `clientsByRole` par `OdooTransportFactory` ; `AUTH_MODE` choisit la fabrique |
+| `ui-schema.test.ts` | Version du schéma, parsing Zod, rejet des nœuds invalides, ordre des nœuds, régression de sérialisation. |
+| `ui-odoo18-parser.test.ts` | XML résolu `list` / `form` / `search`, `group` / `notebook` / `page`, widgets connus/inconnus, attributs conditionnels, héritages. |
+| `ui-contract.test.ts` | Même forme de réponse côté mock et côté Odoo 18 ; aucune fuite de détails de transport. |
+| `ui-security.test.ts` | Interdiction d'accès aux vues/champs/records d'autrui ; absence de `sudo`, CSRF, XSS, méthodes non enregistrées, filtrage société. |
+| `ui-dynamic.test.ts` | Modifier une vue héritée sur `amg` → écran React mis à jour après invalidation sans rebuild React. |
+| E2E React | Connexion, navigation, liste, recherche, fiche, édition permise/refusée, session expirée, déconnexion, diagnostics inconnus. |
+| Tests historiques de domaine/identité | Matrice S-01…S-12, ports mock/odoo18, non-régression des commandes métier. |
+| Build / lint / typecheck | `npm ci`, `npm run build`, `npm run typecheck` et `npm test` sur `api/` et `web/` selon scripts documentés ; aucune commande Astro. |
 
-Les repositories Odoo ne changent que leur constructeur : `clientFor(viewer)` devient `transports.for(principal)`. Les méthodes de port restent identiques.
+### 9.2 Scénarios de recette démontrables (Go/No-go frontend)
 
-### 6.4 Correspondance groupes Odoo → rôle Leila
-
-Configurable (`ROLE_GROUPS` dans `api/.env`), évaluée dans l'ordre, première correspondance gagnante. XML ids **à vérifier sur `amg`** (Q-02).
-
-| Rôle Leila | Groupe Odoo (proposition) |
-|---|---|
-| `hr_admin` | `hr.group_hr_manager` |
-| `manager` | `hr_attendance.group_hr_attendance_officer` ou `hr.group_hr_user` |
-| `employee` | sinon |
-
-Le rôle ne sert plus qu'à **la présentation** (squelette, libellés). Les décisions d'accès viennent d'Odoo.
-
-### 6.5 Calcul des capacités
-
-```
-editable(champ, fiche) = fields_get[champ].readonly === false      (déjà en cache par session)
-                       ∧ has_access("write") sur la fiche            (1 appel par fiche)
-                       ∧ editableIf(nœud, viewer, valeurs)           (règle Leila, optionnelle)
-
-capabilities(pointage) = { canEdit:    has_access("write") sur le pointage,
-                           canApprove: canEdit ∧ groupe d'approbation }   (1 appel par page de 80)
-```
-
-`has_access` existe en Odoo 18 sur les enregistrements (`models.py`) et couvre droits du modèle **et** règles d'enregistrement. `updateEmployee` et `updateAttendance` réévaluent la même règle avant d'écrire.
-
-### 6.6 Routes ajoutées
-
-| Méthode | Route | Effet |
+| ID | Scénario | Condition « Go » |
 |---|---|---|
-| POST | `/api/auth/login` | `{ login, password }` → 204 + `Set-Cookie: leila_sid` ; 401 ; 429 |
-| POST | `/api/auth/logout` | 204, session Leila et Odoo détruites |
-| GET | `/api/auth/me` | Principal sans `backendHandle` |
+| GO-01 | **Astro supprimé** | Build et conteneurs fonctionnent sans Astro ; recherches de dépendances et fichiers Astro vides pour le code actif. |
+| GO-02 | **Schéma réellement neutre** | Aucun nom de modèle/commande Odoo dans `web/src` et les contrats métier ; Odoo est mentionné uniquement dans adaptateur, fixtures tests et documentation de compatibilité. |
+| GO-03 | **Formulaire XML natif + héritage** | `hr.employee` apparaît depuis `get_views()`, et un champ ajouté par vue héritée s'affiche sans modification React. |
+| GO-04 | **Liste XML native** | `hr.attendance` s'affiche via `<list>` résolue, avec pagination et filtre de recherche de base. |
+| GO-05 | **Respect des droits de lecture** | Utilisateur sans droit : champ privé/record refusé par le backend ; ni métadonnées exploitables ni valeur sensible divulguées. |
+| GO-06 | **Respect des droits d'écriture** | Écriture permise réussit ; demande interdite fabriquée à la main renvoie un refus ; aucune élévation par en-têtes. |
+| GO-07 | **Gestion des incompatibilités** | Widget OWL / syntaxe non supportée → état de compatibilité traçable ; aucune disparition silencieuse. |
+| GO-08 | **Parité métier de l'ancien PoC** | Employés, Pointer, Gestion, Synthèse et commandes existantes passent les scénarios fonctionnels retenus. |
+| GO-09 | **Isolation de session** | Tests à deux utilisateurs/sociétés : aucun résultat de cache, de vue ou de données ne se mélange. |
+| GO-10 | **Déploiement reproductible** | `docker compose up --build` démarre frontend et API ; API interne non accessible directement depuis l'extérieur ; guide de test rédigé. |
 
-En mode `odoo-session`, `extractViewer` lit **uniquement** le cookie ; les en-têtes `x-viewer-*` sont ignorés (S-12).
+**Interdictions de validation :** ne pas accepter une capture visuelle seule, un champ modifié manuellement dans React pour simuler la découverte XML, ou un test de sécurité exécuté uniquement en compte administrateur.
 
-### 6.7 Front (Astro)
+### 9.3 Performance / exigences non fonctionnelles
 
-- Page `/login` (formulaire POST relayé, message d'erreur générique).
-- Proxy `/api/*` : relaie `Cookie` vers l'API et `Set-Cookie` vers le navigateur ; ajoute `auth/login`, `auth/logout`, `auth/me` à la liste blanche.
-- Pages SSR : lisent le cookie de la requête entrante et le transmettent à l'API ; 401 → redirection `/login?retour=<chemin>`.
-- `AppNav` : nom et rôle constatés (`/api/auth/me`), bouton « Se déconnecter ».
-- Gestion : interrupteurs et boutons pilotés par `capabilities`.
-- Fiche : champs pilotés par le nouveau `editable`.
+- Maintenir l'objectif historique **P95 < 600 ms par opération métier** via le tailnet comme cible **indicative** ; distinguer temps réseau, métadonnées, chargement données et temps de rendu navigateur.
+- Mesurer séparément le premier chargement d'une vue (cold cache), les suivants (warm cache), la latence des droits et le comportement lors d'invalidation.
+- Tableaux paginés côté serveur, limite sur la taille des pages, pas de chargement complet de milliers de lignes par défaut.
+- TypeScript strict, Zod pour les limites du BFF, CI avec tests de compatibilité et audit des dépendances.
+- Accessibilité minimale des formulaires (labels, clavier, retours erreur), affichage utilisable ordinateur/tablette pour le périmètre testé.
 
-### 6.8 Ce qui changera avec Keycloak (hors périmètre, pour mémoire)
+---
 
-| Élément | Ce PoC | Avec Keycloak |
+## 10. Risques techniques et décisions d'arbitrage
+
+| Risque | Impact | Stratégie retenue |
 |---|---|---|
-| Fournisseur d'identité | `OdooSessionIdentity` | `KeycloakIdentity` (vérification JWT, JWKS en cache) |
-| Transport Odoo | Session Odoo de l'utilisateur | Jeton de l'utilisateur relayé à un module connecteur Odoo qui agit en son nom |
-| Mots de passe | Transitent par l'API | Ne transitent plus |
-| Ports, adaptateurs métier, écrans | — | **Inchangés** (c'est ce que S-4 doit prouver) |
+| **Dépendance cachée à Odoo** malgré schéma neutre | Très élevé | Isoler les ressources de compatibilité ; contrats métier portables ; audit statique des imports ; démontrer un écran mock sans Odoo. |
+| **Écrans nouvellement installés incomplètement supportés** | Élevé | Couverture explicite, diagnostics, registry React natif et priorisation par usage. |
+| **Sémantique des expressions Python** | Élevé | AST limité validé, fixtures Odoo 18 ; refus prudent si non supporté ; pas de JS eval. |
+| **Sécurité d'un CRUD générique** | Très élevé | Liste de ressources/champs/commandes autorisées, permissions revérifiées par requête, aucun RPC ORM arbitraire. |
+| **Confusion métadonnées/droits** | Très élevé | Protéger vues, données et commandes séparément ; aucun `sudo` en contexte utilisateur ; tests négatifs. |
+| **Cache inter-société/inter-utilisateur** | Très élevé | Clés contextuelles et tests d'isolation à deux sessions ; invalidations documentées. |
+| **Rupture des écrans métier lors de suppression d'Astro** | Moyen/élevé | Migration des pages à contrats identiques d'abord, E2E avant généralisation XML. |
+| **Modification des modules Odoo / vues héritées** | Élevé | Import des architectures résolues, jeux de fixtures versionnés, comparaison après upgrade de module. |
+| **Règles RH spécifiques non portables** | Structurel | Les ports métier restent stables, mais plan de réimplémentation à établir avant toute sortie effective d'Odoo. |
+| **Temps de développement d'un clone universel d'Odoo** | Très élevé | Arrêt net au périmètre MVP, support incrémental documenté ; aucune promesse de parité universelle. |
+| **Accès Odoo via Tailscale en Docker** | Moyen | Valider le routage du conteneur et le profil local ; garder le mode mock pour la CI. |
+| **Données de test personnelles / RGPD** | Élevé | Limiter l'accès à `amg`, minimiser données dans logs/fixtures, anonymiser les captures diffusées. |
 
 ---
 
-## 7. Découpage & estimation
+## 11. Décisions héritées, questions ouvertes, suite
 
-**Approche :** refactor minimal du transport, puis identité, puis capacités, puis preuve par la matrice. Chaque lot se termine par `npm test` vert et une démonstration.
+### 11.1 Décisions historiques à conserver
 
-| Lot | Tâches | Durée | Hypothèses |
-|---|---|---|---|
-| **0 — Prérequis** | T-01 Sauvegarde de `amg` (point de retour avant les tests d'écriture) ; T-02 Créer les 5 profils du § 4.2 et leurs rattachements leila_hr ; T-03 Constater dans Odoo le résultat attendu de chaque scénario S-01…S-11 (captures) | 1–1,5 j | Accès admin à l'instance |
-| **1 — Transport** | T-10 Interface `OdooTransport` ; T-11 `SessionTransport` (authenticate, cookie, expiration → `unauthenticated`) ; T-12 `OdooTransportFactory` + `AUTH_MODE` ; T-13 tests protocole (faux serveur : cookie, expiration, relance) | 2 j | — |
-| **2 — Identité** | T-20 Port `IdentityProvider` + `Principal` ; T-21 `OdooSessionIdentity` ; T-22 `SessionStore` (TTL, purge) ; T-23 routes `auth/*`, limitation des tentatives ; T-24 `extractViewer` par cookie ; T-25 `FakeJwtIdentity` + contrat d'identité commun | 2,5–3 j | `/web/session/authenticate` utilisable sans 2FA |
-| **3 — Viewer constaté** | T-30 Recherche de l'employé lié ; T-31 rôle par `has_group` + table configurable ; T-32 `auth/me` ; T-33 retrait du filtre par département en mode `odoo-session` | 1 j | Q-02 tranchée |
-| **4 — Capacités** | T-40 `capabilities.ts` (`has_access` par lot) ; T-41 nouveau calcul `editable` ; T-42 `editableIf` dans le squelette (schéma Zod + évaluation serveur) ; T-43 `capabilities` sur `Attendance` ; T-44 même règle dans `updateEmployee` / `updateAttendance` ; T-45 parité du mock (F-10) ; T-46 contact et téléphone d'urgence passent de `SELF_OR_MANAGER_PLUS` à `SELF_OR_ADMIN` dans le squelette (décision Q-03), test de visibilité mis à jour | 2–2,5 j | — |
-| **5 — Front** | T-50 page `/login` ; T-51 proxy cookies ; T-52 redirections 401 ; T-53 `AppNav` (identité, déconnexion) ; T-54 Gestion et fiche pilotées par les capacités | 1,5 j | — |
-| **6 — Preuve** | T-60 `rights-matrix.test.ts` (S-01…S-12, deux modes) ; T-61 écritures sur `amg` (F-12) ; T-62 mesures de latence et de sécurité (§ 5) ; T-63 générateur `docs/rapport-identite.md` | 2–3 j | Lot 0 terminé |
-| **7 — Décision** | T-70 Revue du rapport, décision Go/No-go Keycloak, liste des écarts leila_hr découverts | 0,5 j | — |
-
-**Estimation totale :** 12,5–15 j de dev, soit 3 semaines calendaires — fourchette ±30 % tant que Q-02 n'est pas tranchée.
-
-### Définition de « terminé » (chaque lot)
-
-- `npm run typecheck` et `npm test` verts (mock + odoo-apikey ; + odoo-session à partir du lot 1).
-- `npx astro check` : 0 erreur.
-- Aucun terme Odoo dans `domain/` et `web/src`.
-- Démonstration enregistrée (capture vidéo courte) du comportement du lot.
-
----
-
-## 8. Plan de tests
-
-| Suite | Contenu | Exécution |
+| ID | Décision v0.2 | Conséquence |
 |---|---|---|
-| `contract.ts` (existant, étendu) | Contrat des ports + `capabilities` | mock, odoo-apikey, odoo-session |
-| `identity-contract.ts` (nouveau) | login valide / invalide, `me`, logout, expiration, refresh | OdooSessionIdentity (`amg`), FakeJwtIdentity |
-| `rights-matrix.test.ts` (nouveau) | S-01…S-12 dans les deux modes ; écrit un JSON de résultats | `amg` |
-| `odoo-protocol.test.ts` (étendu) | SessionTransport : cookie, `SessionExpired`, `has_access` par lot | faux serveur, partout |
-| `security.test.ts` (nouveau) | Mot de passe absent des logs / store / réponses ; cookie ; limitation ; en-têtes forgés ignorés | partout |
-| `odoo-live.test.ts` (existant) | Champs du mapping + contrat en lecture et en écriture | `amg` |
+| Q-01 | `amg` est une base de test, pas une base de production. | Écritures possibles uniquement si la liste blanche `ODOO_WRITE_ALLOWED_DBS` l'autorise ; sauvegarde avant les scénarios. |
+| Q-03 | Contact et téléphone d'urgence non visibles pour les managers. | Appliquer l'exigence aux lectures **et** aux commandes ; conserver scénario S-07b. |
+| Q-05 | L'employé n'édite pas sa propre fiche via Leila. | Ne pas introduire une édition générique qui contourne cette décision. |
+| Q-06 | Mesurer le différentiel partagé / identité réelle avec une cible historique de 60 %. | Indicateur d'identité, séparé des critères de livraison UI. |
 
-**Règle absolue :** toute suite qui écrit vérifie au démarrage que `ODOO_DB` figure dans `ODOO_WRITE_ALLOWED_DBS` (valeur PoC : `amg`) et s'arrête sinon. Garde-fou contre une erreur de configuration vers une base cliente.
+### 11.2 Questions ouvertes à instruire **sans bloquer le premier lot**
 
----
-
-## 9. Risques & mitigations
-
-| # | Risque | Probabilité | Impact | Mitigation |
-|---|---|---|---|---|
-| R-01 | Tests d'écriture lancés par erreur sur une autre base que `amg` | Basse | Fort | Liste `ODOO_WRITE_ALLOWED_DBS` vérifiée au démarrage des suites (§ 8) |
-| R-02 | Tests d'écriture qui laissent `amg` dans un état incohérent pour les tests suivants | Moy | Moy | Sauvegarde au lot 0 (T-01) ; tests idempotents (fermeture des arrivées ouvertes au démarrage) |
-| R-03 | Les règles de `leila_hr` ne couvrent pas les scénarios (ex. droits CRUD trop larges sur les clôtures et mouvements, déjà repérés) | Haute | Moy | C'est un **résultat** du PoC : consigner, corriger dans leila_hr, rejouer |
-| R-04 | `has_access("write")` vrai mais `write` refusé par une contrainte (`ValidationError`) | Moy | Faible | Distinguer 403 (droit) et 422 (règle métier) dans le rapport |
-| R-05 | Utilisateurs avec 2FA | Moy | Moy | Profils de test sans 2FA ; flux TOTP hors périmètre |
-| R-06 | Sessions perdues au redémarrage de l'API (stockage mémoire) | Haute | Faible | Accepté pour un PoC ; reconnexion |
-| R-07 | Latence tailnet dégradant l'expérience | Basse | Moy | Mesures § 5 ; regrouper `has_access` par lot |
-| R-08 | Serveur Docker Linux sans accès au tailnet | Haute | Moy | Développer sur le Mac ; conteneur Tailscale en option |
-| R-10 | Le mode `shared` est supprimé puis manque pour les synchronisations de fond (Q-04 non tranchée) | Moy | Faible | Le garder derrière `AUTH_MODE` tant que Q-04 n'est pas tranchée : son coût de maintenance est faible |
-| R-09 | `has_group` / XML ids de groupes différents sur la base | Moy | Faible | Table configurable + vérification au lot 3 |
-
----
-
-## 10. Questions ouvertes
-
-| # | Question | Owner | Statut |
-|---|---|---|---|
-| Q-02 | Quels groupes Odoo définissent manager et admin RH chez tes clients ? | Bruno | **Ouverte** — à trancher au lot 3 ; d'ici là, table § 6.4 configurable |
-| Q-04 | Garde-t-on le mode `shared` après le PoC (synchronisations de fond, compte technique) ? | Bruno | **Ouverte** — conservé derrière `AUTH_MODE` en attendant (R-10) ; à trancher au lot 7 |
-
-### Décisions prises (v0.2)
-
-| # | Question | Décision | Impact sur ce cahier |
-|---|---|---|---|
-| Q-01 | `amg` est-elle une base de production ? | Non, base de test | Écritures autorisées sur `amg` ; plus de copie ni d'anonymisation ; garde-fou par liste de bases autorisées ; lot 0 raccourci |
-| Q-03 | Contact d'urgence visible des managers ? | Non | Règle `SELF_OR_ADMIN` pour contact et téléphone d'urgence (T-46) ; scénario S-07b |
-| Q-05 | Auto-modification de sa fiche par l'employé ? | Hors besoin | Aucune méthode dédiée dans le connecteur ; S-06 attend « aucun champ modifiable » |
-| Q-06 | Seuil S-2 à 60 % ? | Validé | Critère S-2 inchangé |
-
----
-
-## Next Actions
-
-| Action | Owner | ETA |
+| ID | Question | Responsable / échéance |
 |---|---|---|
-| Valider ce cahier et les seuils de succès | Bruno | [DATE] |
-| Sauvegarder `amg` (T-01) | Bruno | [DATE] |
-| Trancher Q-02 (groupes manager / admin RH) | Bruno | Lot 3 |
-| Créer les 5 profils de test et constater les résultats attendus (T-03) | Bruno | [DATE] |
-| Démarrer le lot 1 (transport) | [Dev] | [DATE] |
+| Q-02 | Quels XML IDs de groupes correspondent réellement aux rôles manager/admin RH chez les clients ? | Owner fonctionnel ; à confirmer pendant L0. |
+| Q-04 | Le mode `shared` doit-il être conservé uniquement pour comparaisons, ou certains traitements techniques de fond ? | Owner ; avant sortie recette publique. |
+| Q-07 | Quel ensemble précis d'actions et de menus Odoo 18 constitue la recette MVP ? | Owner + dev ; figer pendant L0. |
+| Q-08 | Quelles expressions `invisible`/`readonly`/`domain` sont indispensables dans les vues `hr`/`hr_attendance`/`leila_hr` déployées ? | Dev ; catalogue en L0–L2. |
+| Q-09 | Pour les vues non supportées : écran React natif prioritaire ou état indisponible ? | Décision par fonctionnalité, matrice de compatibilité L2. |
+| Q-10 | Le futur schéma Leila sera-t-il matérialisé avec éditions locales, ou calculé à la demande à partir d'Odoo ? | MVP : dynamique ; matérialisation hors MVP avec ADR. |
+| Q-11 | Quelle bibliothèque UI React et quelle convention de design Leila ? | Dev propose une ADR en L1. |
+
+### 11.3 Premières actions demandées au développeur
+
+1. **Ouvrir le dépôt** et exécuter les scripts `api`/`web`, dresser la baseline des tests, consigner les divergences éventuelles avec le bundle reçu.
+2. **Contrôler l'identité et l'exposition API** : mode de production, absence d'accès direct à `3001`, politique CORS, anti-CSRF, cookies.
+3. **Inspecter sur `amg` deux architectures réellement résolues** : une `list` de présence et une `form` d'employé, ainsi que les actions et menus qui les ouvrent.
+4. **Rédiger l'ADR-001** présentant le `Leila UI Schema` (types, limites, exemples) et l'ADR-002 sur le traitement des expressions Python ; obtenir validation technique **avant** d'implémenter un moteur de rendu générique.
+5. **Exécuter L1** : supprimer Astro de l'application et fournir le nouveau frontend React + Vite avec les fonctions existantes.
+6. **Démarrer L2/L3** : afficher les deux vues issues de l'XML Odoo 18 sans `employee.skeleton.ts` ni définition manuelle des champs.
+7. **Démontrer GO-03 et GO-06** avec deux utilisateurs de droits différents ; livrer le bilan de compatibilité et les tests.
+
+---
+
+## 12. Références techniques officielles — Odoo **18.0** exclusivement
+
+- [Odoo 18 — View Records (`get_views`, `get_view`, héritage)](https://www.odoo.com/documentation/18.0/developer/reference/user_interface/view_records.html)
+- [Odoo 18 — View Architectures (`list`, `form`, `search`, expressions, widgets)](https://www.odoo.com/documentation/18.0/developer/reference/user_interface/view_architectures.html)
+- [Odoo 18 — Actions (`ir.actions.act_window`, `ir.actions.client`)](https://www.odoo.com/documentation/18.0/developer/reference/backend/actions.html)
+- [Odoo 18 — ORM (`fields_get`, `search_read`, `read_group`, ACL et effets de `sudo`)](https://www.odoo.com/documentation/18.0/developer/reference/backend/orm.html)
+- [Odoo 18 — Security in Odoo (ACL, record rules, field access)](https://www.odoo.com/documentation/18.0/developer/reference/backend/security.html)
+- [Odoo 18 — Web Controllers (routes HTTP, sessions)](https://www.odoo.com/documentation/18.0/developer/reference/backend/http.html)
+- [Odoo 18 — Framework Overview (contexte et actions côté client Odoo)](https://www.odoo.com/documentation/18.0/developer/reference/frontend/framework_overview.html)
+
+**Principe de vérification :** lorsqu'un comportement Odoo 18 ne figure pas explicitement dans la documentation, le développeur le valide sur **la branche 18.0 officielle** et sur la base de recette `amg`, puis capture un test de contrat. Éviter de transformer un détail interne du client web Odoo en dépendance durable de Leila.
+
+---
+
+## Historique
+
+| Version | Date | Évolution |
+|---|---|---|
+| 0.2 | 12/10/2026 | PoC identité réelle utilisateur, matrice de droits, jointure Keycloak. |
+| **0.3** | **22/10/2026** | **Nouvelle orientation : suppression complète d'Astro, React + Vite, Leila UI Schema neutre, adaptateur Odoo 18 pour vues XML résolues, stratégie d'évolutivité et préservation des contrats métier et tests d'identité.** |
