@@ -29,6 +29,8 @@ export interface FakeUser {
   uid: number;
   name: string;
   groups: string[];
+  /** Compte portail : sans « Utilisateur interne » (base.group_user), pas de back-office */
+  portal?: boolean;
 }
 
 export class OdooFault extends Error {
@@ -53,6 +55,7 @@ export const USERS: FakeUser[] = [
   { login: "p.admin", password: "admin-pw", uid: 2, name: "Admin RH", groups: ["hr.group_hr_manager", "hr.group_hr_user", "hr_attendance.group_hr_attendance_officer", "base.group_system", "base.group_multi_company"] },
   { login: "p.manager", password: "manager-pw", uid: 7, name: "Manon Manager", groups: ["hr_attendance.group_hr_attendance_officer"] },
   { login: "p.employe", password: "employe-pw", uid: 9, name: "Émile Employé", groups: [] },
+  { login: "p.portail", password: "portail-pw", uid: 11, name: "Paul Portail", groups: [], portal: true },
   // Compte technique partagé (clé d'API) du mode shared
   { login: "poc", password: "cle-api", uid: 7, name: "Compte partagé", groups: ["hr_attendance.group_hr_attendance_officer"] },
 ];
@@ -104,7 +107,10 @@ const idsIn = (domain: unknown[]): number[] | null => {
 export const defaultHandler: Handler = (call, odoo) => {
   const { uid, model, method, args, kwargs } = call;
   const user = odoo.users.find((u) => u.uid === uid);
-  if (model === "res.users" && method === "has_group") return Boolean(user?.groups.includes(args[1] as string));
+  if (model === "res.users" && method === "has_group") {
+    // Tout compte non portail est « Utilisateur interne », comme dans Odoo
+    return args[1] === "base.group_user" ? Boolean(user && !user.portal) : Boolean(user?.groups.includes(args[1] as string));
+  }
   if (model === "res.users" && method === "read") {
     return [{ id: uid, name: user?.name ?? "?", company_id: [1, "Société A"] }];
   }

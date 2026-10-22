@@ -2,9 +2,10 @@
 // + rejoué contre une vraie base si ODOO_IDENTITY_LOGIN / _PASSWORD / _ROLE sont définis.
 
 import "dotenv/config";
-import { after } from "node:test";
+import assert from "node:assert/strict";
+import { after, describe, it } from "node:test";
 import { FakeJwtIdentity, FakeJwtIssuer } from "../src/adapters/fake/FakeJwtIdentity.js";
-import { OdooSessionIdentity, DEFAULT_ROLE_GROUPS } from "../src/adapters/odoo18/OdooSessionIdentity.js";
+import { OdooSessionIdentity, DEFAULT_ROLE_GROUPS, PORTAL_REFUSED } from "../src/adapters/odoo18/OdooSessionIdentity.js";
 import { UserSessions } from "../src/adapters/odoo18/transport.js";
 import { parseRoleGroups } from "../src/app/roles.js";
 import { ViewerRoleSchema } from "../src/domain/tree.schema.js";
@@ -24,6 +25,19 @@ runIdentityContract("OdooSessionIdentity (faux serveur)", async () => {
     other: { login: "p.employe", password: "employe-pw", role: "employee" },
     expire: () => odoo.expire(),
   };
+});
+
+describe("OdooSessionIdentity : compte portail", () => {
+  const portal = new FakeOdoo();
+  after(() => portal.stop());
+  it("refuse la connexion avec un message explicite et ferme la session Odoo", async () => {
+    await portal.start();
+    const sessions = new UserSessions();
+    const provider = new OdooSessionIdentity({ url: portal.url, db: "test" }, sessions, rules);
+    await assert.rejects(provider.login({ login: "p.portail", password: "portail-pw" }), (e: Error & { code?: string }) => e.message === PORTAL_REFUSED && e.code === "forbidden");
+    assert.equal(sessions.handles().length, 0);
+    assert.ok(portal.paths.includes("/web/session/destroy"));
+  });
 });
 
 // 2. JWT signé localement (préfigure Keycloak), même table groupes → rôle

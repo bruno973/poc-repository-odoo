@@ -88,6 +88,15 @@ Constaté sur `amg` (inventaire admin du 22/10/2026) :
 - un compte non administrateur ne peut pas lire `ir.actions.act_window` par l'ORM (`AccessError`, réservé à Administration/Paramètres) : les actions sont chargées par la route du client web `/web/action/load` (lecture sudo d'Odoo), uniquement pour des actions issues des menus publiés à l'utilisateur. Le mode `shared` (jsonrpc, sans route web) garde la lecture ORM et suppose des comptes partagés qui y ont droit ;
 - 100 % des conditions (`invisible`, `readonly`, `required`, `column_invisible`) des vues inventoriées sont comprises (test `ui-inventaire-amg.test.ts`).
 
+- les employés de `amg` sont des **comptes portail** (sans « Utilisateur interne ») : ni menus (`ir.ui.menu`), ni actions, ni `hr.employee.public`. Le moteur générique, fondé sur les vues du back-office, ne peut pas les servir. Leila refuse leur connexion avec un message explicite (`PORTAL_REFUSED`) et l'inventaire s'arrête proprement. **Décision ouverte (Q-10)** : comment servir ces employés (voir ci-dessous).
+
+### Q-10 — Employés en comptes portail
+
+Options, à arbitrer (impact sécurité et licences) :
+1. **Comptes internes** pour les employés : le moteur générique s'applique tel quel, droits garantis par Odoo ; coût de licence par utilisateur interne.
+2. **Contrats métier Leila dédiés** (pas le moteur générique) servis par un compte technique : le BFF filtre lui-même sur l'employé connecté ; la sécurité repose alors sur Leila, à tester comme telle.
+3. **Module Odoo dédié** exposant au portail des points d'accès restreints (contrôleurs vérifiant l'employé lié) : les droits restent dans Odoo, au prix d'un module à maintenir.
+
 Reste à vérifier :
 1. inventorier les profils non administrateurs (manager, employé) et rejouer `ui-inventaire-amg.test.ts` sur leurs dossiers ;
 2. `has_access` sur une liste vide (droit du modèle), signature positionnelle de `name_search`, lecture de `groups_id` pour un compte non administrateur.

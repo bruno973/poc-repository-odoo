@@ -34,7 +34,12 @@ const t = await SessionTransport.authenticate(
 );
 mkdirSync(outDir, { recursive: true });
 
-const menus = await loadMenus(t);
+const menus = await loadMenus(t).catch(async (error: Error & { code?: string }) => {
+  if (error.code !== "forbidden") throw error;
+  await t.destroy();
+  console.error(`Le compte ${login} n'a pas accès au back-office Odoo (compte portail ?) : aucune vue interne à inventorier.`);
+  process.exit(2);
+});
 const actions = new Map<number, string>();
 const visit = (id: number, path: string) => {
   const m = menus[String(id)] as OdooMenu | undefined;

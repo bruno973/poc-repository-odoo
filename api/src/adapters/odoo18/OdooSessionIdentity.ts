@@ -13,6 +13,9 @@ import { hasGroup } from "./capabilities.js";
 import { m2o, type OdooM2O } from "./mapping.js";
 import { type OdooConnection, SessionTransport, UserSessions } from "./transport.js";
 
+/** Compte portail Odoo (« Utilisateur interne » absent) : pas d'accès au back-office. */
+export const PORTAL_REFUSED = "Compte portail Odoo : la connexion à Leila n'est pas encore ouverte à ce type de compte.";
+
 /** Proposition du cahier de dev (§ 6.4), à vérifier sur la base (Q-02). */
 export const DEFAULT_ROLE_GROUPS =
   "hr_admin=hr.group_hr_manager;manager=hr_attendance.group_hr_attendance_officer,hr.group_hr_user";
@@ -29,6 +32,9 @@ export class OdooSessionIdentity implements IdentityProvider {
     const transport = await SessionTransport.authenticate(this.conn, credentials.login, credentials.password, this.recorder);
     try {
       const uid = transport.uid;
+      // Un compte portail ne peut ni lire hr.employee.public ni charger les menus :
+      // message explicite plutôt qu'une erreur de droits brute (constaté sur amg).
+      if (!(await hasGroup(transport, "base.group_user"))) throw new DomainError(PORTAL_REFUSED, "forbidden");
       const [users, employees, role] = await Promise.all([
         transport.callKw<{ id: number; name: string; company_id: OdooM2O }[]>({
           model: "res.users",
