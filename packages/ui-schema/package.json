@@ -1,0 +1,29 @@
+{
+  "name": "@leila/ui-schema",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Leila UI Schema : contrat de présentation neutre (types, Zod, conditions). Aucune dépendance à Odoo, au DOM ou au serveur.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
+    "test": "node --import tsx --test test/*.test.ts"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "tsx": "^4.17.0",
+    "typescript": "^5.5.4",
+    "@types/node": "^22.5.0"
+  }
+}

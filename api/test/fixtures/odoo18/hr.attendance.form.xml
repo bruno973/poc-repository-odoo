@@ -1,0 +1,21 @@
+<form string="Présence">
+  <header>
+    <button name="action_approve_overtime" string="Approuver" type="object" class="oe_highlight" invisible="overtime_status != 'to_approve'"/>
+    <button name="action_refuse_overtime" string="Refuser" type="object" invisible="overtime_status == 'refused'"/>
+    <button name="action_try_kiosk" string="Kiosque" type="object" invisible="context.get('kiosk')"/>
+    <field name="overtime_status" widget="statusbar"/>
+  </header>
+  <sheet>
+    <group>
+      <field name="employee_id"/>
+      <field name="check_in"/>
+      <field name="check_out" readonly="overtime_status == 'approved'"/>
+      <field name="worked_hours" widget="float_time"/>
+    </group>
+    <group string="Mouvements (leila_hr)">
+      <field name="meal_count"/>
+      <field name="break_entry"/>
+      <field name="boat_arrival"/>
+    </group>
+  </sheet>
+</form>

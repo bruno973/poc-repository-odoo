@@ -14,6 +14,7 @@ import { registerEmployeeRoutes } from "./routes/employees.js";
 import { registerDepartmentRoutes } from "./routes/departments.js";
 import { registerAttendanceRoutes } from "./routes/attendances.js";
 import { registerSummaryRoutes } from "./routes/summary.js";
+import { registerUiRoutes } from "./routes/ui.js";
 import { clearSessionCookie, registerAuthRoutes } from "./routes/auth.js";
 import { SESSION_COOKIE, type ViewerResolver, headerViewer, readCookie, sessionViewer } from "./routes/viewer.js";
 
@@ -141,6 +142,7 @@ export async function createServer(repos: Repositories, tracer: Tracer, options:
   registerDepartmentRoutes(fastify, repos.employees, viewerOf);
   registerAttendanceRoutes(fastify, repos.attendances, viewerOf);
   registerSummaryRoutes(fastify, repos.summary, viewerOf);
+  registerUiRoutes(fastify, repos.ui, viewerOf);
 
   return fastify;
 }

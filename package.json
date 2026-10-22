@@ -1,0 +1,11 @@
+{
+  "name": "leila-one",
+  "private": true,
+  "workspaces": ["packages/ui-schema", "api", "web"],
+  "scripts": {
+    "postinstall": "npm run build -w @leila/ui-schema",
+    "build": "npm run build --workspaces",
+    "typecheck": "npm run typecheck --workspaces",
+    "test": "npm test -w @leila/ui-schema && npm test -w poc-odoo-repository-api"
+  }
+}

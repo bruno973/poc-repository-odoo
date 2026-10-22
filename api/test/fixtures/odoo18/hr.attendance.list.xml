@@ -1,0 +1,10 @@
+<list string="Présences" edit="0" sample="1" decoration-warning="overtime_status == 'to_approve'" decoration-danger="worked_hours &gt; 12">
+  <field name="employee_id"/>
+  <field name="check_in"/>
+  <field name="check_out"/>
+  <field name="worked_hours" string="Heures travaillées" widget="float_time"/>
+  <field name="meal_count" optional="show"/>
+  <field name="break_entry" optional="show" column_invisible="not context.get('show_moves')"/>
+  <field name="overtime_status" invisible="not overtime_status"/>
+  <button name="action_approve_overtime" type="object" string="Approuver" invisible="overtime_status != 'to_approve'"/>
+</list>

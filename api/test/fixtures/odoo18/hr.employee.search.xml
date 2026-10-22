@@ -1,0 +1,16 @@
+<search string="Employés">
+  <field name="name" string="Employé" filter_domain="['|', ('work_email', 'ilike', self), ('name', 'ilike', self)]"/>
+  <field name="department_id"/>
+  <field name="job_title"/>
+  <separator/>
+  <filter name="my_team" string="Mon équipe" domain="[('parent_id.user_id', '=', uid)]"/>
+  <filter name="no_manager" string="Sans manager" domain="[('parent_id', '=', False)]"/>
+  <separator/>
+  <filter name="archived" string="Archivés" domain="[('active', '=', False)]"/>
+  <group expand="0" string="Regrouper par">
+    <filter name="group_department" string="Département" context="{'group_by': 'department_id'}"/>
+  </group>
+  <searchpanel>
+    <field name="department_id" icon="fa-users"/>
+  </searchpanel>
+</search>

@@ -1,6 +1,8 @@
 # ADR-003 — Pile du frontend Leila One
 
-**Statut :** proposé · **Date :** 22/10/2026 · **Lot :** L1 · **Répond à :** D-01, D-02, Q-11 (en partie)
+**Statut :** ✅ **validé** (Bruno SOSIN, 22/10/2026) · **Lot :** L1 · **Répond à :** D-01, D-02, Q-11 (en partie)
+
+Validation : React + Vite + TypeScript ; nginx pour servir les fichiers compilés et assurer le reverse proxy en production ; Astro supprimé intégralement (ni serveur SSR, ni proxy) ; Fastify reste le BFF et le point d'entrée des contrats métier et des métadonnées. Package partagé API/front validé (cf. ADR-001 § 8).
 
 ## Contexte
 
@@ -23,4 +25,5 @@ Astro (SSR) est retiré (D-01). Le front devient une SPA React + Vite (D-02), se
 
 - Le front ne voit jamais un cookie, un jeton ou un rôle autrement que par `/api/auth/me` ; il n'injecte plus d'en-têtes `x-viewer-*` (mode `shared` = tests seulement).
 - Toute requête mutante porte `X-Leila-Csrf: 1` (`app/api-client.ts`).
-- `import type` vers `api/src` impose que le **typecheck** se fasse dans le dépôt complet ; l'image Docker ne fait que `vite build`. Si un module **exécutable** doit être partagé (évaluateur d'expressions, schéma Zod — cf. ADR-001/002), il faudra un paquet commun et un contexte Docker à la racine.
+- Le code exécutable partagé (schéma Zod, évaluateur de conditions) vit dans le package `@leila/ui-schema` (`packages/ui-schema`). Le dépôt est un **monorepo npm workspaces** (`api`, `web`, `packages/*`) avec un seul `package-lock.json` à la racine ; les images Docker se construisent depuis la racine.
+- Les types métier historiques restent partagés par `import type` (`@api/*`), effacés au build.

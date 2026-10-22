@@ -1,0 +1,9 @@
+<search string="Présences">
+  <field name="employee_id"/>
+  <filter name="myattendances" string="Mes présences" domain="[('employee_id.user_id', '=', uid)]"/>
+  <filter name="nocheckout" string="Présent" domain="[('check_out', '=', False)]"/>
+  <separator/>
+  <filter name="to_approve" string="À approuver" domain="[('overtime_status', '=', 'to_approve')]"/>
+  <filter name="refused" string="Refusées" domain="[('overtime_status', '=', 'refused')]"/>
+  <filter name="check_in_filter" string="Date d'arrivée" date="check_in"/>
+</search>

@@ -50,7 +50,7 @@ export const NEXT = Symbol("next");
 // Employés : 1 (admin), 5 (manager), 6 (équipe du manager), 8 (hors équipe)
 
 export const USERS: FakeUser[] = [
-  { login: "p.admin", password: "admin-pw", uid: 2, name: "Admin RH", groups: ["hr.group_hr_manager", "hr.group_hr_user", "hr_attendance.group_hr_attendance_officer"] },
+  { login: "p.admin", password: "admin-pw", uid: 2, name: "Admin RH", groups: ["hr.group_hr_manager", "hr.group_hr_user", "hr_attendance.group_hr_attendance_officer", "base.group_system"] },
   { login: "p.manager", password: "manager-pw", uid: 7, name: "Manon Manager", groups: ["hr_attendance.group_hr_attendance_officer"] },
   { login: "p.employe", password: "employe-pw", uid: 9, name: "Émile Employé", groups: [] },
   // Compte technique partagé (clé d'API) du mode shared

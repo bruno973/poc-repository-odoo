@@ -8,7 +8,9 @@ import type { ViewerRole } from "../domain/tree.js";
 import { ZodError } from "zod";
 import { DomainError } from "../domain/errors.js";
 import type { IdentityProvider } from "../domain/identity.js";
+import type { UiPorts } from "../domain/ui/ports.js";
 import { parseRoleGroups } from "./roles.js";
+import { KeyRegistry } from "./ui/keys.js";
 import { Tracer } from "./trace.js";
 
 /**
@@ -51,6 +53,8 @@ export interface Repositories {
   employees: EmployeeRepository;
   attendances: AttendanceRepository;
   summary: SummaryRepository;
+  /** Moteur de présentation (Leila UI Schema) : navigation, vues, enregistrements, commandes */
+  ui: UiPorts;
 }
 
 const ROLE_ENV: Record<ViewerRole, { user: string; password: string }> = {
@@ -124,6 +128,18 @@ export async function createRepositories(env: NodeJS.ProcessEnv, tracer: Tracer)
     }
 
     const approvalGroup = env["APPROVAL_GROUP"] === undefined ? DEFAULT_APPROVAL_GROUP : env["APPROVAL_GROUP"] || null;
+    const { OdooUiAdapter } = await import("../adapters/odoo18/ui/OdooUiAdapter.js");
+    const ui = new OdooUiAdapter(transports, {
+      db: base.db,
+      lang: base.lang ?? "fr_FR",
+      // Périmètre MVP (Q-07) : menus Employés et Présences par défaut
+      menuRoots: (env["UI_MENU_ROOTS"] ?? "hr.menu_hr_root,hr_attendance.menu_hr_attendance_root")
+        .split(",")
+        .map((m) => m.trim())
+        .filter(Boolean),
+      cacheTtlMs: parseFloat(env["UI_VIEW_CACHE_TTL_SECONDS"] ?? "300") * 1000,
+      keys: new KeyRegistry(),
+    });
     raw = {
       label: `Odoo, base ${base.db}${authMode === "odoo-session" ? " · identité réelle" : " · comptes partagés"}`,
       adapter,
@@ -131,6 +147,7 @@ export async function createRepositories(env: NodeJS.ProcessEnv, tracer: Tracer)
       employees: new OdooEmployeeRepository(transports),
       attendances: new OdooAttendanceRepository(transports, { approvalGroup }),
       summary: new OdooSummaryRepository(transports),
+      ui: { views: ui, records: ui, commands: ui },
     };
   } else {
     if (authMode === "odoo-session") throw new Error("AUTH_MODE=odoo-session exige ADAPTER=odoo.");
@@ -138,6 +155,8 @@ export async function createRepositories(env: NodeJS.ProcessEnv, tracer: Tracer)
       "../adapters/mock/index.js"
     );
     const store = new MockTimeStore();
+    const { MockUiAdapter } = await import("../adapters/mock/ui/MockUiAdapter.js");
+    const ui = new MockUiAdapter(new KeyRegistry());
     let auth: AuthSetup = { mode: "shared" };
     if (authMode === "fake-jwt") {
       const { createMockIdentity } = await import("../adapters/fake/mockUsers.js");
@@ -150,6 +169,7 @@ export async function createRepositories(env: NodeJS.ProcessEnv, tracer: Tracer)
       employees: new MockEmployeeRepository(),
       attendances: new MockAttendanceRepository(store),
       summary: new MockSummaryRepository(store),
+      ui: { views: ui, records: ui, commands: ui },
     };
   }
 
@@ -158,5 +178,10 @@ export async function createRepositories(env: NodeJS.ProcessEnv, tracer: Tracer)
     employees: tracer.wrap("EmployeeRepository", driftGuard("EmployeeRepository", raw.employees)),
     attendances: tracer.wrap("AttendanceRepository", driftGuard("AttendanceRepository", raw.attendances)),
     summary: tracer.wrap("SummaryRepository", driftGuard("SummaryRepository", raw.summary)),
+    ui: {
+      views: tracer.wrap("ViewRepository", driftGuard("ViewRepository", raw.ui.views)),
+      records: tracer.wrap("RecordRepository", driftGuard("RecordRepository", raw.ui.records)),
+      commands: tracer.wrap("CommandDispatcher", driftGuard("CommandDispatcher", raw.ui.commands)),
+    },
   };
 }
