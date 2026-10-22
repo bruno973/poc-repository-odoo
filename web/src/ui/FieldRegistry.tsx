@@ -16,8 +16,9 @@ export interface EditorProps {
   value: FieldValue | undefined;
   required: boolean;
   onChange(value: WriteValue, display?: FieldValue): void;
-  /** Ressource et champ (sélection d'une référence) */
+  /** Ressource et fiche (sélection d'une référence : le domaine dépend de la fiche) */
   resourceKey: string;
+  recordId: number;
 }
 
 type Editor = (props: EditorProps) => ReactNode;
@@ -51,5 +52,10 @@ export function FieldDisplay({ descriptor, value, values }: { descriptor: FieldD
   }
   if (descriptor.type === "boolean") return <span aria-label={value ? "Oui" : "Non"}>{value ? "☑" : "☐"}</span>;
   const text = formatValue(descriptor, value, values);
+  // Lien de présentation (widgets email / phone / url) : n'ouvre aucun droit
+  if (text && descriptor.format) {
+    const href = descriptor.format === "email" ? `mailto:${text}` : descriptor.format === "phone" ? `tel:${text.replace(/[^\d+]/g, "")}` : /^https?:\/\//i.test(text) ? text : null;
+    if (href) return <a href={href} rel="noopener noreferrer" target={descriptor.format === "url" ? "_blank" : undefined}>{text}</a>;
+  }
   return text ? <span className={descriptor.type === "multiline" ? "ui-multiline" : undefined}>{text}</span> : <em className="field__empty">—</em>;
 }

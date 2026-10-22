@@ -44,6 +44,10 @@ La sémantique Python est reproduite là où elle diffère de JavaScript :
 
 Une valeur **inconnue**, c'est-à-dire un champ absent des valeurs lisibles, rend la condition **indéterminée** : le repli du § 4 s'applique.
 
+`id` désigne l'identifiant de la fiche (constaté sur `amg` : `invisible="not id"`).
+
+**Domaines de sélection** (arbitrage « domain inconnu → opération désactivée ») : un domaine dont les valeurs sont des constantes ou des **champs de la fiche** est accepté comme modèle ; le BFF y substitue les valeurs lisibles par l'utilisateur au moment de la sélection et de l'écriture. Si une valeur référencée n'est pas lisible, ou si le domaine contient `uid`, `context`, un appel ou un attribut, l'opération est désactivée — jamais élargie.
+
 Non pris en charge en MVP : appels de fonction, indexation, `context.get(…)`, `uid`, `today`, `now`, `context_today()`. On les ajoutera au vu de l'inventaire réel des vues de `amg` (UI-001, Q-08).
 
 ## 4. Replis quand une condition est inconnue ou indéterminée (arbitrage)

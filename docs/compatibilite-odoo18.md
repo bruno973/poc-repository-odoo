@@ -26,16 +26,17 @@
 | Type Odoo | Lecture | Écriture |
 |---|---|---|
 | `char`, `text`, `integer`, `float`, `boolean`, `selection` (statique), `date`, `datetime` | ✅ | ✅ (revalidée par le BFF) |
-| `many2one` | ✅ | ✅ si les domaines du champ et de la vue sont absents ou littéraux ; la valeur est revérifiée (`search_count` dans le domaine, sous l'identité de l'utilisateur) |
+| `many2one` | ✅ | ✅ si les domaines du champ et de la vue sont des constantes **ou des valeurs de la fiche** (`[('company_id', 'in', [company_id, False])]`), substituées par le BFF avec les valeurs lisibles par l'utilisateur ; `uid`, `context`, appels → sélection désactivée. La valeur choisie est revérifiée (`search_count` dans le domaine calculé avec les valeurs après modification) |
 | `monetary` | ✅ si la devise est lisible | ❌ |
 | `one2many`, `many2many`, `binary`, `image`, `html`, `properties`, sélection dynamique | « Non disponible dans Leila » (nombre d'éléments pour les relations) | ❌ |
-| Attribut `widget` (quel qu'il soit) | Rendu standard du type | **Lecture seule** + diagnostic |
+| Widgets de présentation `email`, `phone`, `url`, `many2one_avatar`, `many2one_avatar_user`, `many2one_avatar_employee` | Rendu standard (liens `mailto:` / `tel:` / URL) | Comme le type |
+| Tout autre `widget` | Rendu standard du type | **Lecture seule** + diagnostic |
 
 ## Conditions (ADR-002)
 
 | Expression | MVP |
 |---|---|
-| Constantes, champs, `parent.x`, `==` `!=` `<` `<=` `>` `>=` `in` `not in`, `and` `or` `not`, listes / tuples | ✅ |
+| Constantes, champs (dont `id`, l'identifiant de la fiche), `parent.x`, `==` `!=` `<` `<=` `>` `>=` `in` `not in`, `and` `or` `not`, listes / tuples | ✅ |
 | `uid`, `context.get(…)`, `today`, `now`, appels, indexation, attributs | ❌ → repli : `readonly` → lecture seule, `invisible` → masqué, `column_invisible` → colonne masquée, `required` → indéterminé (le serveur valide), bouton → désactivé, décoration → neutre |
 
 ## Commandes (registre fermé)
@@ -47,7 +48,20 @@
 
 Ajout : `api/src/adapters/odoo18/ui/commands.ts`. Tout autre bouton est affiché désactivé.
 
+## Premier relevé réel : fiche employé sur `amg` (22/10/2026)
+
+65 diagnostics, dont 21 « à traiter ». Corrections apportées :
+- `id` était refusé dans les conditions (« not id ») : **bug corrigé** ;
+- 9 sélections désactivées par des domaines dépendant de la fiche (`company_id`, `address_id`, `work_contact_id`…) : **prises en charge** ;
+- `email`, `phone`, `many2one_avatar_user` : **widgets de présentation** reconnus ;
+- `<widget>` décoratifs (bandeau « Archivé », puce de chat, info-bulle) : rétrogradés en « Info » ;
+- panneau « Compatibilité » regroupé par type.
+
+Restent, conformes aux arbitrages : boutons hors registre (statistiques, création d'utilisateur…), `one2many` / `many2many` / `binary` / `html` / `properties`, `chatter`.
+
 ## À établir sur `amg` (UI-001, Q-08)
+
+Script : `cd api && INVENTAIRE_LOGIN=… INVENTAIRE_PASSWORD=… npm run inventaire` (un passage par profil) → `docs/inventaire/<compte>/` : architectures résolues, métadonnées de champs (aucune donnée d'enregistrement) et liste exacte des expressions non comprises.
 
 Les tests reposent sur des **reconstructions** des vues standard (`api/test/fixtures/odoo18`). À faire depuis un poste du tailnet :
 1. extraire les architectures réellement résolues de `hr.employee` (fiche, liste, recherche), `hr.attendance` et `hr.attendance.closure` pour chacun des 5 profils ;

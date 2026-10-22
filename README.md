@@ -65,12 +65,20 @@ ADAPTER=odoo AUTH_MODE=odoo-session ODOO_URL=http://127.0.0.1:8069 ODOO_DB=simul
 curl -X POST http://127.0.0.1:8070/heritage   # simule un héritage de vue (nouveau champ sur la fiche employé)
 ```
 
+### Inventaire des vues réelles (UI-001)
+
+```bash
+cd api   # api/.env : ODOO_URL, ODOO_DB
+INVENTAIRE_LOGIN=p.manager INVENTAIRE_PASSWORD=… npm run inventaire   # un passage par profil
+# → docs/inventaire/p.manager/ : vues résolues, métadonnées de champs, expressions non comprises
+```
+
 ## Vérifications
 
 ```bash
 cd api
 npm run typecheck     # TypeScript strict, sources + tests
-npm test              # 122 tests : contrat mock, droits simulés, visibilité, HTTP, protocole Odoo
+npm test              # 125 tests : contrat mock, droits simulés, visibilité, HTTP, protocole Odoo
                       # (faux serveur : /jsonrpc ET session), contrat d'identité (Odoo + faux JWT),
                       # sécurité (cookie, TTL, 429, en-têtes forgés, CSRF, CORS, mot de passe introuvable),
                       # frontières, répétition de la matrice de droits sur le mock

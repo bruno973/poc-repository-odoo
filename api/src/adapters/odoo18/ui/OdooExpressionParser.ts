@@ -20,6 +20,9 @@ const OPERATORS = ["==", "!=", "<=", ">=", "<", ">", "(", ")", "[", "]", "{", "}
 
 class Unsupported extends Error {}
 
+/** Variables d'environnement d'Odoo : jamais résolues par Leila (repli prudent). */
+const ENVIRONMENT = ["uid", "context", "today", "now", "context_today", "current_date", "time", "datetime", "relativedelta", "self", "user"];
+
 function tokenize(src: string): Token[] {
   const out: Token[] = [];
   let i = 0;
@@ -170,7 +173,8 @@ class Parser {
         return { op: "field", field: f.v, scope: "parent" };
       }
       // Variables d'environnement (uid, context, today…) et fonctions : hors sous-ensemble
-      if (["uid", "context", "today", "now", "context_today", "current_date", "time", "datetime", "relativedelta", "id", "self"].includes(t.v)) {
+      // `id` n'en fait pas partie : c'est l'identifiant de la fiche (constaté sur amg : « not id »)
+      if (ENVIRONMENT.includes(t.v)) {
         throw new Unsupported(`variable ${t.v}`);
       }
       this.noTrailer();
@@ -223,11 +227,18 @@ export function parseFlag(raw: string | undefined): Flag | undefined {
 
 // ─── Littéraux (domaines, contextes) ──────────────────────────────────────────
 
-export type Literal = Scalar | Literal[] | { [key: string]: Literal };
+/** Référence à une valeur de la fiche dans un domaine (substituée côté serveur). */
+export interface FieldRef {
+  $field: string;
+}
+export type Literal = Scalar | FieldRef | Literal[] | { [key: string]: Literal };
 
 class LiteralParser {
   private i = 0;
-  constructor(private readonly tokens: Token[]) {}
+  constructor(
+    private readonly tokens: Token[],
+    private readonly allowFields = false,
+  ) {}
   parseAll(): Literal {
     const v = this.value();
     if ((this.tokens[this.i] as Token).t !== "end") throw new Unsupported("suite");
@@ -240,6 +251,8 @@ class LiteralParser {
       if (t.v === "True") return true;
       if (t.v === "False") return false;
       if (t.v === "None") return null;
+      // Nom de champ de la fiche : accepté seulement pour un modèle de domaine, jamais suivi d'un appel ou d'un attribut
+      if (this.allowFields && !ENVIRONMENT.includes(t.v) && !this.atAny("(", ".", "[")) return { $field: t.v };
       throw new Unsupported(`variable ${t.v}`);
     }
     if (t.t === "op" && (t.v === "[" || t.v === "(")) return this.items(t.v === "[" ? "]" : ")");
@@ -274,6 +287,9 @@ class LiteralParser {
     const t = this.tokens[this.i] as Token;
     return t.t === "op" && t.v === v;
   }
+  private atAny(...vs: string[]): boolean {
+    return vs.some((v) => this.at(v));
+  }
 }
 
 /** Domaine / contexte littéral, ou null s'il dépend de variables ou n'est pas reconnu. */
@@ -285,6 +301,56 @@ export function parseLiteral(source: string | false | null | undefined | unknown
   } catch {
     return null;
   }
+}
+
+/**
+ * Modèle de domaine : littéral, dont les valeurs peuvent référencer des champs de la
+ * fiche (`[('company_id', 'in', [company_id, False])]`). null si uid, context, appel…
+ */
+export function parseDomainTemplate(source: unknown): unknown[] | null {
+  if (source === undefined || source === false || source === null || source === "" || source === "[]") return [];
+  if (Array.isArray(source)) return asDomain(source as Literal);
+  if (typeof source !== "string") return null;
+  try {
+    return asDomain(new LiteralParser(tokenize(source), true).parseAll());
+  } catch {
+    return null;
+  }
+}
+
+const isRef = (v: unknown): v is FieldRef => typeof v === "object" && v !== null && !Array.isArray(v) && "$field" in v;
+
+/** Champs de la fiche dont dépend le domaine. */
+export function domainFields(template: readonly unknown[], out = new Set<string>()): Set<string> {
+  const visit = (v: unknown) => {
+    if (isRef(v)) out.add(v.$field);
+    else if (Array.isArray(v)) v.forEach(visit);
+  };
+  template.forEach((term) => Array.isArray(term) && visit(term[2]));
+  return out;
+}
+
+/**
+ * Remplace les références par les valeurs de la fiche (référence → id, vide → False).
+ * null si une valeur est inconnue (champ non lisible) : l'opération est alors désactivée.
+ */
+export function substituteDomain(template: readonly unknown[], values: Readonly<Record<string, unknown>>): unknown[] | null {
+  let unknown = false;
+  const value = (v: unknown): unknown => {
+    if (isRef(v)) {
+      if (!Object.prototype.hasOwnProperty.call(values, v.$field)) {
+        unknown = true;
+        return false;
+      }
+      const raw = values[v.$field];
+      if (raw === null || raw === undefined) return false;
+      if (typeof raw === "object" && !Array.isArray(raw) && "id" in raw) return (raw as { id: number }).id;
+      return raw;
+    }
+    return Array.isArray(v) ? v.map(value) : v;
+  };
+  const out = template.map((term) => (Array.isArray(term) ? [term[0], term[1], value(term[2])] : term));
+  return unknown ? null : out;
 }
 
 /** Domaine Odoo littéral et bien formé (liste de termes [champ, opérateur, valeur] et '&' '|' '!'). */

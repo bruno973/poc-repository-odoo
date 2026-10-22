@@ -54,8 +54,8 @@ export function registerUiRoutes(fastify: FastifyInstance, ui: UiPorts, viewerOf
   fastify.get(`${prefix}/resources/:resourceKey/fields/:field/options`, async (request) => {
     const viewer = viewerOf(request);
     const { resourceKey, field } = Params.field.parse(request.params);
-    const q = z.object({ q: z.string().max(100).default("") }).parse(request.query);
-    return ui.records.lookup(resourceKey, field, q.q, viewer);
+    const q = z.object({ q: z.string().max(100).default(""), recordId: z.coerce.number().int().positive().optional() }).parse(request.query);
+    return ui.records.lookup(resourceKey, field, { search: q.q, recordId: q.recordId }, viewer);
   });
 
   fastify.post(`${prefix}/commands/:commandKey`, async (request) => {

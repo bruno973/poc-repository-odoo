@@ -30,7 +30,8 @@ export interface RecordRepository {
   query(resourceKey: string, request: QueryRequest, viewer: ViewerContext): Promise<QueryResult>;
   read(resourceKey: string, id: number, viewer: ViewerContext): Promise<RecordPayload>;
   write(resourceKey: string, id: number, patch: WritePatch, viewer: ViewerContext): Promise<RecordPayload>;
-  lookup(resourceKey: string, field: string, search: string, viewer: ViewerContext): Promise<LookupResult>;
+  /** Sélection d'une référence ; recordId : fiche dont les valeurs entrent dans le domaine du champ. */
+  lookup(resourceKey: string, field: string, request: { search: string; recordId?: number | undefined }, viewer: ViewerContext): Promise<LookupResult>;
 }
 
 export interface CommandDispatcher {

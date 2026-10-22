@@ -3,12 +3,13 @@
 
 import type { EditorProps } from "../FieldRegistry.js";
 
-export function TextEditor({ id, value, required, onChange, multiline = false }: EditorProps & { multiline?: boolean }) {
+export function TextEditor({ id, descriptor, value, required, onChange, multiline = false }: EditorProps & { multiline?: boolean }) {
   const v = typeof value === "string" ? value : "";
+  const type = descriptor.format === "email" ? "email" : descriptor.format === "phone" ? "tel" : descriptor.format === "url" ? "url" : "text";
   return multiline ? (
     <textarea id={id} className="field__input" value={v} required={required} onChange={(e) => onChange(e.target.value === "" ? null : e.target.value)} rows={3} />
   ) : (
-    <input id={id} className="field__input" value={v} required={required} onChange={(e) => onChange(e.target.value === "" ? null : e.target.value)} />
+    <input id={id} className="field__input" type={type} value={v} required={required} onChange={(e) => onChange(e.target.value === "" ? null : e.target.value)} />
   );
 }
 

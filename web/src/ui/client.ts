@@ -47,8 +47,8 @@ export const ui = {
     validate(RecordPayloadSchema, await api.get(`${BASE}/resources/${enc(resourceKey)}/records/${id}`, {}, signal)),
   write: async (resourceKey: string, id: number, values: Record<string, string | number | boolean | null>): Promise<RecordPayload> =>
     validate(RecordPayloadSchema, await api.patch(`${BASE}/resources/${enc(resourceKey)}/records/${id}`, { values })),
-  lookup: async (resourceKey: string, field: string, q: string): Promise<LookupResult> =>
-    validate(LookupResultSchema, await api.get(`${BASE}/resources/${enc(resourceKey)}/fields/${enc(field)}/options`, { q })),
+  lookup: async (resourceKey: string, field: string, q: string, recordId: number): Promise<LookupResult> =>
+    validate(LookupResultSchema, await api.get(`${BASE}/resources/${enc(resourceKey)}/fields/${enc(field)}/options`, { q, recordId })),
   command: async (commandKey: string, resourceKey: string, recordId: number): Promise<RecordPayload> =>
     validate(RecordPayloadSchema, await api.post(`${BASE}/commands/${enc(commandKey)}`, { resourceKey, recordId })),
 };

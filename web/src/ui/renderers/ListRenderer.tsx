@@ -84,7 +84,7 @@ export function ListRenderer({ view, search, onOpen }: { view: ViewSchema; searc
           </thead>
           <tbody>
             {result?.records.map((r) => {
-              const scope = { values: r.values };
+              const scope = { values: { ...r.values, id: r.id } };
               const decoration = view.decorations?.find((d) => evaluateCondition(d.when, scope) === true)?.style;
               return (
                 <tr key={r.id} className={`ui-row${decoration ? ` is-${decoration}` : ""}`} onClick={() => onOpen(r.id)} tabIndex={0} onKeyDown={(e) => e.key === "Enter" && onOpen(r.id)}>

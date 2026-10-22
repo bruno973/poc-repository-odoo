@@ -35,7 +35,8 @@ export function FormRenderer({ view, record, onChange }: Props) {
   const [status, setStatus] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [pending, setPending] = useState(false);
   const values: Record<string, FieldValue> = { ...record.values, ...display };
-  const scope = { values };
+  // `id` : identifiant de la fiche, utilisé par les conditions (« not id »)
+  const scope = { values: { ...values, id: record.id } };
   const dirty = Object.keys(draft).length > 0;
 
   const set = (field: string, value: WriteValue, shown?: FieldValue) => {
@@ -144,7 +145,7 @@ export function FormRenderer({ view, record, onChange }: Props) {
                 </label>
               )}
               {editor ? (
-                editor({ id, descriptor: d, value: values[n.field], required, resourceKey: view.resourceKey, onChange: (v, shown) => set(n.field, v, shown) })
+                editor({ id, descriptor: d, value: values[n.field], required, resourceKey: view.resourceKey, recordId: record.id, onChange: (v, shown) => set(n.field, v, shown) })
               ) : (
                 <span className="field__value" id={id}>
                   <FieldDisplay descriptor={d} value={values[n.field]} values={values} />

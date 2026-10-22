@@ -69,7 +69,7 @@ export interface UiState {
   fields: Record<string, Record<string, Meta>>;
   employees: Row[];
   attendances: Row[];
-  departments: [number, string][];
+  departments: [number, string, number][];
 }
 
 export function uiState(): UiState {
@@ -94,7 +94,8 @@ export function uiState(): UiState {
       { id: 12, employee_id: m2o(8, "Hugo Horséquipe"), check_in: "2026-09-18 10:00:00", check_out: "2026-09-18 23:00:00", worked_hours: 13, meal_count: 0, break_entry: false, boat_arrival: true, overtime_status: "approved" },
       { id: 13, employee_id: m2o(5, "Manon Manager"), check_in: "2026-09-18 10:30:00", check_out: false, worked_hours: 0, meal_count: 0, break_entry: false, boat_arrival: false, overtime_status: false },
     ],
-    departments: [[1, "Direction"], [3, "Atelier"], [4, "Quai"]],
+    // [id, nom, société] : « Filiale » est dans la société B
+    departments: [[1, "Direction", 1], [3, "Atelier", 1], [4, "Quai", 1], [9, "Filiale", 2]],
   };
 }
 
@@ -217,13 +218,13 @@ export function uiHandler(state: UiState): Handler {
 
     const table = model === "hr.employee" ? state.employees : model === "hr.attendance" ? state.attendances : null;
     if (!table) {
+      const departments = state.departments.map(([id, name, company]) => ({ id, name, company_id: m2o(company, `Société ${company}`) }));
       if (model === "hr.department" && method === "name_search") {
         const q = String(args[0] ?? "").toLowerCase();
-        return state.departments.filter(([, n]) => n.toLowerCase().includes(q));
+        return departments.filter((d) => d.name.toLowerCase().includes(q) && matches(d, (args[1] as unknown[]) ?? [])).map((d) => [d.id, d.name]);
       }
       if (model === "hr.department" && method === "search_count") {
-        const rows = state.departments.map(([id, name]) => ({ id, name }));
-        return rows.filter((r) => matches(r, args[0] as unknown[])).length;
+        return departments.filter((r) => matches(r, args[0] as unknown[])).length;
       }
       return NEXT;
     }

@@ -41,7 +41,7 @@ import { hasGroup, recordAccess } from "../capabilities.js";
 import { fromOdooDatetime, toOdooDatetime } from "../client.js";
 import type { OdooTransport, OdooTransportFactory } from "../transport.js";
 import { ODOO_COMMANDS, type OdooCommand } from "./commands.js";
-import { asDomain, combineDomains, parseLiteral } from "./OdooExpressionParser.js";
+import { asDomain, combineDomains, domainFields, parseLiteral, substituteDomain } from "./OdooExpressionParser.js";
 import { type OdooFieldMeta, type ParsedView, parseArch } from "./OdooViewParser.js";
 
 export interface OdooUiConfig {
@@ -59,7 +59,7 @@ export interface OdooUiConfig {
 /** Sémantique Leila des modèles (restrictions métier propres à Leila). */
 const SEMANTICS: Record<string, ResourceSemantic> = { "hr.employee": "employee", "hr.attendance": "attendance" };
 
-interface OdooMenu {
+export interface OdooMenu {
   id: number | "root";
   name: string;
   children: number[];
@@ -268,7 +268,7 @@ export class OdooUiAdapter implements ViewRepository, RecordRepository, CommandD
       const d = form.fields[key];
       merged[key] = d?.type === "reference" && typeof value === "number" ? { id: value, label: "" } : value;
     }
-    const scope: ConditionScope = { values: merged };
+    const scope: ConditionScope = { values: { ...merged, id } };
     const odooValues: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(patch.values)) {
       const descriptor = form.fields[key];
@@ -276,7 +276,7 @@ export class OdooUiAdapter implements ViewRepository, RecordRepository, CommandD
         throw new DomainError(`Champ non modifiable : ${key}`, "forbidden");
       }
       if (!editableInForm(form.root, key, scope)) throw new DomainError(`Champ non modifiable : ${key}`, "forbidden");
-      odooValues[key] = await this.toOdoo(t, bundle, descriptor, value);
+      odooValues[key] = await this.toOdoo(t, bundle, descriptor, value, scope.values);
     }
     if (Object.keys(odooValues).length > 0) {
       await t.callKw({ model: target.model, method: "write", args: [[id], odooValues], kwargs: {} });
@@ -284,15 +284,24 @@ export class OdooUiAdapter implements ViewRepository, RecordRepository, CommandD
     return this.readWith(t, bundle, target, resourceKey, id, viewer);
   }
 
-  async lookup(resourceKey: string, field: string, search: string, viewer: ViewerContext): Promise<LookupResult> {
+  async lookup(resourceKey: string, field: string, request: { search: string; recordId?: number | undefined }, viewer: ViewerContext): Promise<LookupResult> {
     const target = this.config.keys.resolve<ResourceTarget>(this.owner(viewer), "resource", resourceKey);
     const t = this.transports.for(viewer);
     const bundle = await this.bundle(t, viewer, target.actionId);
     const descriptor = bundle.parsed.form.fields[field];
-    const domain = bundle.parsed.form.fieldDomains[field];
+    const template = bundle.parsed.form.fieldDomains[field];
     const relation = bundle.fields[field]?.relation;
-    if (!descriptor?.relation?.lookup || !domain || !relation) throw new DomainError("Sélection indisponible pour ce champ.", "forbidden");
-    const rows = await t.callKw<[number, string][]>({ model: relation, method: "name_search", args: [search.slice(0, 100), domain, "ilike", 20], kwargs: {} });
+    if (!descriptor?.relation?.lookup || !template || !relation) throw new DomainError("Sélection indisponible pour ce champ.", "forbidden");
+    // Domaine dépendant de la fiche : valeurs lues sous l'identité de l'utilisateur (droits appliqués)
+    let values: Record<string, unknown> = {};
+    if (domainFields(template).size > 0) {
+      if (request.recordId === undefined) throw new DomainError("Sélection indisponible sans fiche.", "forbidden");
+      const current = await this.readWith(t, bundle, target, resourceKey, request.recordId, viewer);
+      values = { ...current.values, id: current.id };
+    }
+    const domain = substituteDomain(template, values);
+    if (!domain) throw new DomainError("Sélection indisponible : le domaine dépend d'une valeur non lisible.", "forbidden");
+    const rows = await t.callKw<[number, string][]>({ model: relation, method: "name_search", args: [request.search.slice(0, 100), domain, "ilike", 20], kwargs: {} });
     return { options: rows.map(([id, label]) => ({ id, label })) };
   }
 
@@ -346,7 +355,7 @@ export class OdooUiAdapter implements ViewRepository, RecordRepository, CommandD
     const values = this.toValues(bundle, row, fieldNames);
     const restriction = leilaRestriction(SEMANTICS[target.model] ?? "other", id, viewer);
     const canEdit = writable.get(id) === true && !restriction.readonly;
-    const scope: ConditionScope = { values };
+    const scope: ConditionScope = { values: { ...values, id } };
     const commands: RecordPayload["commands"] = {};
     for (const button of collectButtons(form.root)) {
       if (!button.commandKey) continue;
@@ -367,6 +376,7 @@ export class OdooUiAdapter implements ViewRepository, RecordRepository, CommandD
   private readableFields(bundle: ViewBundle, names: Iterable<string>): string[] {
     const out = new Set<string>();
     for (const name of names) {
+      if (name === "id") continue;
       const meta = bundle.fields[name];
       if (meta && !NOT_READ.has(meta.type)) out.add(name);
     }
@@ -379,7 +389,7 @@ export class OdooUiAdapter implements ViewRepository, RecordRepository, CommandD
     return values;
   }
 
-  private async toOdoo(t: OdooTransport, bundle: ViewBundle, d: FieldDescriptor, value: unknown): Promise<unknown> {
+  private async toOdoo(t: OdooTransport, bundle: ViewBundle, d: FieldDescriptor, value: unknown, values: Readonly<Record<string, unknown>>): Promise<unknown> {
     const bad = () => new DomainError(`Valeur invalide pour ${d.label}.`, "invalid");
     if (value === null) return false;
     switch (d.type) {
@@ -408,7 +418,9 @@ export class OdooUiAdapter implements ViewRepository, RecordRepository, CommandD
       case "reference": {
         if (typeof value !== "number" || !Number.isInteger(value)) throw bad();
         const relation = bundle.fields[d.key]?.relation;
-        const domain = bundle.parsed.form.fieldDomains[d.key];
+        const template = bundle.parsed.form.fieldDomains[d.key];
+        // Domaine évalué avec les valeurs APRÈS modification, comme l'écran les montre
+        const domain = template ? substituteDomain(template, values) : null;
         if (!relation || !domain || !d.relation?.lookup) throw new DomainError("Sélection indisponible pour ce champ.", "forbidden");
         // La valeur doit être sélectionnable par CET utilisateur, dans le domaine du champ
         const count = await t.callKw<number>({ model: relation, method: "search_count", args: [[...domain, ["id", "=", value]]], kwargs: {} });
@@ -506,7 +518,7 @@ export class OdooUiAdapter implements ViewRepository, RecordRepository, CommandD
  * argument est la liste d'ids : [[], debug]. Repli sur la forme « modèle » ([debug])
  * si l'instance la déclare autrement.
  */
-async function loadMenus(t: OdooTransport): Promise<Record<string, OdooMenu>> {
+export async function loadMenus(t: OdooTransport): Promise<Record<string, OdooMenu>> {
   const call = (args: unknown[]) => t.callKw<Record<string, OdooMenu>>({ model: "ir.ui.menu", method: "load_web_menus", args, kwargs: {} });
   try {
     return await call([[], false]);

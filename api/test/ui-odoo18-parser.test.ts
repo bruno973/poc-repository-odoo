@@ -5,7 +5,17 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import type { Node } from "@leila/ui-schema";
-import { asDomain, combineDomains, normalizeDomain, parseCondition, parseFlag, parseLiteral } from "../src/adapters/odoo18/ui/OdooExpressionParser.js";
+import {
+  asDomain,
+  combineDomains,
+  domainFields,
+  normalizeDomain,
+  parseCondition,
+  parseDomainTemplate,
+  parseFlag,
+  parseLiteral,
+  substituteDomain,
+} from "../src/adapters/odoo18/ui/OdooExpressionParser.js";
 import { type OdooFieldMeta, parseArch } from "../src/adapters/odoo18/ui/OdooViewParser.js";
 import { uiState } from "./fake-odoo-ui.js";
 
@@ -44,6 +54,9 @@ describe("Expressions Odoo → AST", () => {
     });
     assert.deepEqual(parseCondition("count >= -1.5"), { op: ">=", left: { op: "field", field: "count" }, right: { op: "const", value: -1.5 } });
   });
+  it("« id » est l'identifiant de la fiche (constaté sur amg : « not id »)", () => {
+    assert.deepEqual(parseCondition("not id"), { op: "not", arg: { op: "field", field: "id" } });
+  });
   it("refuse tout le reste sans rien exécuter", () => {
     for (const src of ["context.get('x')", "id and uid", "__import__('os').system('rm')", "a.b", "f(x)", "x[0]", "lambda: 1", "today", "1 < x < 3", "'a' + 'b'", "x if y else z"]) {
       assert.equal(parseCondition(src).op, "unsupported", src);
@@ -60,6 +73,18 @@ describe("Expressions Odoo → AST", () => {
     assert.deepEqual(parseLiteral("{'create': False, 'n': 1}"), { create: false, n: 1 });
     assert.equal(parseLiteral("[('user_id', '=', uid)]"), null);
     assert.equal(asDomain(parseLiteral("[('a', '=')]")), null);
+  });
+  it("modèles de domaine : valeurs de la fiche substituées côté serveur, variables refusées", () => {
+    const t = parseDomainTemplate("['|', ('company_id', '=', False), ('company_id', 'in', [company_id, False])]");
+    assert.ok(t);
+    assert.deepEqual([...domainFields(t)], ["company_id"]);
+    assert.deepEqual(substituteDomain(t, { company_id: { id: 4, label: "B" } }), ["|", ["company_id", "=", false], ["company_id", "in", [4, false]]]);
+    assert.equal(substituteDomain(t, {}), null, "valeur non lisible → opération désactivée");
+    assert.deepEqual(substituteDomain(t, { company_id: null }), ["|", ["company_id", "=", false], ["company_id", "in", [false, false]]]);
+    for (const bad of ["[('user_id', '=', uid)]", "[('x', '=', context.get('a'))]", "[('x', '=', company_id.id)]", "[('x', '=', f(1))]"]) {
+      assert.equal(parseDomainTemplate(bad), null, bad);
+    }
+    assert.equal(parseLiteral("[('a', '=', company_id)]"), null, "les filtres et actions restent littéraux");
   });
   it("combine les domaines comme Odoo (notation préfixée)", () => {
     assert.deepEqual(normalizeDomain([["a", "=", 1], ["b", "=", 2]]), ["&", ["a", "=", 1], ["b", "=", 2]]);
@@ -90,20 +115,23 @@ describe("Fiche employé (form)", () => {
     assert.ok(view.diagnostics.some((d) => d.code === "unsupported_expression" && d.path.includes("user_id")));
     assert.ok(view.conditionFields.has("work_phone") && view.conditionFields.has("marital"));
   });
-  it("aucun widget interprété : diagnostic + lecture seule", () => {
-    assert.equal(view.fields["work_email"]?.readonly, true);
-    assert.ok(view.diagnostics.some((d) => d.code === "unsupported_widget" && d.path.includes("work_email")));
-    assert.equal(view.fields["parent_id"]?.readonly, true);
+  it("widgets de présentation reconnus ; les autres : diagnostic + lecture seule", () => {
+    assert.equal(view.fields["work_email"]?.readonly, false);
+    assert.equal(view.fields["work_email"]?.format, "email");
+    assert.ok(!view.diagnostics.some((d) => d.code === "unsupported_widget" && (d.path.includes("work_email") || d.path.includes("parent_id"))));
+    assert.ok(view.diagnostics.some((d) => d.code === "unsupported_widget" && d.path.includes("image_1920")));
   });
   it("types non pris en charge signalés (many2many, binaire)", () => {
     assert.equal(view.fields["category_ids"]?.type, "unsupported");
     assert.equal(view.fields["image_1920"]?.type, "unsupported");
   });
-  it("sélection de référence seulement avec un domaine littéral", () => {
+  it("sélection de référence : domaines constants ou dépendant de la fiche", () => {
     assert.equal(view.fields["coach_id"]?.relation?.lookup, true);
     assert.deepEqual(view.fieldDomains["coach_id"], []);
-    assert.equal(view.fields["department_id"]?.relation?.lookup, false, "domaine du champ dépendant de company_id");
-    assert.equal(view.fields["resource_calendar_id"]?.relation?.lookup, false, "domaine de vue dépendant de company_id");
+    assert.equal(view.fields["department_id"]?.relation?.lookup, true, "domaine du champ dépendant de company_id");
+    assert.deepEqual(view.fieldDomains["department_id"], [["company_id", "in", [{ $field: "company_id" }, false]]]);
+    assert.equal(view.fields["resource_calendar_id"]?.relation?.lookup, true, "domaine de vue dépendant de company_id");
+    assert.ok(view.conditionFields.has("company_id"), "valeur nécessaire au domaine chargée avec la fiche");
     assert.deepEqual(view.fieldDomains["work_location_id"], [["active", "=", true]]);
   });
   it("boutons hors registre : non exécutables, signalés", () => {

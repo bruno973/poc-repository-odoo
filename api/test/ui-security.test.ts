@@ -71,12 +71,11 @@ describe("Moteur de présentation : sécurité", () => {
       [employe, e.resourceKey, 6, { job_title: "Chef" }, "auto-modification (Q-05) et droits Odoo"],
       [manager, m.resourceKey, 5, { job_title: "Chef" }, "sa propre fiche"],
       [manager, m.resourceKey, 6, { ssnid: "x" }, "champ absent du schéma (non lisible)"],
-      [admin, ad.resourceKey, 6, { work_email: "x@y.z" }, "widget non pris en charge → lecture seule"],
       [admin, ad.resourceKey, 6, { hours_last_month: 1 }, "champ en lecture seule"],
       [admin, ad.resourceKey, 8, { coach_id: 5 }, "readonly conditionnel (pas de manager)"],
       [admin, ad.resourceKey, 5, { mobile_phone: "06" }, "invisible conditionnel (pas de téléphone pro)"],
       [admin, ad.resourceKey, 6, { user_id: 2 }, "readonly non pris en charge → lecture seule"],
-      [admin, ad.resourceKey, 6, { department_id: 1 }, "domaine de sélection non pris en charge"],
+      [manager, m.resourceKey, 6, { department_id: 1 }, "domaine dépendant d'une valeur non lisible (société)"],
       [admin, ad.resourceKey, 6, { category_ids: [1] }, "type non pris en charge"],
     ];
     for (const [c, key, id, values, why] of cases) {
@@ -93,6 +92,21 @@ describe("Moteur de présentation : sécurité", () => {
     const ok = await admin.patch(`/api/ui/v1/resources/${ad.resourceKey}/records/6`, { values: { coach_id: 1, tz: "Europe/Paris" } });
     assert.equal(ok.statusCode, 200, ok.body);
     assert.deepEqual((ok.json() as RecordPayload).values["coach_id"], { id: 1, label: "Alice Admin" });
+  });
+
+  it("sélection : domaine calculé avec les valeurs de la fiche, revérifié à l'écriture", async () => {
+    const ad = await employees(admin);
+    const opts = await admin.get(`/api/ui/v1/resources/${ad.resourceKey}/fields/department_id/options?q=&recordId=6`);
+    assert.equal(opts.statusCode, 200, opts.body);
+    const labels = (opts.json() as { options: { label: string }[] }).options.map((o) => o.label);
+    assert.ok(labels.includes("Atelier") && !labels.includes("Filiale"), `départements proposés : ${labels.join(", ")}`);
+    assert.equal((await admin.get(`/api/ui/v1/resources/${ad.resourceKey}/fields/department_id/options?q=`)).statusCode, 403, "sans fiche : domaine incalculable");
+    assert.equal((await admin.patch(`/api/ui/v1/resources/${ad.resourceKey}/records/6`, { values: { department_id: 9 } })).statusCode, 400, "valeur hors domaine");
+    const ok = await admin.patch(`/api/ui/v1/resources/${ad.resourceKey}/records/6`, { values: { department_id: 4 } });
+    assert.equal(ok.statusCode, 200, ok.body);
+    // Manager : la société de la fiche ne lui est pas lisible → sélection désactivée, jamais élargie
+    const m = await employees(manager);
+    assert.equal((await manager.get(`/api/ui/v1/resources/${m.resourceKey}/fields/department_id/options?q=&recordId=6`)).statusCode, 403);
   });
 
   it("commandes : registre fermé, droits et conditions revérifiés", async () => {

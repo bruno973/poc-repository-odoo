@@ -21,7 +21,7 @@ import type {
   Node,
 } from "@leila/ui-schema";
 import { conditionFields, isSupported } from "@leila/ui-schema";
-import { asDomain, parseCondition, parseFlag, parseLiteral } from "./OdooExpressionParser.js";
+import { asDomain, domainFields, parseCondition, parseDomainTemplate, parseFlag, parseLiteral } from "./OdooExpressionParser.js";
 
 /** Métadonnées d'un champ telles que renvoyées par get_views / fields_get (Odoo 18). */
 export interface OdooFieldMeta {
@@ -63,7 +63,10 @@ export interface ParsedView {
   /** Recherche : filtres et champs de recherche, côté serveur uniquement */
   filters: ServerFilter[];
   searchFields: Record<string, { usable: boolean }>;
-  /** Domaines de champ (sélection d'une référence) : littéral pris en charge, ou null */
+  /**
+   * Domaines de champ (sélection d'une référence) : modèle pris en charge (constantes et
+   * valeurs de la fiche, substituées côté serveur), ou null.
+   */
   fieldDomains: Record<string, unknown[] | null>;
   /**
    * Parité (champs et boutons) : fieldsInArch + buttonsInArch = fieldsImported +
@@ -98,6 +101,19 @@ const TYPE_MAP: Record<string, FieldDescriptor["type"]> = {
   many2one: "reference",
   monetary: "money",
 };
+/**
+ * Widgets de pure présentation : le rendu standard du type en préserve le sens et les
+ * restrictions (arbitrage ADR-001 § 3.2). Constatés sur la fiche employé de amg.
+ */
+const PRESENTATION_WIDGETS: Record<string, FieldDescriptor["format"] | null> = {
+  email: "email",
+  phone: "phone",
+  url: "url",
+  many2one_avatar: null,
+  many2one_avatar_user: null,
+  many2one_avatar_employee: null,
+};
+
 const DECORATIONS: Record<string, DecorationStyle> = {
   "decoration-success": "success",
   "decoration-info": "info",
@@ -172,8 +188,11 @@ export function parseArch(arch: string, viewType: "list" | "form" | "search", ct
       }
       readonly = true; // MVP : affichage seulement
     }
-    if (attrs["widget"]) {
-      diag({ code: "unsupported_widget", severity: "info", path, message: `Widget « ${attrs["widget"]} » non pris en charge : rendu standard en lecture seule.` });
+    const widget = attrs["widget"];
+    const presentation = widget !== undefined && widget in PRESENTATION_WIDGETS;
+    const format = presentation ? PRESENTATION_WIDGETS[widget] : null;
+    if (widget && !presentation) {
+      diag({ code: "unsupported_widget", severity: "info", path, message: `Widget « ${widget} » non pris en charge : rendu standard en lecture seule.` });
       readonly = true;
     }
     const existing = out.fields[name];
@@ -187,6 +206,7 @@ export function parseArch(arch: string, viewType: "list" | "form" | "search", ct
       ...(Array.isArray(meta.digits) ? { digits: meta.digits } : {}),
       ...(type === "money" ? { currencyField: meta.currency_field ?? "currency_id" } : {}),
       ...(meta.help ? { help: meta.help } : {}),
+      ...(format && type === "text" ? { format } : {}),
     };
     if (type === "selection" && !Array.isArray(meta.selection)) {
       descriptor.type = "unsupported";
@@ -194,13 +214,13 @@ export function parseArch(arch: string, viewType: "list" | "form" | "search", ct
       diag({ code: "unsupported_field_type", severity: "warning", path, message: "Sélection dynamique non prise en charge." });
     }
     if (type === "reference") {
-      // Sélection possible seulement si les domaines (champ ET vue) sont littéraux
-      const fieldDomain = meta.domain === undefined || meta.domain === false || (Array.isArray(meta.domain) && meta.domain.length === 0)
-        ? []
-        : asDomain(parseLiteral(meta.domain as string));
-      const viewDomain = attrs["domain"] === undefined ? [] : asDomain(parseLiteral(attrs["domain"]));
+      // Sélection possible si les domaines (champ ET vue) sont des constantes ou des valeurs
+      // de la fiche ; uid, context, appels… → sélection désactivée (ADR-002)
+      const fieldDomain = parseDomainTemplate(meta.domain);
+      const viewDomain = parseDomainTemplate(attrs["domain"]);
       const ok = fieldDomain !== null && viewDomain !== null && !readonly;
       out.fieldDomains[name] = ok ? [...(fieldDomain ?? []), ...(viewDomain ?? [])] : null;
+      if (ok) domainFields(out.fieldDomains[name] as unknown[], out.conditionFields);
       if (!ok && !readonly) {
         diag({ code: "unsupported_domain", severity: "info", path, message: "Domaine de sélection non pris en charge : sélection désactivée." });
       }
@@ -328,6 +348,13 @@ export function parseArch(arch: string, viewType: "list" | "form" | "search", ct
           if (IGNORED.has(tag)) break;
           if (TRANSPARENT.has(tag)) {
             result.push(...walk(kids, here));
+            break;
+          }
+          if (tag === "widget") {
+            // Élément visuel (bandeau, puce de chat, info-bulle…) : signalé sans alerte
+            out.stats.unsupportedNodes++;
+            diag({ code: "unsupported_node", severity: "info", path: here, sourceTag: tag, message: `Élément visuel « ${attrs["name"] ?? "widget"} » non pris en charge.` });
+            result.push({ kind: "unsupported", sourceTag: tag, reason: "Élément visuel non pris en charge par Leila." });
             break;
           }
           countNested(kids);

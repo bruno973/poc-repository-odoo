@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { ui } from "../client.js";
 import type { EditorProps } from "../FieldRegistry.js";
 
-export function ReferenceEditor({ id, descriptor, value, onChange, resourceKey }: EditorProps) {
+export function ReferenceEditor({ id, descriptor, value, onChange, resourceKey, recordId }: EditorProps) {
   const current = value && typeof value === "object" && !Array.isArray(value) ? value : null;
   const [q, setQ] = useState(current?.label ?? "");
   const [options, setOptions] = useState<{ id: number; label: string }[] | null>(null);
@@ -17,7 +17,7 @@ export function ReferenceEditor({ id, descriptor, value, onChange, resourceKey }
   const search = async (text: string) => {
     setQ(text);
     try {
-      setOptions((await ui.lookup(resourceKey, descriptor.key, text)).options);
+      setOptions((await ui.lookup(resourceKey, descriptor.key, text, recordId)).options);
       setError(null);
     } catch {
       setOptions(null);
