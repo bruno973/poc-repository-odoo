@@ -22,6 +22,12 @@ export interface OdooTransport {
   /** uid Odoo du compte qui porte les appels */
   userId(): Promise<number>;
   callKw<T>(params: CallKwParams): Promise<T>;
+  /**
+   * Définition d'une action par la route du client web (/web/action/load), qui la lit
+   * en sudo pour l'utilisateur : un compte non administrateur ne peut pas lire
+   * ir.actions.act_window par l'ORM (constaté sur amg). Absent du transport jsonrpc.
+   */
+  loadAction?(actionId: number): Promise<Record<string, unknown> | false>;
 }
 
 export interface OdooTransportFactory {
@@ -127,6 +133,19 @@ export class SessionTransport implements OdooTransport {
       throw error;
     } finally {
       this.recorder?.recordBackend(`${params.model}.${params.method}`, performance.now() - started, ok, this.uid);
+    }
+  }
+
+  async loadAction(actionId: number): Promise<Record<string, unknown> | false> {
+    const started = performance.now();
+    let ok = true;
+    try {
+      return ((await this.send("/web/action/load", { action_id: actionId })) as Record<string, unknown> | false) ?? false;
+    } catch (error) {
+      ok = false;
+      throw error;
+    } finally {
+      this.recorder?.recordBackend("web.action.load", performance.now() - started, ok, this.uid);
     }
   }
 

@@ -27,6 +27,12 @@ const GROUP_IDS: Record<string, number> = {
 
 const m2o = (id: number, name: string) => [id, name];
 
+const ACTIONS: Record<number, Record<string, unknown>> = {
+  501: { id: 501, name: "Employés", res_model: "hr.employee", views: [[false, "list"], [false, "form"]], domain: false, context: "{'chat_icon': True}", search_view_id: false },
+  502: { id: 502, name: "Présences", res_model: "hr.attendance", views: [[false, "list"], [false, "form"]], domain: "[]", context: "{'create': False}", search_view_id: false },
+  503: { id: 503, name: "Mon équipe", res_model: "hr.employee", views: [[false, "list"]], domain: "[('parent_id.user_id', '=', uid)]", context: "{}", search_view_id: false },
+};
+
 const EMPLOYEE_FIELDS: Record<string, Meta> = {
   name: { type: "char", string: "Nom", required: true, sortable: true, store: true },
   job_title: { type: "char", string: "Intitulé du poste", sortable: true, store: true },
@@ -195,12 +201,15 @@ export function uiHandler(state: UiState): Handler {
       };
     }
     if (model === "ir.actions.act_window" && method === "read") {
-      const ACTIONS: Record<number, Record<string, unknown>> = {
-        501: { id: 501, name: "Employés", res_model: "hr.employee", views: [[false, "list"], [false, "form"]], domain: false, context: "{'chat_icon': True}", search_view_id: false },
-        502: { id: 502, name: "Présences", res_model: "hr.attendance", views: [[false, "list"], [false, "form"]], domain: "[]", context: "{'create': False}", search_view_id: false },
-        503: { id: 503, name: "Mon équipe", res_model: "hr.employee", views: [[false, "list"]], domain: "[('parent_id.user_id', '=', uid)]", context: "{}", search_view_id: false },
-      };
+      // Comme Odoo 18 (constaté sur amg) : lecture ORM réservée à Administration/Paramètres
+      if (!allGroups.includes("base.group_system")) {
+        throw new OdooFault("odoo.exceptions.AccessError", "Vous n'êtes pas autorisé à accéder aux enregistrements 'Fenêtre d'action' (ir.actions.act_window).");
+      }
       return (args[0] as number[]).map((id) => ACTIONS[id]).filter(Boolean);
+    }
+    if (model === "ir.actions.actions" && method === "/web/action/load") {
+      const action = ACTIONS[args[0] as number];
+      return action ? { ...action, type: "ir.actions.act_window" } : false;
     }
     if (method === "get_views" && (model === "hr.employee" || model === "hr.attendance")) {
       const views = (kwargs["views"] as [number | false, string][]).map(([, type]) => type);

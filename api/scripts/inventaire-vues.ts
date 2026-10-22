@@ -15,7 +15,7 @@
 import "dotenv/config";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { parseCondition } from "../src/adapters/odoo18/ui/OdooExpressionParser.js";
-import { loadMenus, type OdooMenu } from "../src/adapters/odoo18/ui/OdooUiAdapter.js";
+import { loadMenus, type OdooMenu, readWindowAction } from "../src/adapters/odoo18/ui/OdooUiAdapter.js";
 import { type OdooFieldMeta, parseArch } from "../src/adapters/odoo18/ui/OdooViewParser.js";
 import { ODOO_COMMANDS } from "../src/adapters/odoo18/ui/commands.js";
 import { SessionTransport } from "../src/adapters/odoo18/transport.js";
@@ -51,8 +51,11 @@ const lines: string[] = [`# Inventaire des vues résolues — compte \`${login}\
 const unsupported = new Map<string, number>();
 
 for (const [actionId, menuPath] of actions) {
-  const [action] = await t.callKw<Record<string, unknown>[]>({ model: "ir.actions.act_window", method: "read", args: [[actionId], ["name", "res_model", "views", "domain", "context", "search_view_id"]], kwargs: {} });
-  if (!action) continue;
+  const action = await readWindowAction(t, actionId);
+  if (!action) {
+    lines.push(`## ${menuPath} — ⚠️ action ${actionId} illisible pour ce compte`, "");
+    continue;
+  }
   const model = String(action["res_model"]);
   const views: Record<string, number | false> = { list: false, form: false, search: false };
   for (const [id, type] of (action["views"] as [number | false, string][]) ?? []) {

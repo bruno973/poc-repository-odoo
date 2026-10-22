@@ -30,6 +30,14 @@ describe("Moteur de présentation : sécurité", () => {
     assert.equal(kiosk?.available, false);
   });
 
+  it("actions chargées par la route du client web, sans lecture ORM réservée aux administrateurs (constaté sur amg)", async () => {
+    h.odoo.reset();
+    const a = await employees(employe);
+    assert.equal(a.available, true);
+    assert.ok(h.odoo.paths.includes("/web/action/load"));
+    assert.ok(!h.odoo.calls.some((c) => c.model === "ir.actions.act_window"), "lecture ORM d'action par un non-administrateur");
+  });
+
   it("les clés d'un utilisateur sont inutilisables par un autre (404)", async () => {
     const mine = await employees(manager);
     assert.equal((await employe.get(`/api/ui/v1/views/${mine.views.form}`)).statusCode, 404);

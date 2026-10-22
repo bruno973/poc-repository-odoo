@@ -467,13 +467,9 @@ export class OdooUiAdapter implements ViewRepository, RecordRepository, CommandD
   }
 
   private async actionDef(t: OdooTransport, actionId: number): Promise<ActionDef> {
-    const rows = await t.callKw<Record<string, unknown>[]>({
-      model: "ir.actions.act_window",
-      method: "read",
-      args: [[actionId], ["name", "res_model", "views", "domain", "context", "search_view_id"]],
-      kwargs: {},
-    });
-    const row = rows[0];
+    // actionId vient d'une clé émise depuis les menus de CET utilisateur : la lecture
+    // en sudo par /web/action/load ne porte que sur des actions qui lui sont publiées.
+    const row = await readWindowAction(t, actionId);
     if (!row) throw new DomainError("Action introuvable.", "not_found");
     const views = { list: false as number | false, form: false as number | false, search: false as number | false };
     for (const [id, type] of (row["views"] as [number | false, string][] | undefined) ?? []) {
@@ -567,6 +563,25 @@ export class OdooUiAdapter implements ViewRepository, RecordRepository, CommandD
  * argument est la liste d'ids : [[], debug]. Repli sur la forme « modèle » ([debug])
  * si l'instance la déclare autrement.
  */
+/**
+ * Fenêtre d'action telle que le client web d'Odoo la charge. Session utilisateur :
+ * route /web/action/load (lecture sudo d'Odoo, seule voie pour un non-administrateur).
+ * Transport jsonrpc (comptes partagés) : lecture ORM. Autre type d'action → null.
+ */
+export async function readWindowAction(t: OdooTransport, actionId: number): Promise<Record<string, unknown> | null> {
+  if (t.loadAction) {
+    const action = await t.loadAction(actionId);
+    return action && action["type"] === "ir.actions.act_window" ? action : null;
+  }
+  const rows = await t.callKw<Record<string, unknown>[]>({
+    model: "ir.actions.act_window",
+    method: "read",
+    args: [[actionId], ["name", "res_model", "views", "domain", "context", "search_view_id"]],
+    kwargs: {},
+  });
+  return rows[0] ?? null;
+}
+
 export async function loadMenus(t: OdooTransport): Promise<Record<string, OdooMenu>> {
   const call = (args: unknown[]) => t.callKw<Record<string, OdooMenu>>({ model: "ir.ui.menu", method: "load_web_menus", args, kwargs: {} });
   try {

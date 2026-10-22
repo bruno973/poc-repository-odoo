@@ -85,6 +85,7 @@ Script : `cd api && INVENTAIRE_LOGIN=… INVENTAIRE_PASSWORD=… npm run inventa
 Constaté sur `amg` (inventaire admin du 22/10/2026) :
 - `ir.ui.menu.load_web_menus` s'appelle par `call_kw` avec `[[], debug]` (ids en premier argument) — corrigé, et reproduit par le simulateur ;
 - `get_views` renvoie bien les champs sous `models[modèle].fields` ;
+- un compte non administrateur ne peut pas lire `ir.actions.act_window` par l'ORM (`AccessError`, réservé à Administration/Paramètres) : les actions sont chargées par la route du client web `/web/action/load` (lecture sudo d'Odoo), uniquement pour des actions issues des menus publiés à l'utilisateur. Le mode `shared` (jsonrpc, sans route web) garde la lecture ORM et suppose des comptes partagés qui y ont droit ;
 - 100 % des conditions (`invisible`, `readonly`, `required`, `column_invisible`) des vues inventoriées sont comprises (test `ui-inventaire-amg.test.ts`).
 
 Reste à vérifier :

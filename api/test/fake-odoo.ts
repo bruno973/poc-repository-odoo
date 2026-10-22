@@ -232,6 +232,11 @@ export class FakeOdoo {
             this.sessions.delete(sid as string);
             return send({ result: null });
           }
+          if (url === "/web/action/load") {
+            // Route du client web : lecture sudo de l'action (pseudo-méthode côté faux Odoo)
+            const { action_id } = params as { action_id: number };
+            return send({ result: this.dispatch({ transport: "session", uid, model: "ir.actions.actions", method: "/web/action/load", args: [action_id], kwargs: {} }) });
+          }
           if (url.startsWith("/web/dataset/call_kw/")) {
             const { model, method, args, kwargs } = params as { model: string; method: string; args: unknown[]; kwargs: Record<string, unknown> };
             return send({ result: this.dispatch({ transport: "session", uid, model, method, args, kwargs }) });
