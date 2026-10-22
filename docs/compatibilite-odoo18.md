@@ -97,6 +97,8 @@ Options, à arbitrer (impact sécurité et licences) :
 2. **Contrats métier Leila dédiés** (pas le moteur générique) servis par un compte technique : le BFF filtre lui-même sur l'employé connecté ; la sécurité repose alors sur Leila, à tester comme telle.
 3. **Module Odoo dédié** exposant au portail des points d'accès restreints (contrôleurs vérifiant l'employé lié) : les droits restent dans Odoo, au prix d'un module à maintenir.
 
+Sonde : `cd api && SONDE_LOGIN=… SONDE_PASSWORD=… npm run sonde-portail` → `docs/inventaire/<compte>/SONDE.md` (droits ORM, nombre d'enregistrements visibles, champs lisibles, `get_views` ; aucune donnée lue). Un module `amg` donne des droits au groupe Portail : la sonde dira s'ils passent par l'ORM (cas favorable, option 4 : écrans employé Leila appelés avec la session portail, droits garantis par Odoo).
+
 Reste à vérifier :
 1. inventorier les profils non administrateurs (manager, employé) et rejouer `ui-inventaire-amg.test.ts` sur leurs dossiers ;
 2. `has_access` sur une liste vide (droit du modèle), signature positionnelle de `name_search`, lecture de `groups_id` pour un compte non administrateur.
