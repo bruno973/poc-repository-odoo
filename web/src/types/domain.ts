@@ -1,7 +1,8 @@
 // web/src/types/domain.ts
 // Les types viennent directement du domaine de l'API (une seule source de vérité,
-// plus de copie qui dérive). Imports « type » uniquement : ils sont effacés à la
-// compilation, donc l'image Docker du front n'a pas besoin du dossier api/.
+// plus de copie qui dérive). Imports « type » uniquement : ils sont effacés au
+// build Vite, donc l'image Docker du front n'a pas besoin du dossier api/
+// (le typecheck, lui, se fait dans le dépôt complet).
 
 export type {
   Ref,

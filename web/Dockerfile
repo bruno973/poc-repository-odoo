@@ -1,29 +1,16 @@
-# ─── Étape 1 : build Astro (SSR, adapter Node standalone) ────────────────────
+# ─── Étape 1 : build Vite ────────────────────────────────────────────────────
 FROM node:22-alpine AS build
 WORKDIR /app
-
 COPY package*.json ./
 RUN npm ci
-
 COPY . .
-# Les types partagés avec l'API (@api/*) sont des imports « type » : effacés au
-# build, donc le dossier api/ n'a pas besoin d'être dans ce contexte Docker.
+# Les types partagés avec l'API (@api/*) sont des imports « type », effacés par
+# le build : le dossier api/ n'est pas nécessaire ici. Le typecheck se fait dans
+# le dépôt complet (npm run typecheck).
 RUN npm run build
 
-# ─── Étape 2 : exécution ─────────────────────────────────────────────────────
-FROM node:22-alpine
-WORKDIR /app
-ENV NODE_ENV=production
-ENV HOST=0.0.0.0
-ENV PORT=4321
-
-COPY package*.json ./
-RUN npm ci --omit=dev && npm cache clean --force
-
-COPY --from=build /app/dist ./dist
-
-USER node
-EXPOSE 4321
-
-# VIEWER_ROLE, VIEWER_ID… et API_BASE_URL sont lus à l'exécution (process.env)
-CMD ["node", "./dist/server/entry.mjs"]
+# ─── Étape 2 : fichiers statiques + reverse proxy /api ──────────────────────
+FROM nginx:1.27-alpine
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/dist /usr/share/nginx/html
+EXPOSE 80

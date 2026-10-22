@@ -1,8 +1,7 @@
-// web/src/lib/format.ts — Formats d'affichage, partagés entre le rendu serveur et
-// les scripts du navigateur.
+// web/src/lib/format.ts — Formats d'affichage.
 //
-// Fuseau explicite : dans le conteneur Docker, le serveur Astro tourne en UTC.
-// Sans ce paramètre, les heures rendues côté serveur seraient décalées de 3 h.
+// Fuseau explicite : l'affichage suit l'heure de Cayenne quel que soit le fuseau
+// du poste (un navigateur en métropole verrait sinon les heures décalées).
 export const DISPLAY_TZ = "America/Cayenne";
 
 /** 13.75 → "13:45", comme le widget float_time d'Odoo (dépasse 24 h sans souci). */

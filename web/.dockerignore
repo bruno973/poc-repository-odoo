@@ -1,10 +1,8 @@
 # Jamais dans l'image : secrets, dépendances de l'hôte, sorties de build
 .env
 .env.*
-!.env.example
 node_modules
 dist
-.astro
 npm-debug.log*
 .DS_Store
 coverage

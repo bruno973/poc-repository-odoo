@@ -1,20 +1,27 @@
-# poc-odoo-repository
+# poc-odoo-repository — Leila One
 
-PoC — Repository typé (ports + adapters) pour exposer Odoo 18 et le module `leila_hr`
-via une API REST découplée, et des écrans Leila qui n'en savent rien.
+Client **React + Vite** (Leila One) devant une API **Fastify** (BFF) qui expose Odoo 18 et le
+module `leila_hr` par des ports métier (Repository Pattern). Le front ne sait rien d'Odoo.
+Cahier de développement : [DEV.md](DEV.md) (v0.3) · baseline : [docs/baseline-L0.md](docs/baseline-L0.md) ·
+décisions : [docs/adr/](docs/adr/).
 
-Écrans : **Employés** (listing + fiche pilotée par squelette), **Pointer**, **Gestion**, **Synthèse**.
+Écrans : **Employés** (annuaire + fiche), **Pointer**, **Gestion**, **Synthèse**. La fiche repose encore
+sur le squelette `employee.skeleton.ts` ; le moteur générique (Leila UI Schema, ADR-001/002) est le lot suivant.
 
 ## Démarrage
 
 ### Avec Docker (recommandé)
 
+Démo sans Odoo (aucun fichier à créer : `ADAPTER=mock` + `AUTH_MODE=fake-jwt` par défaut) :
+
 ```bash
-cp api/.env.example api/.env     # ADAPTER=mock par défaut : démarre sans Odoo
-cp web/.env.example web/.env     # VIEWER_ROLE / VIEWER_ID du PoC
 docker compose up --build
-# → http://localhost:4321   (API sur http://localhost:3001)
+# → http://localhost:4321 — abigail (manager), bruno (admin RH), camille (employée) ; mot de passe demo
 ```
+
+L'API n'est **pas** publiée sur l'hôte : seul nginx (conteneur `web`) la joint et sert la SPA sur la
+même origine. Avec ta base Odoo : `cp api/.env.example api/.env`, puis `ADAPTER=odoo`,
+`AUTH_MODE=odoo-session`, `ODOO_URL`, `ODOO_DB`, et `COOKIE_SECURE=0` tant que tu es en http.
 
 Contre une Odoo 18 locale jetable, avec `leila_hr` monté :
 
@@ -27,24 +34,19 @@ LEILA_HR_PATH=../leila_hr docker compose --profile odoo-local up --build
 
 Diagnostic réseau vers Odoo (ton Dockerfile racine) : `docker compose --profile debug run --rm odoo-check`.
 
-### Identité réelle (`AUTH_MODE`, cahier de dev v0.2)
+### Identité (`AUTH_MODE`)
 
-| `AUTH_MODE` | Qui est le viewer ? | Comptes Odoo |
+| `AUTH_MODE` | Qui est l'utilisateur ? | Usage |
 |---|---|---|
-| `shared` (défaut) | Déclaré par le front (`VIEWER_ROLE`, en-têtes `x-viewer-*`) | 3 comptes partagés par rôle |
-| `odoo-session` | **Constaté** : l'utilisateur se connecte sur `/login` avec ses identifiants Odoo | Session Odoo de l'utilisateur, aucun compte partagé |
-| `fake-jwt` | Constaté, via un JWT signé localement (démo sur `ADAPTER=mock`) | — (`abigail` manager, `bruno` admin RH, `camille` employée ; mot de passe `demo`) |
-
-Dans `api/.env` : `AUTH_MODE=odoo-session`, `COOKIE_SECURE=0` en local http. Le front lit le mode
-dans `/api/meta` : rien à configurer côté `web/`. Derrière le front, `TRUST_PROXY=1` fait compter
-les tentatives de connexion par IP du navigateur (sinon toutes viennent du serveur Astro) — à
-n'activer que si l'API n'est joignable que par le front.
+| `odoo-session` (défaut avec Odoo) | **Constaté** : connexion sur `/login` avec ses identifiants Odoo ; session Odoo gardée côté serveur | Référence |
+| `fake-jwt` (défaut avec le mock) | Constaté via un JWT signé localement | Démo et tests sans Odoo |
+| `shared` | Déclaré par en-têtes `x-viewer-*` (forgeables), comptes Odoo partagés | **Tests de comparaison seulement** : refusé au démarrage sans `ALLOW_SHARED_MODE=1` ; inutilisable depuis le front |
 
 ### Sans Docker
 
 ```bash
-cd api && npm install && npm run dev     # http://localhost:3001
-cd web && npm install && npm run dev     # http://localhost:4321
+cd api && npm install && npm run dev     # API sur http://localhost:3001 (api/.env : COOKIE_SECURE=0)
+cd web && npm install && npm run dev     # Leila One sur http://localhost:4321, /api relayé par Vite
 ```
 
 ## Vérifications
@@ -52,16 +54,20 @@ cd web && npm install && npm run dev     # http://localhost:4321
 ```bash
 cd api
 npm run typecheck     # TypeScript strict, sources + tests
-npm test              # 72 tests : contrat mock, droits simulés, visibilité, HTTP, protocole Odoo
+npm test              # 75 tests : contrat mock, droits simulés, visibilité, HTTP, protocole Odoo
                       # (faux serveur : /jsonrpc ET session), contrat d'identité (Odoo + faux JWT),
-                      # sécurité (cookie, TTL, 429, en-têtes forgés, mot de passe introuvable),
+                      # sécurité (cookie, TTL, 429, en-têtes forgés, CSRF, CORS, mot de passe introuvable),
                       # frontières, répétition de la matrice de droits sur le mock
 ADAPTER=odoo npm test # + champs présents dans Odoo et contrat rejoué contre ta base (deux modes)
 
 cd ../web
-npx astro check       # 0 erreur
+npm run typecheck     # TypeScript strict (types partagés avec l'API)
+npm run build         # build Vite
+npm run e2e           # parcours navigateur (API mock + faux JWT et `npm run dev` lancés ;
+                      # la première fois : npx playwright install chromium)
 
 # Pas de fuite Odoo dans le domaine ni dans le front : vérifié par test/boundaries.test.ts
+# Plus aucune trace d'Astro : rg 'astro|@astrojs|\.astro' web/ docker-compose.yml → vide
 ```
 
 Contre `amg` (lot 0 fait : profils du § 4.2 créés, résultats attendus constatés) :
@@ -98,12 +104,17 @@ api/src/
 api/test/           Contrats (ports, identité), faux Odoo, sécurité, matrice de droits
 api/scripts/        rapport-identite.ts (docs/rapport-identite.md)
 
-web/src/
-  middleware.ts     Mode d'identité + utilisateur courant ; sans session → /login
-  pages/            employees/, pointer, gestion, synthese, login, logout, api/[...path] (proxy)
-  components/       TreeForm, nœuds, AppNav (navigation + journal), Shell
-  lib/              api (appels SSR), viewer (lu côté serveur), format
-  types/domain.ts   Ré-exporte les types de api/src/domain (imports « type » seulement)
+web/                 Leila One : SPA React + Vite (ADR-003)
+  vite.config.ts    /api relayé vers l'API en développement
+  nginx.conf        Production : fichiers statiques + /api relayé, même origine, CSP
+  e2e/smoke.mjs     Parcours navigateur (Playwright)
+  src/
+    app/            api-client (CSRF, 401 → /login), session (/api/auth/me), routeur, routes protégées
+    layout/         AppShell, Navigation (identité constatée, déconnexion), journal des appels
+    features/       auth/ (connexion), employees/ (annuaire, fiche, TreeForm transitoire),
+                    attendance/ (Pointer, Gestion), summary/ (Synthèse)
+    lib/format.ts   Formats d'affichage (fuseau de Cayenne)
+    types/domain.ts Ré-exporte les types de api/src/domain (imports « type » seulement)
 ```
 
 ### Routes
@@ -120,10 +131,12 @@ web/src/
 | GET | `/api/summary/groups`, `/api/summary/lines` | SummaryRepository |
 | POST | `/api/auth/login`, `/api/auth/logout` | IdentityProvider (identité réelle) |
 | GET | `/api/auth/me` | IdentityProvider |
-| GET | `/api/meta`, `/api/_trace`, `/healthz` | — |
+| GET | `/api/meta` (`authMode` seul), `/healthz` | — |
+| GET | `/api/_trace` | — (`DEBUG_ENDPOINTS=1` uniquement) |
 
-Toutes les routes métier exigent un viewer (sinon 401) : en-têtes `x-viewer-id` et
-`x-viewer-role` en mode `shared`, cookie `leila_sid` seul en identité réelle (en-têtes ignorés).
+Toutes les routes métier exigent un viewer (sinon 401) : cookie `leila_sid` seul en identité réelle
+(en-têtes `x-viewer-*` ignorés) ; en-têtes `x-viewer-id` / `x-viewer-role` en mode `shared` (tests).
+En identité réelle, toute requête mutante exige l'en-tête `X-Leila-Csrf: 1` (403 sinon).
 Chaque pointage porte `capabilities: { canEdit, canApprove }`, calculées par Odoo pour le viewer.
 
 ### Correspondances Odoo (adapters/odoo18)
@@ -146,7 +159,8 @@ Chaque pointage porte `capabilities: { canEdit, canApprove }`, calculées par Od
 Fait :
 - Visibilité évaluée **côté serveur** : les nœuds invisibles ne quittent jamais l'API.
 - Plus de rôle `hr_admin` par défaut : viewer absent ou invalide → 401.
-- Le proxy du front injecte le viewer côté serveur et ignore les en-têtes du navigateur.
+- API non publiée (SEC-001) : nginx est le seul point d'entrée ; pas de CORS ; anti-CSRF par
+  en-tête ; mode `shared` verrouillé ; journal des appels réservé au développement.
 - `.dockerignore` : `.env` et `node_modules` ne partent plus dans les images.
 - Conteneurs exécutés sans root.
 
@@ -162,11 +176,11 @@ Reste (hors PoC) :
 - Keycloak : `KeycloakIdentity` à la place d'`OdooSessionIdentity` (même contrat, cf.
   `test/identity-contract.ts`) et un module connecteur côté Odoo qui agit au nom de l'utilisateur.
 - Sessions en mémoire : perdues au redémarrage de l'API (R-06).
-- `/api/meta` est ouvert ; `/api/_trace` exige une session en identité réelle : à retirer hors PoC.
+- Pas de journal d'audit des écritures (§ 6.2.10) : prévu avec le registre de commandes (L4).
 
 ## Points ouverts
 
 - `has_access` répond pour un lot entier : un refus déclenche un appel par pointage pour savoir
   lesquels. À mesurer sur `amg` (S-5, R-07).
-- Odoo 19 : `hr.contract` devient `hr.version` (impacte leila_hr), et l'API JSON-2 remplace
-  `/jsonrpc` (seul `adapters/odoo18/client.ts` change).
+- ADR-001 (Leila UI Schema) et ADR-002 (expressions Odoo) à valider avant le moteur générique.
+- Inventaire réel des vues sur `amg` (UI-001) et `docker compose up --build` à faire depuis le Mac.
