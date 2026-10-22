@@ -12,7 +12,7 @@ import { runContract } from "./contract.js";
 
 const admin = { id: 2, role: "hr_admin" as const, employeeId: 2 };
 
-runContract("mock", () => createRepositories({ ADAPTER: "mock" }, new Tracer()), {
+runContract("mock", () => createRepositories({ ADAPTER: "mock", AUTH_MODE: "shared" }, new Tracer()), {
   viewer: admin,
   employeeId: 3,
   writes: true,
@@ -24,8 +24,8 @@ describe("API HTTP (adapter mock)", () => {
   const tracer = new Tracer();
 
   before(async () => {
-    repos = await createRepositories({ ADAPTER: "mock" }, tracer);
-    app = await createServer(repos, tracer);
+    repos = await createRepositories({ ADAPTER: "mock", AUTH_MODE: "shared" }, tracer);
+    app = await createServer(repos, tracer, { debugEndpoints: true });
   });
   after(() => app.close());
 
@@ -88,7 +88,7 @@ describe("Mock : droits simulés par rôle (F-10)", () => {
   const hrAdmin = { id: 102, role: "hr_admin" as const, employeeId: 2 };
   let repos: Repositories;
   before(async () => {
-    repos = await createRepositories({ ADAPTER: "mock" }, new Tracer());
+    repos = await createRepositories({ ADAPTER: "mock", AUTH_MODE: "shared" }, new Tracer());
   });
 
   const editable = async (id: number, viewer: typeof manager | typeof employee | typeof hrAdmin) => {
@@ -158,8 +158,18 @@ describe("API HTTP (adapter mock, AUTH_MODE=fake-jwt)", () => {
   });
   after(() => app.close());
 
+  it("ne publie ni journal des appels ni libellé d'adapter hors développement", async () => {
+    assert.equal((await app.inject({ method: "GET", url: "/api/_trace" })).statusCode, 404);
+    assert.deepEqual((await app.inject({ method: "GET", url: "/api/meta" })).json(), { authMode: "fake-jwt" });
+  });
+
   it("connecte un utilisateur de démo et sert ses données, sans en-têtes x-viewer-*", async () => {
-    const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { login: "camille", password: "demo" } });
+    const login = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      payload: { login: "camille", password: "demo" },
+      headers: { "x-leila-csrf": "1" },
+    });
     assert.equal(login.statusCode, 204);
     const cookie = String(login.headers["set-cookie"]).split(";")[0] ?? "";
     assert.doesNotMatch(String(login.headers["set-cookie"]), /Secure/, "COOKIE_SECURE=0 en local");

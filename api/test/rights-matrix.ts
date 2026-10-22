@@ -107,7 +107,7 @@ class ProfileClient {
     return this.app.inject({
       method,
       url,
-      headers: { ...this.auth, ...extra },
+      headers: { ...this.auth, "x-leila-csrf": "1", ...extra },
       ...(payload !== undefined ? { payload: payload as object } : {}),
     });
   }
@@ -137,6 +137,7 @@ async function clientFor(
     method: "POST",
     url: "/api/auth/login",
     payload: { login: profile.login, password },
+    headers: { "x-leila-csrf": "1" },
     remoteAddress: `10.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}.1`,
   });
   if (res.statusCode !== 204) throw new Error(`Connexion refusée pour ${profile.login} (${res.statusCode})`);

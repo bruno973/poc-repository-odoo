@@ -15,7 +15,6 @@ dist/
 api/dist/
 web/dist/
 # Types générés par Astro
-web/.astro/
 *.tsbuildinfo
 
 # ─── Tests et rapports ───────────────────────────────────────────────────────

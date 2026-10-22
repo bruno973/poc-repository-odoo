@@ -29,7 +29,18 @@ export interface ServerOptions {
   /** Remplace la configuration du logger (tests : capture des journaux) */
   logger?: FastifyServerOptions["logger"];
   now?: () => number;
+  /**
+   * Origines autorisées en CORS. Vide (défaut) : pas de CORS, le front et l'API
+   * partagent la même origine derrière le reverse proxy.
+   */
+  corsOrigins?: string[];
+  /** Expose /api/_trace et le libellé de l'adapter dans /api/meta (développement uniquement) */
+  debugEndpoints?: boolean;
 }
+
+/** En-tête exigé sur toute requête mutante en identité réelle (anti-CSRF). */
+export const CSRF_HEADER = "x-leila-csrf";
+const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 export async function createServer(repos: Repositories, tracer: Tracer, options: ServerOptions = {}) {
   const fastify = Fastify({
@@ -43,11 +54,28 @@ export async function createServer(repos: Repositories, tracer: Tracer, options:
     },
   });
 
-  await fastify.register(cors, {
-    origin: true, // Autorise toutes les origines (PoC)
-  });
+  // SEC-001 : plus de CORS ouvert. Même origine derrière le proxy ; sinon liste explicite.
+  const corsOrigins = options.corsOrigins ?? [];
+  if (corsOrigins.length > 0) {
+    await fastify.register(cors, { origin: corsOrigins, credentials: true });
+  }
 
   const auth = repos.auth;
+  const debug = options.debugEndpoints ?? false;
+
+  // Anti-CSRF (§ 6.2.3) : le cookie de session part tout seul avec une requête
+  // venue d'un autre site. Un en-tête personnalisé, lui, ne peut être posé que
+  // par du code de la même origine (un autre site déclencherait un préflight CORS
+  // refusé). SameSite=Lax couvre déjà les formulaires ; ceci couvre le reste.
+  if (auth.mode !== "shared") {
+    fastify.addHook("onRequest", async (request, reply) => {
+      if (!MUTATING.has(request.method) || !request.url.startsWith("/api/")) return;
+      if (request.headers[CSRF_HEADER] !== "1") {
+        return reply.code(403).send({ error: "csrf", message: "Requête refusée (protection CSRF)." });
+      }
+      return undefined;
+    });
+  }
   const cookieSecure = options.cookieSecure ?? true;
   const sessions = auth.mode === "shared" ? null : (options.sessions ?? new SessionStore(options.now ? { now: options.now } : {}));
 
@@ -96,12 +124,17 @@ export async function createServer(repos: Repositories, tracer: Tracer, options:
   // Health check
   fastify.get("/healthz", async () => ({ status: "ok" }));
 
-  // Méta + journal des appels (PoC). En identité réelle, le journal exige une session.
-  fastify.get("/api/meta", async () => ({ adapter: repos.adapter, label: repos.label, authMode: auth.mode }));
-  fastify.get("/api/_trace", async (request) => {
-    if (auth.mode !== "shared") viewerOf(request);
-    return tracer.recent();
-  });
+  // Méta : le mode d'identité est public (le front en a besoin avant connexion) ;
+  // le reste et le journal des appels ne sont exposés qu'en développement (§ 6.2.9).
+  fastify.get("/api/meta", async () =>
+    debug ? { adapter: repos.adapter, label: repos.label, authMode: auth.mode } : { authMode: auth.mode },
+  );
+  if (debug) {
+    fastify.get("/api/_trace", async (request) => {
+      if (auth.mode !== "shared") viewerOf(request);
+      return tracer.recent();
+    });
+  }
 
   // Routes métier
   registerEmployeeRoutes(fastify, repos.employees, viewerOf);

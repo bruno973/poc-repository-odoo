@@ -13,6 +13,7 @@ import { createServer } from "../src/server.js";
 import { FakeOdoo } from "./fake-odoo.js";
 
 const PASSWORD = "manager-pw";
+const CSRF = { "x-leila-csrf": "1" };
 
 describe("Mode odoo-session : HTTP et sécurité", () => {
   const odoo = new FakeOdoo();
@@ -38,6 +39,7 @@ describe("Mode odoo-session : HTTP et sécurité", () => {
       sessions,
       cookieSecure: true,
       now: () => clock,
+      debugEndpoints: true,
       // Journal au niveau le plus bavard, pour y chercher le mot de passe
       logger: {
         level: "trace",
@@ -57,6 +59,7 @@ describe("Mode odoo-session : HTTP et sécurité", () => {
       method: "POST",
       url: "/api/auth/login",
       payload: { login: user, password },
+      headers: CSRF,
       remoteAddress: `10.0.0.${++ip}`,
     });
   const cookieOf = (res: { headers: Record<string, unknown> }) => {
@@ -64,7 +67,7 @@ describe("Mode odoo-session : HTTP et sécurité", () => {
     return String(Array.isArray(raw) ? raw[0] : raw);
   };
   const sid = (setCookie: string) => /leila_sid=([^;]*)/.exec(setCookie)?.[1] ?? "";
-  const as = (setCookie: string) => ({ cookie: `leila_sid=${sid(setCookie)}` });
+  const as = (setCookie: string) => ({ cookie: `leila_sid=${sid(setCookie)}`, ...CSRF });
 
   it("connecte avec les identifiants Odoo : 204 + cookie httpOnly, SameSite=Lax, Secure, 256 bits", async () => {
     const res = await login("p.manager", PASSWORD);
@@ -172,13 +175,30 @@ describe("Mode odoo-session : HTTP et sécurité", () => {
 
   it("limite à 5 tentatives de connexion par minute et par IP", async () => {
     const attempt = () =>
-      app.inject({ method: "POST", url: "/api/auth/login", payload: { login: "p.manager", password: "faux" }, remoteAddress: "10.9.9.9" });
+      app.inject({ method: "POST", url: "/api/auth/login", payload: { login: "p.manager", password: "faux" }, headers: CSRF, remoteAddress: "10.9.9.9" });
     for (let i = 0; i < 5; i++) assert.equal((await attempt()).statusCode, 401);
     const blocked = await attempt();
     assert.equal(blocked.statusCode, 429);
     assert.ok(Number(blocked.headers["retry-after"]) > 0);
     clock += 61_000;
     assert.equal((await attempt()).statusCode, 401);
+  });
+
+  it("refuse toute requête mutante sans l'en-tête anti-CSRF, connexion comprise", async () => {
+    const cookie = cookieOf(await login("p.manager", PASSWORD));
+    const noCsrf = { cookie: `leila_sid=${sid(cookie)}` };
+    const approve = await app.inject({ method: "POST", url: "/api/attendances/11/approve", headers: noCsrf });
+    assert.equal(approve.statusCode, 403);
+    assert.equal(approve.json().error, "csrf");
+    const loginNoCsrf = await app.inject({ method: "POST", url: "/api/auth/login", payload: { login: "p.manager", password: PASSWORD } });
+    assert.equal(loginNoCsrf.statusCode, 403);
+    // Lecture : pas d'en-tête requis
+    assert.equal((await app.inject({ method: "GET", url: "/api/attendances", headers: noCsrf })).statusCode, 200);
+  });
+
+  it("n'autorise aucune origine tierce par CORS", async () => {
+    const res = await app.inject({ method: "OPTIONS", url: "/api/attendances", headers: { origin: "https://evil.example", "access-control-request-method": "POST" } });
+    assert.equal(res.headers["access-control-allow-origin"], undefined);
   });
 
   it("ne garde le mot de passe nulle part : journaux, sessions, réponses, cookies (S-6)", async () => {

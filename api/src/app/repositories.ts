@@ -60,7 +60,8 @@ const ROLE_ENV: Record<ViewerRole, { user: string; password: string }> = {
 };
 
 export function authModeOf(env: NodeJS.ProcessEnv): AuthMode {
-  const raw = env["AUTH_MODE"] ?? "shared";
+  // Défaut sûr : identité réelle. Le mode shared doit être demandé explicitement.
+  const raw = env["AUTH_MODE"] || (env["ADAPTER"] === "odoo" ? "odoo-session" : "fake-jwt");
   if (raw === "shared" || raw === "odoo-session" || raw === "fake-jwt") return raw;
   throw new Error(`AUTH_MODE inconnu : ${raw} (shared | odoo-session | fake-jwt)`);
 }

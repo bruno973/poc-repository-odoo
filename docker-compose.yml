@@ -1,4 +1,5 @@
-# docker compose up --build                    → API + front (adapter choisi dans api/.env)
+# docker compose up --build                    → Leila One sur http://localhost:4321
+#                                                (adapter et identité choisis dans api/.env)
 # docker compose --profile odoo-local up       → + une Odoo 18 locale avec leila_hr
 # docker compose --profile debug run odoo-check → curl -v sur ODOO_URL (diagnostic réseau)
 
@@ -9,11 +10,15 @@ services:
     build: ./api
     env_file:
       - path: ./api/.env
-        required: false # sans .env : ADAPTER=mock par défaut
+        required: false # sans .env : ADAPTER=mock + AUTH_MODE=fake-jwt (démo)
     environment:
       API_PORT: "3001"
-    ports:
-      - "3001:3001"
+      # L'API n'est joignable que par nginx, qui écrase X-Forwarded-For : on peut s'y fier
+      TRUST_PROXY: "1"
+    # SEC-001 : l'API n'est PAS publiée sur l'hôte. Seul le front (reverse proxy)
+    # la joint, par le réseau interne de compose.
+    expose:
+      - "3001"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/healthz"]
       interval: 10s
@@ -23,15 +28,10 @@ services:
     restart: unless-stopped
 
   web:
+    # SPA React servie par nginx, qui relaie /api vers l'API (même origine)
     build: ./web
-    env_file:
-      - path: ./web/.env
-        required: false
-    environment:
-      # Le front parle à l'API par le réseau interne de compose
-      API_BASE_URL: http://api:3001
     ports:
-      - "4321:4321"
+      - "4321:80"
     depends_on:
       api:
         condition: service_healthy
