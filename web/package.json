@@ -4,9 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "npm run build --prefix ../packages/ui-schema --silent",
     "dev": "vite",
+    "prebuild": "npm run build --prefix ../packages/ui-schema --silent",
     "build": "vite build",
+    "prepreview": "npm run build --prefix ../packages/ui-schema --silent",
     "preview": "vite preview",
+    "pretypecheck": "npm run build --prefix ../packages/ui-schema --silent",
     "typecheck": "tsc --noEmit",
     "e2e": "node e2e/smoke.mjs",
     "e2e:ui": "node e2e/ui-engine.mjs"
