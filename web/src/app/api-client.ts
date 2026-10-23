@@ -68,6 +68,6 @@ export const api = {
 
 /** N'accepte qu'un chemin local comme destination après connexion (pas de redirection ouverte). */
 export function safeReturn(raw: string | null): string {
-  if (!raw || !raw.startsWith("/") || raw.startsWith("//") || raw.includes("\\")) return "/employees";
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//") || raw.includes("\\")) return "/accueil";
   return raw;
 }

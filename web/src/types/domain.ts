@@ -39,3 +39,5 @@ export type {
   SummaryLine,
   SummaryTotals,
 } from "@api/domain/summary.js";
+
+export type { HoursBreakdown, MyTimesheet, TimesheetDay, TimesheetPeriod, TimesheetWeek } from "@api/domain/timesheet.js";

@@ -223,3 +223,16 @@ textarea.field__input { resize: vertical; }
 .ui-group-row td { background: #f6f7fc; padding: 0; }
 .ui-group-toggle { width: 100%; text-align: left; background: none; border: 0; padding: 0.5rem 0.6rem; font: inherit; font-weight: 600; cursor: pointer; color: inherit; }
 .ui-group-toggle:hover { background: #eef1fb; }
+
+/* ─── Accueil et Mes pointages ──────────────────────────────────────────────── */
+.home-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
+.home-card { display: flex; gap: 0.9rem; align-items: flex-start; padding: 1rem 1.1rem; border-radius: 10px; background: #fff; border: 1px solid #e5e8f2; text-decoration: none; color: inherit; transition: border-color 0.15s, box-shadow 0.15s; }
+.home-card:hover, .home-card:focus-visible { border-color: #4c6ef5; box-shadow: 0 2px 10px rgba(76, 110, 245, 0.12); }
+.home-card__icon { font-size: 1.6rem; color: #4c6ef5; line-height: 1; width: 2rem; text-align: center; }
+.home-card__title { display: block; font-size: 1.1rem; margin-bottom: 0.2rem; }
+.home-card__text { display: block; color: #6b7088; font-size: 0.9rem; }
+.timesheet td.is-right { text-align: right; }
+.timesheet__period td { background: #e9ecf5; font-weight: 700; }
+.timesheet__week td { background: #f6f7fc; font-weight: 600; }
+.timesheet__total td { font-weight: 700; background: #fafbfe; }
+.timesheet__total--period td { background: #eef1fb; }

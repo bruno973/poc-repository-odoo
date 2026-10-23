@@ -19,6 +19,7 @@ export const ViewerContextSchema = z.object({
   departmentId: z.number().int().positive().optional(),
   employeeId: z.number().int().positive().optional(),
   companyId: z.number().int().positive().optional(),
+  portal: z.boolean().optional(),
 });
 
 // ─── Règles de visibilité ──────────────────────────────────────────────────────

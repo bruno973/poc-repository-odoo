@@ -3,11 +3,14 @@
 // fake-odoo-ui.ts) : vues résolues reconstruites, droits simulés par utilisateur.
 //
 //   npm run simulateur            → Odoo simulé sur http://127.0.0.1:8069
+//   POST http://127.0.0.1:8070/portail-ventilation
+//        simule l'ajout, dans leila_hr, du droit et de la règle portail sur la ventilation.
 //   POST http://127.0.0.1:8070/heritage
 //        simule l'installation d'un héritage de vue (champ « badge_id » ajouté à la
 //        fiche employé), comme un module leila_hr mis à jour dans Odoo.
 //
-// Comptes : p.admin / admin-pw, p.manager / manager-pw, p.employe / employe-pw.
+// Comptes : p.admin / admin-pw, p.manager / manager-pw, p.employe / employe-pw,
+// p.portail / portail-pw (compte portail, fiche reliée par le contact).
 // API à lancer avec : ADAPTER=odoo AUTH_MODE=odoo-session ODOO_URL=http://127.0.0.1:8069 ODOO_DB=simulateur
 
 import { createServer } from "node:http";
@@ -20,6 +23,11 @@ const odoo = await new FakeOdoo(undefined, [uiHandler(state)]).start(port);
 console.log(`Odoo 18 simulé sur ${odoo.url} (contrôle : http://127.0.0.1:${port + 1}/heritage)`);
 
 createServer((req, res) => {
+  if (req.method === "POST" && req.url === "/portail-ventilation") {
+    odoo.portalVentilation = true;
+    res.end("règle portail sur la ventilation installée\n");
+    return;
+  }
   if (req.method === "POST" && req.url === "/heritage") {
     const fields = state.fields["hr.employee"] ?? {};
     if (!fields["badge_id"]) {

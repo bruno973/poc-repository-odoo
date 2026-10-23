@@ -33,6 +33,8 @@ export interface PublicIdentity {
   userId: number;
   employeeId: number | null;
   role: ViewerContext["role"];
+  /** Compte d'accès externe : seuls les écrans dédiés (accueil, mes présences) lui sont proposés */
+  portal: boolean;
   displayName: string;
   company: Ref | null;
 }
@@ -42,6 +44,7 @@ export function publicIdentity(principal: Principal): PublicIdentity {
     userId: principal.viewer.id,
     employeeId: principal.viewer.employeeId ?? null,
     role: principal.viewer.role,
+    portal: principal.viewer.portal === true,
     displayName: principal.displayName,
     company: principal.company,
   };

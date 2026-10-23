@@ -4,6 +4,7 @@
 import type { AttendanceRepository } from "../domain/AttendanceRepository.js";
 import type { EmployeeRepository } from "../domain/EmployeeRepository.js";
 import type { SummaryRepository } from "../domain/SummaryRepository.js";
+import type { TimesheetRepository } from "../domain/TimesheetRepository.js";
 import type { ViewerRole } from "../domain/tree.js";
 import { ZodError } from "zod";
 import { DomainError } from "../domain/errors.js";
@@ -53,6 +54,8 @@ export interface Repositories {
   employees: EmployeeRepository;
   attendances: AttendanceRepository;
   summary: SummaryRepository;
+  /** « Mes présences » de l'utilisateur connecté */
+  timesheet: TimesheetRepository;
   /** Moteur de présentation (Leila UI Schema) : navigation, vues, enregistrements, commandes */
   ui: UiPorts;
 }
@@ -85,6 +88,7 @@ export async function createRepositories(env: NodeJS.ProcessEnv, tracer: Tracer)
       "../adapters/odoo18/OdooAttendanceRepository.js"
     );
     const { OdooSummaryRepository } = await import("../adapters/odoo18/OdooSummaryRepository.js");
+    const { OdooTimesheetRepository } = await import("../adapters/odoo18/OdooTimesheetRepository.js");
 
     const required = [
       "ODOO_URL",
@@ -148,6 +152,7 @@ export async function createRepositories(env: NodeJS.ProcessEnv, tracer: Tracer)
       employees: new OdooEmployeeRepository(transports),
       attendances: new OdooAttendanceRepository(transports, { approvalGroup }),
       summary: new OdooSummaryRepository(transports),
+      timesheet: new OdooTimesheetRepository(transports),
       ui: { views: ui, records: ui, commands: ui },
     };
   } else {
@@ -157,6 +162,7 @@ export async function createRepositories(env: NodeJS.ProcessEnv, tracer: Tracer)
     );
     const store = new MockTimeStore();
     const { MockUiAdapter } = await import("../adapters/mock/ui/MockUiAdapter.js");
+    const { MockTimesheetRepository } = await import("../adapters/mock/MockTimesheetRepository.js");
     const ui = new MockUiAdapter(new KeyRegistry());
     let auth: AuthSetup = { mode: "shared" };
     if (authMode === "fake-jwt") {
@@ -170,6 +176,7 @@ export async function createRepositories(env: NodeJS.ProcessEnv, tracer: Tracer)
       employees: new MockEmployeeRepository(),
       attendances: new MockAttendanceRepository(store),
       summary: new MockSummaryRepository(store),
+      timesheet: new MockTimesheetRepository(store),
       ui: { views: ui, records: ui, commands: ui },
     };
   }
@@ -179,6 +186,7 @@ export async function createRepositories(env: NodeJS.ProcessEnv, tracer: Tracer)
     employees: tracer.wrap("EmployeeRepository", driftGuard("EmployeeRepository", raw.employees)),
     attendances: tracer.wrap("AttendanceRepository", driftGuard("AttendanceRepository", raw.attendances)),
     summary: tracer.wrap("SummaryRepository", driftGuard("SummaryRepository", raw.summary)),
+    timesheet: tracer.wrap("TimesheetRepository", driftGuard("TimesheetRepository", raw.timesheet)),
     ui: {
       views: tracer.wrap("ViewRepository", driftGuard("ViewRepository", raw.ui.views)),
       records: tracer.wrap("RecordRepository", driftGuard("RecordRepository", raw.ui.records)),

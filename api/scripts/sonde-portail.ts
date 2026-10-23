@@ -23,6 +23,7 @@ const login = need("SONDE_LOGIN") as string;
 const DEFAULT_MODELS = [
   "hr.attendance",
   "hr.attendance.overtime",
+  "hr.attendance.ventilation",
   "hr.employee",
   "hr.employee.public",
   "hr.leave",
@@ -97,7 +98,7 @@ for (const model of models) {
 
 // Cloisonnement : les enregistrements visibles appartiennent-ils tous au même propriétaire ?
 // Seul l'identifiant du propriétaire d'UN enregistrement est lu ; le reste est compté.
-const owners = (env["SONDE_PROPRIETAIRES"] ?? "hr.attendance:employee_id").split(",").map((s) => s.trim()).filter(Boolean);
+const owners = (env["SONDE_PROPRIETAIRES"] ?? "hr.attendance:employee_id,hr.attendance.ventilation:employee_id").split(",").map((s) => s.trim()).filter(Boolean);
 if (owners.length) {
   lines.push("", "## Cloisonnement", "", "| Modèle | Champ propriétaire | Visibles | Hors du premier propriétaire | Verdict |", "|---|---|---|---|---|");
   for (const pair of owners) {

@@ -49,6 +49,7 @@ export const NEXT = Symbol("next");
 
 // ─── Jeu de données par défaut ───────────────────────────────────────────────
 // uid 2 : admin RH · uid 7 : manager de l'employé 6 · uid 9 : employé (fiche 6)
+// uid 11 : compte portail (fiche 20, reliée par le contact 140, user_id vide comme sur amg)
 // Employés : 1 (admin), 5 (manager), 6 (équipe du manager), 8 (hors équipe)
 
 export const USERS: FakeUser[] = [
@@ -71,6 +72,7 @@ const ATTENDANCES = [
   { id: 11, employee_id: [6, "Émile Employé"], check_in: "2026-09-18 11:00:00", check_out: "2026-09-18 19:00:00", worked_hours: 8, overtime_status: "to_approve" },
   { id: 12, employee_id: [8, "Hugo Horséquipe"], check_in: "2026-09-18 10:00:00", check_out: "2026-09-18 18:00:00", worked_hours: 8, overtime_status: "approved" },
   { id: 13, employee_id: [5, "Manon Manager"], check_in: "2026-09-18 10:30:00", check_out: "2026-09-18 18:30:00", worked_hours: 8, overtime_status: "approved" },
+  { id: 21, employee_id: [20, "Paul Portail"], check_in: "2026-09-17 11:00:00", check_out: "2026-09-17 20:00:00", worked_hours: 9, overtime_status: "approved" },
 ] as const;
 
 /** Fiches visibles (règles d'enregistrement simulées). */
@@ -78,8 +80,20 @@ function visibleEmployees(uid: number): number[] {
   if (uid === 2) return EMPLOYEES.map((e) => e.id);
   if (uid === 7) return [5, 6];
   if (uid === 9) return [6];
+  if (uid === 11) return [20]; // règle portail : employee_id.work_contact_id = partenaire de l'utilisateur
   return [];
 }
+
+/** Ventilation (module leila_hr) des pointages 11 (Émile) et 21-22 (Paul, portail). */
+export const VENTILATIONS = [
+  { id: 101, attendance_id: [11, "Émile"], employee_id: [6, "Émile Employé"], closure_id: [3, "Septembre 2026"], week_number: 38, week_label: "S38 - 14/09/26-20/09/26", day_of_week_name: "Vendredi", day_hours: 6, night_hours: 0, overtime_hours_t1: 2, overtime_hours_t2: 0, public_holiday_hours: 0, sunday_hours: 0, worked_hours: 8, is_break_entry: false, arrival_has_used_boat: false, departure_will_used_boat: true, is_break_exit: false },
+  { id: 121, attendance_id: [21, "Paul"], employee_id: [20, "Paul Portail"], closure_id: [3, "Septembre 2026"], week_number: 38, week_label: "S38 - 14/09/26-20/09/26", day_of_week_name: "Jeudi", day_hours: 5, night_hours: 2, overtime_hours_t1: 0, overtime_hours_t2: 0, public_holiday_hours: 0, sunday_hours: 0, worked_hours: 7, is_break_entry: true, arrival_has_used_boat: true, departure_will_used_boat: false, is_break_exit: false },
+  { id: 122, attendance_id: [21, "Paul"], employee_id: [20, "Paul Portail"], closure_id: [3, "Septembre 2026"], week_number: 38, week_label: "S38 - 14/09/26-20/09/26", day_of_week_name: "Jeudi", day_hours: 0, night_hours: 1, overtime_hours_t1: 1, overtime_hours_t2: 0, public_holiday_hours: 0, sunday_hours: 0, worked_hours: 2, is_break_entry: false, arrival_has_used_boat: false, departure_will_used_boat: false, is_break_exit: false },
+  { id: 123, attendance_id: [22, "Paul"], employee_id: [20, "Paul Portail"], closure_id: [4, "Octobre 2026"], week_number: 40, week_label: "S40 - 28/09/26-04/10/26", day_of_week_name: "Jeudi", day_hours: 8, night_hours: 0, overtime_hours_t1: 0, overtime_hours_t2: 0, public_holiday_hours: 0, sunday_hours: 0, worked_hours: 8, is_break_entry: false, arrival_has_used_boat: false, departure_will_used_boat: false, is_break_exit: false },
+];
+
+/** Modèles qu'un compte portail ne peut pas lire (constaté sur amg par la sonde). */
+export const PORTAL_FORBIDDEN = new Set(["hr.employee", "hr.employee.public", "ir.ui.menu", "hr.attendance.overtime", "hr.leave", "hr.leave.allocation"]);
 /** Fiches employé modifiables. */
 function writableEmployees(uid: number): number[] {
   return uid === 2 ? EMPLOYEES.map((e) => e.id) : uid === 7 ? [6] : [];
@@ -107,12 +121,15 @@ const idsIn = (domain: unknown[]): number[] | null => {
 export const defaultHandler: Handler = (call, odoo) => {
   const { uid, model, method, args, kwargs } = call;
   const user = odoo.users.find((u) => u.uid === uid);
+  if (user?.portal && PORTAL_FORBIDDEN.has(model) && method !== "has_access") {
+    throw new OdooFault("odoo.exceptions.AccessError", `Vous n'êtes pas autorisé à accéder aux enregistrements (${model}).`);
+  }
   if (model === "res.users" && method === "has_group") {
     // Tout compte non portail est « Utilisateur interne », comme dans Odoo
     return args[1] === "base.group_user" ? Boolean(user && !user.portal) : Boolean(user?.groups.includes(args[1] as string));
   }
   if (model === "res.users" && method === "read") {
-    return [{ id: uid, name: user?.name ?? "?", company_id: [1, "Société A"] }];
+    return [{ id: uid, name: user?.name ?? "?", company_id: [1, "Société A"], partner_id: [100 + uid, user?.name ?? "?"], tz: uid === 9 ? "America/Cayenne" : false }];
   }
   if (model === "hr.employee.public" && method === "search_read") {
     const target = ((args[0] as unknown[])[0] as [string, string, number])[2];
@@ -159,7 +176,16 @@ export const defaultHandler: Handler = (call, odoo) => {
       { week_label: false, week_label_count: 1, worked_hours: 2 },
     ];
   }
-  if (model === "hr.attendance.ventilation" && method === "search_read") return [];
+  if (model === "hr.attendance.ventilation" && method === "search_read") {
+    // Pointages précis (« Mes présences ») : ventilation sous les règles simulées ;
+    // le portail n'y a accès que si le module lui donne le droit (odoo.portalVentilation)
+    const term = (args[0] as unknown[]).find((t) => Array.isArray(t) && t[0] === "attendance_id" && t[1] === "in") as [string, string, number[]] | undefined;
+    if (!term) return [];
+    if (user?.portal && !odoo.portalVentilation) {
+      throw new OdooFault("odoo.exceptions.AccessError", "Vous n'êtes pas autorisé à accéder aux enregistrements (hr.attendance.ventilation).");
+    }
+    return VENTILATIONS.filter((v) => term[2].includes(v.attendance_id[0] as number) && visibleEmployees(uid).includes(v.employee_id[0] as number));
+  }
   return NEXT;
 };
 
@@ -171,6 +197,8 @@ export class FakeOdoo {
   /** Corps bruts reçus (recherche de mot de passe, S-6) */
   bodies: string[] = [];
   readonly sessions = new Map<string, number>();
+  /** Le module donne-t-il au portail la lecture de la ventilation (droit + règle) ? */
+  portalVentilation = false;
   private server: Server | null = null;
 
   constructor(

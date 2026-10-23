@@ -96,6 +96,7 @@ describe("Mode odoo-session : HTTP et sécurité", () => {
       userId: 7,
       employeeId: 5,
       role: "manager",
+      portal: false,
       displayName: "Manon Manager",
       company: { id: 1, label: "Société A" },
     });

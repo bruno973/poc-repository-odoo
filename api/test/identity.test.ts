@@ -5,7 +5,7 @@ import "dotenv/config";
 import assert from "node:assert/strict";
 import { after, describe, it } from "node:test";
 import { FakeJwtIdentity, FakeJwtIssuer } from "../src/adapters/fake/FakeJwtIdentity.js";
-import { OdooSessionIdentity, DEFAULT_ROLE_GROUPS, PORTAL_REFUSED } from "../src/adapters/odoo18/OdooSessionIdentity.js";
+import { OdooSessionIdentity, DEFAULT_ROLE_GROUPS } from "../src/adapters/odoo18/OdooSessionIdentity.js";
 import { UserSessions } from "../src/adapters/odoo18/transport.js";
 import { parseRoleGroups } from "../src/app/roles.js";
 import { ViewerRoleSchema } from "../src/domain/tree.schema.js";
@@ -27,16 +27,25 @@ runIdentityContract("OdooSessionIdentity (faux serveur)", async () => {
   };
 });
 
-describe("OdooSessionIdentity : compte portail", () => {
+describe("OdooSessionIdentity : compte portail (Q-10)", () => {
   const portal = new FakeOdoo();
   after(() => portal.stop());
-  it("refuse la connexion avec un message explicite et ferme la session Odoo", async () => {
+  it("accepté : rôle employé, marqué portail, fiche retrouvée par ses pointages (sans accès à l'annuaire)", async () => {
     await portal.start();
-    const sessions = new UserSessions();
-    const provider = new OdooSessionIdentity({ url: portal.url, db: "test" }, sessions, rules);
-    await assert.rejects(provider.login({ login: "p.portail", password: "portail-pw" }), (e: Error & { code?: string }) => e.message === PORTAL_REFUSED && e.code === "forbidden");
-    assert.equal(sessions.handles().length, 0);
-    assert.ok(portal.paths.includes("/web/session/destroy"));
+    const provider = new OdooSessionIdentity({ url: portal.url, db: "test" }, new UserSessions(), rules);
+    const principal = await provider.login({ login: "p.portail", password: "portail-pw" });
+    assert.equal(principal.viewer.portal, true);
+    assert.equal(principal.viewer.role, "employee");
+    assert.equal(principal.viewer.employeeId, 20);
+    // Annuaire refusé au portail, puis repli : aucune erreur de droits ne remonte
+    const asked = portal.calls.filter((c) => c.model === "hr.employee.public").map((c) => JSON.stringify(c.args[0]));
+    assert.deepEqual(asked, ['[["user_id","=",11]]', '[["work_contact_id","=",111]]']);
+  });
+  it("un utilisateur interne n'est pas marqué portail", async () => {
+    const provider = new OdooSessionIdentity({ url: portal.url, db: "test" }, new UserSessions(), rules);
+    const principal = await provider.login({ login: "p.employe", password: "employe-pw" });
+    assert.equal(principal.viewer.portal, undefined);
+    assert.equal(principal.viewer.employeeId, 6);
   });
 });
 

@@ -21,6 +21,8 @@ export interface ViewerContext {
   departmentId?: number;
   employeeId?: number;
   companyId?: number;
+  /** Compte d'accès externe (sans accès au back-office) : écrans dédiés seulement */
+  portal?: boolean;
   /**
    * Poignée opaque vers la session moteur de l'utilisateur (mode identité réelle).
    * Posée par le serveur à partir du cookie ; jamais sérialisée vers le client.

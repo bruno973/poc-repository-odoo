@@ -17,16 +17,17 @@ const ok = (c, m) => out.push((c ? "OK  " : "KO  ") + m);
 
 const browser = await chromium.launch();
 const errors = [];
-async function session(login, password) {
+async function session(login, password, landing = "/app") {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 860 } });
   const page = await ctx.newPage();
   page.on("pageerror", (e) => errors.push(e.message));
-  await page.goto(B + "/app");
+  page.on("console", (m) => m.type() === "error" && !m.text().includes("Failed to load resource") && errors.push(m.text()));
+  await page.goto(B + landing);
   await page.fill("input[name=login]", login);
   await page.fill("input[name=password]", password);
   await page.click("button[type=submit]");
-  await page.waitForURL("**/app");
-  await page.waitForSelector(".apps a");
+  await page.waitForURL(`**${landing}`);
+  await page.waitForSelector(landing === "/app" ? ".apps a" : ".home-card");
   return page;
 }
 const shot = async (page, name) => SHOTS && page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true });
@@ -114,6 +115,27 @@ await manager.locator(".ui-status").waitFor();
 ok(!(await manager.locator(".ui-header button:text-is('Approuver')").count()), "après approbation : bouton masqué par sa condition");
 ok((await manager.locator(".ui-steps li[aria-current=step]").textContent()) === "Approuvé", "barre d'étapes à jour après la commande");
 await shot(manager, "4-presence-approuvee-manager");
+
+// 5. Compte portail (Q-10) : accueil et « Mes pointages », sans accès au back-office
+const portail = await session("p.portail", "portail-pw", "/accueil");
+ok(await portail.locator(".home-card:has-text('Mes heures')").isVisible(), "portail : accueil avec la carte « Mes heures »");
+ok((await portail.locator(".home-card").count()) === 1, "portail : aucune carte vers le back-office");
+ok(!(await portail.locator(".appnav__links a:text-is('Applications')").count()), "portail : navigation réduite");
+await portail.click(".home-card:has-text('Mes heures')");
+await portail.waitForSelector("table.timesheet");
+ok(await portail.locator("text=n'est pas encore accessible").isVisible(), "portail sans droit sur la ventilation : heures pointées seules, signalé");
+ok((await portail.locator("table.timesheet tbody tr:has(td.num)").count()) >= 2, "portail : ses pointages");
+await fetch(`${CONTROL}/portail-ventilation`, { method: "POST" });
+await portail.reload();
+await portail.waitForSelector("table.timesheet th:text-is('H. nuit')");
+ok(await portail.locator(".timesheet__period:has-text('Septembre 2026')").isVisible(), "portail avec la règle : périodes de clôture");
+ok(await portail.locator(".timesheet__total td:text-is('Total semaine :')").first().isVisible(), "totaux par semaine et période");
+await portail.selectOption("#period", "Octobre 2026");
+ok(!(await portail.locator(".timesheet__period:has-text('Septembre 2026')").count()), "sélecteur de période");
+await shot(portail, "5-mes-pointages-portail");
+await portail.goto(B + "/app");
+await portail.waitForURL("**/accueil");
+ok(true, "portail : écrans du back-office redirigés vers l'accueil");
 
 ok(errors.length === 0, "aucune erreur JavaScript" + (errors.length ? " : " + errors.join(" | ") : ""));
 await browser.close();

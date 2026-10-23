@@ -4,6 +4,8 @@ import { useEffect, type ReactNode } from "react";
 import { AttendanceKioskPage } from "../features/attendance/AttendanceKioskPage.js";
 import { AttendanceManagementPage } from "../features/attendance/AttendanceManagementPage.js";
 import { LoginPage } from "../features/auth/LoginPage.js";
+import { HomePage } from "../features/home/HomePage.js";
+import { MyTimesheetPage } from "../features/timesheet/MyTimesheetPage.js";
 import { EmployeePage } from "../features/employees/EmployeePage.js";
 import { EmployeesPage } from "../features/employees/EmployeesPage.js";
 import { SummaryPage } from "../features/summary/SummaryPage.js";
@@ -19,7 +21,12 @@ interface Route {
   render(params: Record<string, string>): ReactNode;
 }
 
+/** Écrans proposés aux comptes portail (les autres seraient refusés par Odoo de toute façon). */
+const PORTAL_PATHS = new Set(["/accueil", "/mes-presences"]);
+
 const ROUTES: Route[] = [
+  { path: "/accueil", title: "Accueil", render: () => <HomePage /> },
+  { path: "/mes-presences", title: "Mes pointages", render: () => <MyTimesheetPage /> },
   { path: "/employees", title: "Employés", render: () => <EmployeesPage /> },
   { path: "/employees/:id", title: "Fiche employé", render: (p) => <EmployeePage id={p["id"] ?? ""} /> },
   { path: "/pointer", title: "Pointer", render: () => <AttendanceKioskPage /> },
@@ -43,14 +50,16 @@ function Redirect({ to }: { to: string }) {
 
 export function Routes() {
   const { location } = useRouter();
-  const { status } = useSession();
+  const { status, me } = useSession();
   const { pathname, search } = location;
 
-  if (pathname === "/login") return status === "authenticated" ? <Redirect to="/employees" /> : <LoginPage />;
+  if (pathname === "/login") return status === "authenticated" ? <Redirect to="/accueil" /> : <LoginPage />;
   if (status === "loading") return <p className="page muted">Chargement…</p>;
   // Route protégée : sans session, connexion puis retour ici
   if (status === "anonymous") return <Redirect to={loginPath(pathname, search)} />;
-  if (pathname === "/") return <Redirect to="/employees" />;
+  if (pathname === "/") return <Redirect to="/accueil" />;
+  // Compte portail : accueil et mes présences seulement (présentation ; l'API et Odoo refusent le reste)
+  if (me?.portal && !PORTAL_PATHS.has(pathname)) return <Redirect to="/accueil" />;
 
   for (const route of ROUTES) {
     const params = match(route.path, pathname);

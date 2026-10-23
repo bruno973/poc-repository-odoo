@@ -8,7 +8,7 @@
 
 import { readFileSync } from "node:fs";
 import { XMLBuilder, XMLParser } from "fast-xml-parser";
-import { type FakeCall, type FakeOdoo, type Handler, NEXT, OdooFault } from "./fake-odoo.js";
+import { type FakeCall, type FakeOdoo, type Handler, NEXT, OdooFault, PORTAL_FORBIDDEN } from "./fake-odoo.js";
 
 const FIXTURES = new URL("./fixtures/odoo18/", import.meta.url);
 const fixture = (name: string) => readFileSync(new URL(name, FIXTURES), "utf8");
@@ -106,6 +106,10 @@ export function uiState(): UiState {
       { id: 11, employee_id: m2o(6, "Émile Employé"), check_in: "2026-09-18 11:00:00", check_out: "2026-09-18 19:00:00", worked_hours: 8, meal_count: 1, break_entry: false, boat_arrival: false, overtime_status: "to_approve" },
       { id: 12, employee_id: m2o(8, "Hugo Horséquipe"), check_in: "2026-09-18 10:00:00", check_out: "2026-09-18 23:00:00", worked_hours: 13, meal_count: 0, break_entry: false, boat_arrival: true, overtime_status: "approved" },
       { id: 13, employee_id: m2o(5, "Manon Manager"), check_in: "2026-09-18 10:30:00", check_out: false, worked_hours: 0, meal_count: 0, break_entry: false, boat_arrival: false, overtime_status: false },
+      // Compte portail (fiche 20 hors de state.employees : invisible pour les comptes internes du faux Odoo)
+      { id: 21, employee_id: m2o(20, "Paul Portail"), check_in: "2026-09-17 11:00:00", check_out: "2026-09-17 20:00:00", worked_hours: 9, meal_count: 1, break_entry: true, boat_arrival: true, overtime_status: "approved" },
+      { id: 22, employee_id: m2o(20, "Paul Portail"), check_in: "2026-10-01 11:00:00", check_out: "2026-10-01 19:00:00", worked_hours: 8, meal_count: 0, break_entry: false, boat_arrival: false, overtime_status: "approved" },
+      { id: 23, employee_id: m2o(20, "Paul Portail"), check_in: "2026-10-02 03:59:59", check_out: "2026-10-02 04:00:00", worked_hours: 0.0002777777777777778, meal_count: 0, break_entry: false, boat_arrival: false, overtime_status: false },
     ],
     // [id, nom, société] : « Filiale » est dans la société B
     departments: [[1, "Direction", 1], [3, "Atelier", 1], [4, "Quai", 1], [9, "Filiale", 2]],
@@ -113,7 +117,7 @@ export function uiState(): UiState {
 }
 
 // ─── Règles d'accès simulées (par uid) ────────────────────────────────────────
-const visibleEmployees = (uid: number, all: Row[]) => (uid === 2 ? all.map((e) => e.id) : uid === 7 ? [5, 6] : uid === 9 ? [6] : []);
+const visibleEmployees = (uid: number, all: Row[]) => (uid === 2 ? all.map((e) => e.id) : uid === 7 ? [5, 6] : uid === 9 ? [6] : uid === 11 ? [20] : []);
 const writableEmployees = (uid: number, all: Row[]) => (uid === 2 ? all.map((e) => e.id) : uid === 7 ? [6] : []);
 const modelWrite: Record<string, number[]> = { "hr.employee": [2, 7], "hr.attendance": [2, 7] };
 
@@ -189,6 +193,7 @@ export function uiHandler(state: UiState): Handler {
   return (call: FakeCall, odoo: FakeOdoo) => {
     const { uid, model, method, args, kwargs } = call;
     const groups = odoo.users.find((u) => u.uid === uid)?.groups ?? [];
+    if (odoo.users.find((u) => u.uid === uid)?.portal && PORTAL_FORBIDDEN.has(model) && method !== "has_access") return NEXT; // refus : faux Odoo de base
     const allGroups = ["base.group_user", ...groups];
 
     if (model === "ir.ui.menu" && method === "load_web_menus") {

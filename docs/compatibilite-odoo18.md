@@ -110,6 +110,8 @@ Les comptes portail sont reliés à leur fiche employé par le **contact** (`wor
 
 ### Q-10 — Employés en comptes portail (décidée)
 
+**Mise en œuvre (23/10/2026)** : connexion portail acceptée, fiche retrouvée par `user_id` puis par contact, écrans « Accueil » et « Mes pointages » (`GET /api/me/timesheet`). Règles à ajouter dans `leila_hr` : [`docs/portail-leila-hr.md`](portail-leila-hr.md).
+
 **Décision (validée le 23/10/2026)** : option 4 — écrans employé dédiés dans Leila (contrats métier, pas le moteur générique sans menus), appelés avec la **session portail** de l'employé ; Odoo garantit le cloisonnement par ses règles. Conditions : chaque modèle exposé a une règle Portail vérifiée par `npm run sonde-portail` (cloisonnement ✅) ; l'employé est retrouvé par `work_contact_id = partenaire de l'utilisateur`. Accès actuel du portail : présences (lecture), son utilisateur, son contact ; pas de fiche employé, heures supplémentaires ni congés.
 
 Options, à arbitrer (impact sécurité et licences) :
