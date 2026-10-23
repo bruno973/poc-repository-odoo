@@ -27,7 +27,7 @@ async function session(login, password, landing = "/app") {
   await page.fill("input[name=password]", password);
   await page.click("button[type=submit]");
   await page.waitForURL(`**${landing}`);
-  await page.waitForSelector(landing === "/app" ? ".apps a" : ".home-card");
+  await page.waitForSelector(landing === "/app" ? ".apps a" : ".leila-card");
   return page;
 }
 const shot = async (page, name) => SHOTS && page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true });
@@ -116,12 +116,19 @@ ok(!(await manager.locator(".ui-header button:text-is('Approuver')").count()), "
 ok((await manager.locator(".ui-steps li[aria-current=step]").textContent()) === "Approuvé", "barre d'étapes à jour après la commande");
 await shot(manager, "4-presence-approuvee-manager");
 
+// 4 bis. Accueil Leila One (leila_rebrand) pour un utilisateur interne
+await manager.goto(B + "/accueil");
+await manager.waitForSelector(".leila-card");
+ok(await manager.locator("h4:text-is('Outils Métiers')").isVisible() && await manager.locator("h4:text-is('Espace Employé')").isVisible(), "accueil : « Outils Métiers » et « Espace Employé »");
+ok(!(await manager.locator(".leila-card:has-text('Paramètres')").count()), "accueil : « Paramètres » réservé aux administrateurs");
+await shot(manager, "4b-accueil-manager");
+
 // 5. Compte portail (Q-10) : accueil et « Mes pointages », sans accès au back-office
 const portail = await session("p.portail", "portail-pw", "/accueil");
-ok(await portail.locator(".home-card:has-text('Mes heures')").isVisible(), "portail : accueil avec la carte « Mes heures »");
-ok((await portail.locator(".home-card").count()) === 1, "portail : aucune carte vers le back-office");
+ok(await portail.locator(".leila-card:has-text(\"Relevé d'heures\")").isVisible(), "portail : accueil Leila One, espace employé");
+ok((await portail.locator(".leila-card").count()) === 1, "portail : aucune carte « Outils Métiers »");
 ok(!(await portail.locator(".appnav__links a:text-is('Applications')").count()), "portail : navigation réduite");
-await portail.click(".home-card:has-text('Mes heures')");
+await portail.click(".leila-card:has-text(\"Relevé d'heures\")");
 await portail.waitForSelector("table.timesheet");
 ok(await portail.locator("text=n'est pas encore accessible").isVisible(), "portail sans droit sur la ventilation : heures pointées seules, signalé");
 ok((await portail.locator("table.timesheet tbody tr:has(td.num)").count()) >= 2, "portail : ses pointages");

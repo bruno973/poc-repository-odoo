@@ -1,5 +1,6 @@
 // layout/Navigation.tsx — Barre de navigation : écrans, identité constatée, déconnexion.
 
+import { useState } from "react";
 import { Link, useRouter } from "../app/router.js";
 import { useSession } from "../app/session.js";
 import type { ViewerRole } from "../types/domain.js";
@@ -31,7 +32,7 @@ export function Navigation() {
   return (
     <header className="appnav">
       <Link className="appnav__brand" to="/accueil">
-        Leila One <span>PoC</span>
+        <Brand />
       </Link>
       <nav className="appnav__links" aria-label="Navigation principale">
         {(me?.portal ? PORTAL_LINKS : LINKS).map((l) => (
@@ -53,4 +54,17 @@ export function Navigation() {
       )}
     </header>
   );
+}
+
+/** Logo Leila (public/leila/Logo_LEILA_Black.webp, module leila_rebrand) ; absent → texte. */
+function Brand() {
+  const [missing, setMissing] = useState(false);
+  if (missing) {
+    return (
+      <>
+        Leila One <span>PoC</span>
+      </>
+    );
+  }
+  return <img className="appnav__logo" src="/leila/Logo_LEILA_Black.webp" alt="Leila One" onError={() => setMissing(true)} />;
 }

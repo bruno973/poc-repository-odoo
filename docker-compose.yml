@@ -34,6 +34,10 @@ services:
     build:
       context: .
       dockerfile: web/Dockerfile
+      args:
+        # Accueil : carte « Paramètres » (administrateurs) si renseignée ; lien Leila App
+        VITE_ODOO_URL: ${ODOO_PUBLIC_URL:-}
+        VITE_LEILA_APP_URL: ${LEILA_APP_URL:-https://amg.leila.one}
     ports:
       - "4321:80"
     depends_on:

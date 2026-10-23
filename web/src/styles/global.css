@@ -224,13 +224,19 @@ textarea.field__input { resize: vertical; }
 .ui-group-toggle { width: 100%; text-align: left; background: none; border: 0; padding: 0.5rem 0.6rem; font: inherit; font-weight: 600; cursor: pointer; color: inherit; }
 .ui-group-toggle:hover { background: #eef1fb; }
 
-/* ─── Accueil et Mes pointages ──────────────────────────────────────────────── */
-.home-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
-.home-card { display: flex; gap: 0.9rem; align-items: flex-start; padding: 1rem 1.1rem; border-radius: 10px; background: #fff; border: 1px solid #e5e8f2; text-decoration: none; color: inherit; transition: border-color 0.15s, box-shadow 0.15s; }
-.home-card:hover, .home-card:focus-visible { border-color: #4c6ef5; box-shadow: 0 2px 10px rgba(76, 110, 245, 0.12); }
-.home-card__icon { font-size: 1.6rem; color: #4c6ef5; line-height: 1; width: 2rem; text-align: center; }
-.home-card__title { display: block; font-size: 1.1rem; margin-bottom: 0.2rem; }
-.home-card__text { display: block; color: #6b7088; font-size: 0.9rem; }
+/* ─── Accueil (repris de leila_rebrand : LeilaHomepage.scss) et Mes pointages ─ */
+.leila-homepage { background: linear-gradient(to bottom right, #f7f9fc, #e2e6f3); min-height: calc(100vh - 140px); padding: 2rem; border-radius: 1rem; }
+.leila-homepage h2 { font-size: 2rem; font-weight: 600; margin: 0 0 2rem; color: #3f4254; }
+.leila-homepage__section { margin-bottom: 2.5rem; }
+.leila-homepage__section h4 { font-weight: 600; margin: 0 0 1rem; color: #3f4254; font-size: 1.15rem; }
+.leila-homepage__cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 1.5rem; }
+.leila-card { display: flex; flex-direction: column; align-items: center; gap: 0.9rem; padding: 1.6rem 1rem; border-radius: 1rem; background: #fff; text-decoration: none; color: inherit; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.leila-card:hover, .leila-card:focus-visible { transform: translateY(-5px); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05); }
+.leila-card__icon { height: 64px; width: 64px; object-fit: contain; filter: grayscale(30%); transition: filter 0.3s ease; }
+.leila-card:hover .leila-card__icon { filter: grayscale(0%); }
+.leila-card__icon--fallback { display: flex; align-items: center; justify-content: center; font-size: 2.4rem; color: #5a0273; }
+.leila-card__title { font-size: 1.1rem; font-weight: 500; color: #343a40; text-align: center; }
+.appnav__logo { height: 26px; width: auto; display: block; }
 .timesheet td.is-right { text-align: right; }
 .timesheet__period td { background: #e9ecf5; font-weight: 700; }
 .timesheet__week td { background: #f6f7fc; font-weight: 600; }
