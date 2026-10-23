@@ -90,7 +90,17 @@ Constaté sur `amg` (inventaire admin du 22/10/2026) :
 
 - les employés de `amg` sont des **comptes portail** (sans « Utilisateur interne ») : ni menus (`ir.ui.menu`), ni actions, ni `hr.employee.public`. Le moteur générique, fondé sur les vues du back-office, ne peut pas les servir. Leila refuse leur connexion avec un message explicite (`PORTAL_REFUSED`) et l'inventaire s'arrête proprement. **Décision ouverte (Q-10)** : comment servir ces employés (voir ci-dessous).
 
+**Cloisonnement portail (23/10/2026)** : la première sonde a révélé une fuite — le droit d'accès « hr.attendance portal access » (lecture, groupe Portail) n'avait **aucune règle d'enregistrement** pour ce groupe : un compte portail lisait les présences de tous les employés (504, dont 497 d'autres personnes) par un simple appel ORM. Corrigé dans `amg` par une règle sur Présence, groupe Portail :
+
+```
+[('employee_id.work_contact_id', '=', user.partner_id.id)]
+```
+
+Les comptes portail sont reliés à leur fiche employé par le **contact** (`work_contact_id`), pas par `user_id` (vide). Sonde après correction : 32 présences visibles, un seul propriétaire ✅. **À reporter dans le module** (`security/*.xml`) et à vérifier pour tout autre modèle ouvert au portail (ventilation, clôtures…).
+
 ### Q-10 — Employés en comptes portail
+
+**Proposition (après sonde)** : option 4 — écrans employé dédiés dans Leila (contrats métier, pas le moteur générique sans menus), appelés avec la **session portail** de l'employé ; Odoo garantit le cloisonnement par ses règles. Conditions : chaque modèle exposé a une règle Portail vérifiée par `npm run sonde-portail` (cloisonnement ✅) ; l'employé est retrouvé par `work_contact_id = partenaire de l'utilisateur`. Accès actuel du portail : présences (lecture), son utilisateur, son contact ; pas de fiche employé, heures supplémentaires ni congés.
 
 Options, à arbitrer (impact sécurité et licences) :
 1. **Comptes internes** pour les employés : le moteur générique s'applique tel quel, droits garantis par Odoo ; coût de licence par utilisateur interne.
