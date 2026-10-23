@@ -1,6 +1,6 @@
 // ui/fields/format.ts — Affichage d'une valeur selon son TYPE Leila (jamais selon le champ).
 
-import type { FieldDescriptor, FieldValue } from "@leila/ui-schema";
+import { asReference, type FieldDescriptor, type FieldValue } from "@leila/ui-schema";
 import { DISPLAY_TZ } from "../../lib/format.js";
 
 const dateFmt = new Intl.DateTimeFormat("fr-FR", { timeZone: "UTC", day: "2-digit", month: "2-digit", year: "numeric" });
@@ -20,7 +20,7 @@ export function formatValue(d: FieldDescriptor, value: FieldValue | undefined, v
     }
     case "money": {
       const currency = d.currencyField ? values[d.currencyField] : null;
-      const label = currency && typeof currency === "object" && !Array.isArray(currency) ? currency.label : "";
+      const label = asReference(currency)?.label ?? "";
       return typeof value === "number" ? `${value.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${label}`.trim() : "";
     }
     case "selection":
@@ -30,7 +30,11 @@ export function formatValue(d: FieldDescriptor, value: FieldValue | undefined, v
     case "datetime":
       return typeof value === "string" ? dateTimeFmt.format(new Date(value)).replace(",", "") : "";
     case "reference":
-      return typeof value === "object" && !Array.isArray(value) ? value.label : "";
+      return asReference(value)?.label ?? "";
+    case "references":
+      return Array.isArray(value) ? value.map((v) => (typeof v === "object" && v !== null ? v.label : "")).filter(Boolean).join(", ") : "";
+    case "lines":
+      return typeof value === "object" && !Array.isArray(value) && "total" in value ? `${value.total} ligne${value.total > 1 ? "s" : ""}` : "";
     case "unsupported":
       return Array.isArray(value) ? `${value.length} élément${value.length > 1 ? "s" : ""}` : "";
     default:

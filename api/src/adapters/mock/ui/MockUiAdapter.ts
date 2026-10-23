@@ -159,6 +159,7 @@ export class MockUiAdapter implements ViewRepository, RecordRepository, CommandD
 
   async query(resourceKey: string, request: QueryRequest, viewer: ViewerContext): Promise<QueryResult> {
     this.keys.resolve(this.owner(viewer), "resource", resourceKey);
+    if (request.groupBy !== undefined || request.group !== undefined) throw new DomainError(`Regroupement inconnu : ${request.groupBy ?? ""}`, "invalid");
     let rows = this.records;
     const depts = request.filters.map((f) => {
       const d = DEPARTMENTS.find((x) => `dept${x.id}` === f);
@@ -218,6 +219,10 @@ export class MockUiAdapter implements ViewRepository, RecordRepository, CommandD
       (r.header as unknown as Record<string, unknown>)[key] = value === "" ? null : value;
     }
     return this.read(resourceKey, id, viewer);
+  }
+
+  async image(): Promise<{ contentType: string; data: Buffer }> {
+    throw new DomainError("Image introuvable.", "not_found");
   }
 
   async lookup(): Promise<LookupResult> {

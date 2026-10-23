@@ -206,3 +206,20 @@ table.grid { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .ref-editor__options button:hover { background: #f0f3ff; }
 textarea.field__input { resize: vertical; }
 .ui-diagnostics__detail td { font-size: 0.8rem; color: #555; padding-left: 1.6rem; }
+
+/* ─── Lot 1 : étiquettes, lignes liées, images, étapes, groupes ─────────────── */
+.ui-tags { display: inline-flex; flex-wrap: wrap; gap: 0.3rem; }
+.ui-tag { display: inline-block; padding: 0.1rem 0.55rem; border-radius: 999px; background: #eef1fb; color: #364fc7; font-size: 0.8rem; font-weight: 600; white-space: nowrap; }
+.ui-lines { margin-top: 0.25rem; max-width: 100%; }
+.ui-lines table.grid { font-size: 0.85rem; }
+.ui-lines__more { font-size: 0.8rem; margin: 0.4rem 0 0; }
+.ui-image { max-width: 128px; max-height: 128px; border-radius: 8px; object-fit: cover; border: 1px solid #e5e8f2; background: #fafbfe; }
+.ui-image--small { max-width: 32px; max-height: 32px; border-radius: 50%; }
+.ui-steps { display: flex; flex-wrap: wrap; gap: 0; list-style: none; margin: 0; padding: 0; }
+.ui-steps li { padding: 0.25rem 0.8rem 0.25rem 1.1rem; background: #f1f3f9; color: #6b7088; font-size: 0.85rem; clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%, 8px 50%); margin-right: -4px; }
+.ui-steps li:first-child { clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%); padding-left: 0.8rem; }
+.ui-steps li.is-current { background: #4c6ef5; color: #fff; font-weight: 600; }
+.ui-search__groups { margin-top: 0.4rem; align-items: center; }
+.ui-group-row td { background: #f6f7fc; padding: 0; }
+.ui-group-toggle { width: 100%; text-align: left; background: none; border: 0; padding: 0.5rem 0.6rem; font: inherit; font-weight: 600; cursor: pointer; color: inherit; }
+.ui-group-toggle:hover { background: #eef1fb; }

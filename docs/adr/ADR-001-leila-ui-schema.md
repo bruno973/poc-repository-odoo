@@ -50,7 +50,10 @@ interface ViewSchema {
 | `date` / `datetime` | `date` / `datetime` | ✅ | ✅ |
 | `reference` | `many2one` | ✅ | ✅ **seulement** si le domaine du champ est pris en charge (absent ou littéral) et la recherche autorisée ; sinon lecture seule + diagnostic |
 | `money` | `monetary` | ✅ si la devise est résolue (champ devise lisible), sinon non pris en charge | ❌ (MVP) |
-| `unsupported` | `one2many`, `many2many`, `html`, `binary`, `image`, `properties`… | Emplacement « non pris en charge » + diagnostic | ❌ |
+| `references` (1.1) | `many2many` | ✅ étiquettes : noms lus par le BFF avec les droits de l'utilisateur (illisibles → nombre) | ❌ |
+| `lines` (1.1) | `one2many` (et `many2many` en sous-liste) | ✅ tableau : colonnes simples et lisibles de la sous-liste embarquée ; sans sous-liste ou en kanban → noms seuls ; 40 premières lignes + total | ❌ |
+| `image` (1.1) | `binary` + widget `image` | ✅ par une route dédiée (PNG, JPEG, GIF, WebP vérifiés par signature ; jamais SVG) ; la valeur n'est qu'un jeton de version | ❌ |
+| `unsupported` | `html`, `binary` hors image, `properties`… | Emplacement « non pris en charge » + diagnostic | ❌ |
 
 ```ts
 interface FieldDescriptor {
@@ -64,7 +67,9 @@ interface FieldDescriptor {
 }
 ```
 
-**Widgets :** aucun widget Odoo n'est interprété en MVP. Un attribut `widget` produit un diagnostic `unsupported_widget`. Le rendu de secours (rendu standard du type) n'est appliqué qu'en **lecture seule**, ce qui préserve le sens et les restrictions du champ. `statusbar` et les widgets OWL sont donc affichés en lecture seule, ou non pris en charge.
+**Version 1.1 (lot 1, 23/10/2026) :** ajouts compatibles — types `references`, `lines`, `image` ; `format: "steps"` (+ `visibleOptions`) pour `statusbar` sur une sélection ; nœud `groupBy` de recherche, `QueryRequest.groupBy` / `group`, `QueryResult.groups`, `ActionDescriptor.defaultGroupBy`. Regroupement à un niveau : groupes et domaines calculés par Odoo (`read_group`) ; la clé de groupe envoyée par le navigateur n'est qu'une référence comparée aux groupes recalculés, jamais interprétée.
+
+**Widgets :** liste fermée de widgets de pure présentation (liens, avatars, étiquettes, `float_time`, `statusbar` sur sélection, `image`). Un attribut `widget` produit un diagnostic `unsupported_widget`. Le rendu de secours (rendu standard du type) n'est appliqué qu'en **lecture seule**, ce qui préserve le sens et les restrictions du champ. `statusbar` et les widgets OWL sont donc affichés en lecture seule, ou non pris en charge.
 
 Un champ **non lisible** pour l'utilisateur (droits, groupes de champ) n'apparaît pas dans `fields`. Sa présence dans le XML est comptée dans un diagnostic `excluded_by_rights`, sans libellé ni valeur.
 
@@ -124,6 +129,7 @@ Encodage : `date` → `"AAAA-MM-JJ"` ; `datetime` → ISO 8601 UTC ; `reference`
 | GET | `/resources/:resourceKey/records/:id` | RecordPayload, droits sur l'enregistrement |
 | PATCH | `/resources/:resourceKey/records/:id` | Champs du schéma uniquement ; revalidation serveur (§ 6.2.5–6) |
 | GET | `/resources/:resourceKey/fields/:field/options` | Sélection `reference` si autorisée |
+| GET | `/resources/:resourceKey/records/:id/images/:field` | Champ publié comme image ; lu avec les droits de l'utilisateur ; format vérifié ; `nosniff`, `Cache-Control: private` |
 | POST | `/commands/:commandKey` | Registre fermé, conditions et droits revérifiés |
 | POST | `/cache/refresh` | Invalidation explicite (administrateur technique) |
 

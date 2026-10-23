@@ -16,6 +16,7 @@ const Params = {
   record: z.object({ resourceKey: Key, id: z.coerce.number().int().positive() }),
   field: z.object({ resourceKey: Key, field: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]{0,63}$/) }),
   command: z.object({ commandKey: Key }),
+  image: z.object({ resourceKey: Key, id: z.coerce.number().int().positive(), field: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]{0,63}$/) }),
 };
 
 export function registerUiRoutes(fastify: FastifyInstance, ui: UiPorts, viewerOf: ViewerResolver): void {
@@ -56,6 +57,19 @@ export function registerUiRoutes(fastify: FastifyInstance, ui: UiPorts, viewerOf
     const { resourceKey, field } = Params.field.parse(request.params);
     const q = z.object({ q: z.string().max(100).default(""), recordId: z.coerce.number().int().positive().optional() }).parse(request.query);
     return ui.records.lookup(resourceKey, field, { search: q.q, recordId: q.recordId }, viewer);
+  });
+
+  fastify.get(`${prefix}/resources/:resourceKey/records/:id/images/:field`, async (request, reply) => {
+    const viewer = viewerOf(request);
+    const { resourceKey, id, field } = Params.image.parse(request.params);
+    const image = await ui.records.image(resourceKey, id, field, viewer);
+    // Image privée de l'utilisateur : pas de cache partagé, pas d'interprétation par le navigateur
+    return reply
+      .header("Content-Type", image.contentType)
+      .header("Cache-Control", "private, max-age=300")
+      .header("X-Content-Type-Options", "nosniff")
+      .header("Content-Security-Policy", "default-src 'none'")
+      .send(image.data);
   });
 
   fastify.post(`${prefix}/commands/:commandKey`, async (request) => {

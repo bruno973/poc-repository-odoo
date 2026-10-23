@@ -14,6 +14,7 @@ import {
   type ConditionScope,
   type FieldDescriptor,
   type FieldValue,
+  type LineValue,
   type LookupResult,
   type MenuNode,
   type Navigation,
@@ -43,7 +44,7 @@ import type { OdooTransport, OdooTransportFactory } from "../transport.js";
 import { ODOO_COMMANDS, type OdooCommand } from "./commands.js";
 import { type DomainEnvName, type DomainExpr, domainRefs, evaluateDomain, parseDomain } from "./OdooDomain.js";
 import { combineDomains, type Literal, parseLiteral } from "./OdooExpressionParser.js";
-import { type OdooFieldMeta, type ParsedView, parseArch } from "./OdooViewParser.js";
+import { groupSpec, type OdooFieldMeta, type ParsedView, parseArch, type ServerGroupBy } from "./OdooViewParser.js";
 
 export interface OdooUiConfig {
   db: string;
@@ -107,6 +108,30 @@ interface ViewBundle {
 
 const WRITABLE_TYPES = new Set<FieldDescriptor["type"]>(["text", "multiline", "integer", "decimal", "boolean", "selection", "date", "datetime", "reference"]);
 const NOT_READ = new Set(["binary", "html", "properties", "properties_definition", "json", "image"]);
+/** Lignes liées lues pour une fiche (les suivantes sont seulement comptées). */
+const MAX_LINES = 40;
+/** Groupes renvoyés pour un regroupement. */
+const MAX_GROUPS = 200;
+/** Taille maximale d'une image servie. */
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+/** Lecture : les champs binaires (images) ne renvoient que leur taille, jamais leur contenu. */
+const BIN_SIZE = { context: { bin_size: true } };
+
+/** Images servies : formats matriciels reconnus par leur signature (jamais SVG ni HTML). */
+export function imageType(data: Buffer): string | null {
+  if (data.length >= 8 && data.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return "image/png";
+  if (data.length >= 3 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff) return "image/jpeg";
+  if (data.length >= 6 && (data.subarray(0, 6).toString("latin1") === "GIF87a" || data.subarray(0, 6).toString("latin1") === "GIF89a")) return "image/gif";
+  if (data.length >= 12 && data.subarray(0, 4).toString("latin1") === "RIFF" && data.subarray(8, 12).toString("latin1") === "WEBP") return "image/webp";
+  return null;
+}
+
+interface Group {
+  key: string;
+  label: string;
+  count: number;
+  domain: unknown[];
+}
 
 export class OdooUiAdapter implements ViewRepository, RecordRepository, CommandDispatcher {
   private readonly cache: DefinitionCache<ViewBundle>;
@@ -158,11 +183,15 @@ export class OdooUiAdapter implements ViewRepository, RecordRepository, CommandD
     const available = !action.nativeOnly && action.context !== null && action.domain !== null && evaluateDomain(action.domain, { env }) !== null;
     // Filtres par défaut de l'action (search_default_<nom>), s'ils sont utilisables
     let defaultFilters: string[] = [];
+    let defaultGroupBy: string | undefined;
     if (available && action.context) {
       const bundle = await this.bundle(t, viewer, actionId);
       defaultFilters = bundle.parsed.search.filters
         .filter((f) => f.domain !== null && action.context?.[`search_default_${f.name}`])
         .map((f) => f.key);
+      // Regroupement par défaut : search_default_<regroupement>, sinon group_by de l'action
+      const groupBys = bundle.parsed.search.groupBys;
+      defaultGroupBy = groupBys.find((g) => g.name && action.context?.[`search_default_${g.name}`])?.key ?? bundle.parsed.search.defaultGroupKey;
     }
     const resource: ResourceTarget = { model: action.model, actionId };
     const view = (viewType: ViewTarget["viewType"]) => this.config.keys.issue(owner, "view", { ...resource, viewType } satisfies ViewTarget);
@@ -175,6 +204,7 @@ export class OdooUiAdapter implements ViewRepository, RecordRepository, CommandD
       views: available ? { list: view("list"), form: view("form"), search: view("search") } : {},
       defaultView: "list",
       ...(defaultFilters.length ? { defaultFilters } : {}),
+      ...(defaultGroupBy ? { defaultGroupBy } : {}),
       diagnostics: available
         ? []
         : [{ code: "unsupported_action", severity: "blocking", path: "action", message: action.nativeOnly ?? "Domaine ou contexte d'action non pris en charge : action indisponible." }],
@@ -242,14 +272,34 @@ export class OdooUiAdapter implements ViewRepository, RecordRepository, CommandD
       if (!d) throw new DomainError(`Recherche indisponible sur ${s.field}.`, "invalid");
       return d;
     });
-    const domain = combineDomains("&", [
+    let domain = combineDomains("&", [
       actionDomain,
       ...[...byGroup.values()].map((ds) => combineDomains("|", ds)),
       ...searchTerms,
     ]);
 
+    // Regroupement : clé du schéma de recherche ; groupes et leurs domaines calculés par Odoo
+    if (request.groupBy !== undefined) {
+      const g = search.groupBys.find((x) => x.key === request.groupBy);
+      if (!g) throw new DomainError(`Regroupement inconnu : ${request.groupBy}`, "invalid");
+      const groups = await this.groups(t, target.model, domain, g, bundle.fields);
+      if (request.group === undefined) {
+        return QueryResultSchema.parse({
+          schemaVersion: SCHEMA_VERSION,
+          records: [],
+          total: groups.reduce((n, x) => n + x.count, 0),
+          groups: groups.map(({ key, label, count }) => ({ key, label, count })),
+        });
+      }
+      const found = groups.find((x) => x.key === request.group);
+      if (!found) return QueryResultSchema.parse({ schemaVersion: SCHEMA_VERSION, records: [], total: 0 });
+      domain = found.domain;
+    } else if (request.group !== undefined) {
+      throw new DomainError("Groupe sans regroupement.", "invalid");
+    }
+
     const columns = list.root.filter((n): n is Extract<Node, { kind: "column" }> => n.kind === "column").map((c) => c.field);
-    const fields = this.readableFields(bundle, [...columns, ...list.conditionFields]);
+    const fields = this.readableFields(bundle, list, [...columns, ...list.conditionFields]);
     let order: string | undefined;
     if (request.order) {
       const meta = bundle.fields[request.order.field];
@@ -263,13 +313,14 @@ export class OdooUiAdapter implements ViewRepository, RecordRepository, CommandD
         model: target.model,
         method: "search_read",
         args: [domain],
-        kwargs: { fields, limit: request.limit, offset: request.offset, ...(order ? { order } : {}) },
+        kwargs: { fields, limit: request.limit, offset: request.offset, ...(order ? { order } : {}), ...BIN_SIZE },
       }),
       t.callKw<number>({ model: target.model, method: "search_count", args: [domain], kwargs: {} }),
     ]);
+    const values = await this.toValues(t, bundle, list, rows, fields, "list");
     return QueryResultSchema.parse({
       schemaVersion: SCHEMA_VERSION,
-      records: rows.map((row) => ({ id: row["id"], values: this.toValues(bundle, row, fields) })),
+      records: rows.map((row, i) => ({ id: row["id"], values: values[i] })),
       total,
     });
   }
@@ -332,6 +383,22 @@ export class OdooUiAdapter implements ViewRepository, RecordRepository, CommandD
     return { options: rows.map(([id, label]) => ({ id, label })) };
   }
 
+  async image(resourceKey: string, id: number, field: string, viewer: ViewerContext): Promise<{ contentType: string; data: Buffer }> {
+    const target = this.config.keys.resolve<ResourceTarget>(this.owner(viewer), "resource", resourceKey);
+    const t = this.transports.for(viewer);
+    const bundle = await this.bundle(t, viewer, target.actionId);
+    // Seulement un champ publié comme image par une vue de cette ressource
+    const published = bundle.parsed.form.fields[field]?.type === "image" || bundle.parsed.list.fields[field]?.type === "image";
+    if (!published || !bundle.fields[field]) throw new DomainError("Image introuvable.", "not_found");
+    const rows = await t.callKw<Record<string, unknown>[]>({ model: target.model, method: "read", args: [[id], [field]], kwargs: {} });
+    const raw = rows[0]?.[field];
+    if (typeof raw !== "string" || raw.length === 0 || raw.length > (MAX_IMAGE_BYTES * 4) / 3 + 4) throw new DomainError("Image introuvable.", "not_found");
+    const data = Buffer.from(raw, "base64");
+    const contentType = imageType(data);
+    if (!contentType) throw new DomainError("Format d'image non pris en charge.", "not_found");
+    return { contentType, data };
+  }
+
   async execute(commandKey: string, request: CommandRequest, viewer: ViewerContext): Promise<RecordPayload> {
     const owner = this.owner(viewer);
     const { commandId } = this.config.keys.resolve<{ commandId: string }>(owner, "command", commandKey);
@@ -372,14 +439,14 @@ export class OdooUiAdapter implements ViewRepository, RecordRepository, CommandD
     viewer: ViewerContext,
   ): Promise<RecordPayload> {
     const form = bundle.parsed.form;
-    const fieldNames = this.readableFields(bundle, [...Object.keys(form.fields), ...form.conditionFields]);
+    const fieldNames = this.readableFields(bundle, form, [...Object.keys(form.fields), ...form.conditionFields]);
     const [rows, writable] = await Promise.all([
-      t.callKw<Record<string, unknown>[]>({ model: target.model, method: "read", args: [[id], fieldNames], kwargs: {} }),
+      t.callKw<Record<string, unknown>[]>({ model: target.model, method: "read", args: [[id], fieldNames], kwargs: BIN_SIZE }),
       recordAccess(t, target.model, [id], "write").catch(() => new Map<number, boolean>()),
     ]);
     const row = rows[0];
     if (!row) throw new DomainError("Enregistrement introuvable.", "not_found");
-    const values = this.toValues(bundle, row, fieldNames);
+    const [values = {}] = await this.toValues(t, bundle, form, [row], fieldNames, "form");
     const restriction = leilaRestriction(SEMANTICS[target.model] ?? "other", id, viewer);
     const canEdit = writable.get(id) === true && !restriction.readonly;
     const scope: ConditionScope = { values: { ...values, id } };
@@ -399,21 +466,103 @@ export class OdooUiAdapter implements ViewRepository, RecordRepository, CommandD
     });
   }
 
-  /** Champs à lire : lisibles pour ce compte (présents dans les métadonnées), hors contenus lourds. */
-  private readableFields(bundle: ViewBundle, names: Iterable<string>): string[] {
+  /**
+   * Champs à lire : lisibles pour ce compte (présents dans les métadonnées), hors contenus lourds.
+   * Images publiées : lues avec bin_size (la taille sert de jeton de version, jamais le contenu).
+   */
+  private readableFields(bundle: ViewBundle, view: ParsedView, names: Iterable<string>): string[] {
     const out = new Set<string>();
     for (const name of names) {
       if (name === "id") continue;
       const meta = bundle.fields[name];
-      if (meta && !NOT_READ.has(meta.type)) out.add(name);
+      if (meta && (!NOT_READ.has(meta.type) || view.fields[name]?.type === "image")) out.add(name);
     }
     return [...out];
   }
 
-  private toValues(bundle: ViewBundle, row: Record<string, unknown>, names: string[]): Record<string, FieldValue> {
-    const values: Record<string, FieldValue> = {};
-    for (const name of names) values[name] = toLeilaValue(bundle.fields[name]?.type ?? "", row[name]);
-    return values;
+  /**
+   * Valeurs Leila de lignes lues. Étiquettes : noms des enregistrements liés lus avec les droits
+   * de l'utilisateur (illisibles → ids seuls). Lignes liées : en fiche, les premières lignes et
+   * leurs colonnes ; en liste, le nombre seulement.
+   */
+  private async toValues(
+    t: OdooTransport,
+    bundle: ViewBundle,
+    view: ParsedView,
+    rows: Record<string, unknown>[],
+    names: string[],
+    mode: "form" | "list",
+  ): Promise<Record<string, FieldValue>[]> {
+    const out = rows.map((row) => {
+      const values: Record<string, FieldValue> = {};
+      for (const name of names) {
+        const d = view.fields[name];
+        const raw = row[name];
+        values[name] = d?.type === "image" ? (typeof raw === "string" && raw !== "" ? raw : null) : toLeilaValue(bundle.fields[name]?.type ?? "", raw);
+      }
+      return values;
+    });
+    for (const name of names) {
+      const d = view.fields[name];
+      const relation = bundle.fields[name]?.relation;
+      if (!d || !relation) continue;
+      if (d.type === "references") {
+        const ids = [...new Set(out.flatMap((v) => (Array.isArray(v[name]) ? (v[name] as number[]) : [])))];
+        if (ids.length === 0) continue;
+        const labels = await t
+          .callKw<{ id: number; display_name: string }[]>({ model: relation, method: "read", args: [ids, ["display_name"]], kwargs: {} })
+          .then((r) => new Map(r.map((x) => [x.id, String(x.display_name ?? "")])))
+          .catch(() => null);
+        if (!labels) continue; // relation illisible : ids seuls (affichés comme un nombre)
+        for (const v of out) {
+          const list = v[name];
+          if (Array.isArray(list)) v[name] = (list as number[]).filter((id) => labels.has(id)).map((id) => ({ id, label: labels.get(id) ?? "" }));
+        }
+      } else if (d.type === "lines") {
+        const lines = view.lines[name];
+        for (const v of out) {
+          const ids = Array.isArray(v[name]) ? (v[name] as number[]) : [];
+          if (mode === "list" || !lines || ids.length === 0) {
+            v[name] = { lines: [], total: ids.length };
+            continue;
+          }
+          const shown = ids.slice(0, MAX_LINES);
+          const read = await t
+            .callKw<Record<string, unknown>[]>({ model: lines.relation, method: "read", args: [shown, lines.columns], kwargs: {} })
+            .catch(() => null);
+          if (!read) {
+            v[name] = null; // lignes illisibles pour ce compte
+            continue;
+          }
+          v[name] = {
+            lines: read.map((r) => ({
+              id: Number(r["id"]),
+              values: Object.fromEntries(lines.columns.map((c) => [c, toLeilaValue(lines.meta[c]?.type ?? "", r[c]) as LineValue])),
+            })),
+            total: ids.length,
+          };
+        }
+      }
+    }
+    return out;
+  }
+
+  /** Groupes d'un regroupement : comptes et domaines calculés par Odoo, avec les droits de l'utilisateur. */
+  private async groups(t: OdooTransport, model: string, domain: unknown[], g: ServerGroupBy, fields: Record<string, OdooFieldMeta>): Promise<Group[]> {
+    const rows = await t.callKw<Record<string, unknown>[]>({
+      model,
+      method: "read_group",
+      args: [domain, [g.field], [g.spec]],
+      kwargs: { lazy: true, limit: MAX_GROUPS },
+    });
+    const meta = fields[g.field];
+    return rows
+      .filter((r) => Array.isArray(r["__domain"]))
+      .map((r) => {
+        const raw = r[g.spec] ?? r[g.field];
+        const count = Number(r[`${g.field}_count`] ?? r["__count"] ?? 0);
+        return { key: groupKey(raw), label: groupLabel(raw, meta), count, domain: r["__domain"] as unknown[] };
+      });
   }
 
   private async toOdoo(
@@ -516,18 +665,24 @@ export class OdooUiAdapter implements ViewRepository, RecordRepository, CommandD
       ]);
       const modelEntry = res.models[action.model];
       const fields = (modelEntry?.fields ?? modelEntry ?? {}) as Record<string, OdooFieldMeta>;
+      const models = Object.fromEntries(
+        Object.entries(res.models).map(([m, e]) => [m, ((e as { fields?: Record<string, OdooFieldMeta> }).fields ?? e) as Record<string, OdooFieldMeta>]),
+      );
       const ctx = {
         model: action.model,
         fields,
+        models,
         actionContext: action.context ?? undefined,
         commandFor: (b: { name: string; type: string }) =>
           b.type === "object" ? this.commands.find((c) => c.model === action.model && c.method === b.name)?.id : undefined,
       };
       const arch = (type: string) => res.views[type]?.arch ?? `<${type}/>`;
+      const search = parseArch(arch("search"), "search", ctx);
+      addActionGroupBy(search, action.context, fields);
       return {
         action,
         fields,
-        parsed: { list: parseArch(arch("list"), "list", ctx), form: parseArch(arch("form"), "form", ctx), search: parseArch(arch("search"), "search", ctx) },
+        parsed: { list: parseArch(arch("list"), "list", ctx), form: parseArch(arch("form"), "form", ctx), search },
         canEdit,
       };
     });
@@ -625,4 +780,51 @@ function collectButtons(nodes: Node[], out: Extract<Node, { kind: "button" }>[] 
     else if ("children" in n) collectButtons(n.children, out);
   }
   return out;
+}
+
+/**
+ * Regroupement demandé par le contexte de l'action (group_by) : proposé dans la recherche
+ * s'il n'y figure pas déjà. Plusieurs niveaux : seul le premier est appliqué (diagnostic).
+ */
+function addActionGroupBy(search: ParsedView, context: Record<string, Literal> | null, fields: Record<string, OdooFieldMeta>): void {
+  const raw = context?.["group_by"];
+  if (raw === undefined || raw === null || raw === false) return;
+  const levels = Array.isArray(raw) ? raw : [raw];
+  if (levels.length === 0) return;
+  const spec = groupSpec(levels[0], fields);
+  if (levels.length > 1) {
+    search.diagnostics.push({ code: "unsupported_domain", severity: "info", path: "action/context/group_by", message: "Regroupement à plusieurs niveaux : seul le premier est appliqué." });
+  }
+  if (!spec) {
+    search.diagnostics.push({ code: "unsupported_domain", severity: "info", path: "action/context/group_by", message: "Regroupement de l'action non pris en charge." });
+    return;
+  }
+  const existing = search.groupBys.find((g) => g.spec === spec.spec);
+  if (existing) {
+    // Déjà proposé par la vue : il devient le regroupement par défaut
+    search.defaultGroupKey = existing.key;
+    return;
+  }
+  const label = fields[spec.field]?.string ?? spec.field;
+  search.groupBys.push({ key: "a0", name: "", ...spec, label });
+  search.root.push({ kind: "groupBy", groupKey: "a0", label, available: true });
+  search.defaultGroupKey = "a0";
+}
+
+/** Clé opaque d'un groupe : comparée à celles que le serveur recalcule, jamais interprétée. */
+function groupKey(raw: unknown): string {
+  if (raw === false || raw === null || raw === undefined) return "null";
+  if (Array.isArray(raw) && typeof raw[0] === "number") return `r:${raw[0]}`;
+  if (typeof raw === "string") return `s:${raw}`.slice(0, 200);
+  if (typeof raw === "number") return `n:${raw}`;
+  if (typeof raw === "boolean") return `b:${raw}`;
+  return `j:${JSON.stringify(raw)}`.slice(0, 200);
+}
+
+function groupLabel(raw: unknown, meta: OdooFieldMeta | undefined): string {
+  if (raw === false || raw === null || raw === undefined) return "Non défini";
+  if (Array.isArray(raw)) return String(raw[1] ?? raw[0]);
+  if (typeof raw === "boolean") return raw ? "Oui" : "Non";
+  if (meta?.type === "selection" && Array.isArray(meta.selection)) return meta.selection.find(([v]) => v === raw)?.[1] ?? String(raw);
+  return String(raw);
 }

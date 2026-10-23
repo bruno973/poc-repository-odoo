@@ -148,7 +148,7 @@ export function FormRenderer({ view, record, onChange }: Props) {
                 editor({ id, descriptor: d, value: values[n.field], required, resourceKey: view.resourceKey, recordId: record.id, onChange: (v, shown) => set(n.field, v, shown) })
               ) : (
                 <span className="field__value" id={id}>
-                  <FieldDisplay descriptor={d} value={values[n.field]} values={values} />
+                  <FieldDisplay descriptor={d} value={values[n.field]} values={values} record={{ resourceKey: view.resourceKey, recordId: record.id }} />
                 </span>
               )}
             </div>

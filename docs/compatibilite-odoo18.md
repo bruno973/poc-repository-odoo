@@ -28,9 +28,19 @@
 | `char`, `text`, `integer`, `float`, `boolean`, `selection` (statique), `date`, `datetime` | ✅ | ✅ (revalidée par le BFF) |
 | `many2one` | ✅ | ✅ si les domaines du champ et de la vue sont des constantes **ou des valeurs de la fiche** (`[('company_id', 'in', [company_id, False])]`), substituées par le BFF avec les valeurs lisibles par l'utilisateur ; `uid`, `context`, appels → sélection désactivée. La valeur choisie est revérifiée (`search_count` dans le domaine calculé avec les valeurs après modification) |
 | `monetary` | ✅ si la devise est lisible | ❌ |
-| `one2many`, `many2many`, `binary`, `image`, `html`, `properties`, sélection dynamique | « Non disponible dans Leila » (nombre d'éléments pour les relations) | ❌ |
+| `many2many` (lot 1) | ✅ étiquettes (`read` de `display_name` sur le modèle lié, sous l'identité de l'utilisateur ; refus → nombre d'éléments) | ❌ |
+| `one2many` (lot 1) | ✅ tableau des colonnes simples de la sous-liste `<list>` embarquée (colonnes masquées non publiées ni lues) ; sans sous-liste / kanban → noms ; 40 lignes + total ; en liste : nombre de lignes | ❌ |
+| `binary` + widget `image` (lot 1) | ✅ route dédiée ; valeurs lues avec `bin_size` (jamais le contenu) ; PNG/JPEG/GIF/WebP seulement | ❌ |
+| `statusbar` sur une sélection (lot 1) | ✅ barre d'étapes (`statusbar_visible` respecté) ; sur un `many2one` : rendu standard + diagnostic | ❌ |
+| `binary` (autre), `html`, `properties`, sélection dynamique | « Non disponible dans Leila » | ❌ |
 | Widgets de présentation `email`, `phone`, `url`, `many2one_avatar`, `many2one_avatar_user`, `many2one_avatar_employee` | Rendu standard (liens `mailto:` / `tel:` / URL) | Comme le type |
 | Tout autre `widget` | Rendu standard du type | **Lecture seule** + diagnostic |
+
+## Regroupements (lot 1)
+
+Filtres de recherche `context="{'group_by': …}"` et `group_by` du contexte d'action : un niveau, sur un champ **stocké** de type `many2one`, `selection`, `char`, `boolean`, `integer`, `date`/`datetime` (granularité, `month` par défaut). Groupes calculés par `read_group` (lazy) avec l'identité de l'utilisateur ; les enregistrements d'un groupe sont lus avec le `__domain` renvoyé par Odoo. Défaut : `search_default_<regroupement>` ou `group_by` de l'action (plusieurs niveaux → le premier + diagnostic). Non pris en charge : champs non stockés (ex. `department_id` lié sur `hr.attendance`), plusieurs niveaux simultanés.
+
+Effet sur l'inventaire (classements régénérés) : manager — types de champ 6 → 1 occurrence, widgets 17 → 8, recherche 35 → 18 ; admin — types de champ 45 → 14, widgets 58 → 35, recherche 67 → 28.
 
 ## Conditions (ADR-002)
 
@@ -98,9 +108,9 @@ Constaté sur `amg` (inventaire admin du 22/10/2026) :
 
 Les comptes portail sont reliés à leur fiche employé par le **contact** (`work_contact_id`), pas par `user_id` (vide). Sonde après correction : 32 présences visibles, un seul propriétaire ✅. **À reporter dans le module** (`security/*.xml`) et à vérifier pour tout autre modèle ouvert au portail (ventilation, clôtures…).
 
-### Q-10 — Employés en comptes portail
+### Q-10 — Employés en comptes portail (décidée)
 
-**Proposition (après sonde)** : option 4 — écrans employé dédiés dans Leila (contrats métier, pas le moteur générique sans menus), appelés avec la **session portail** de l'employé ; Odoo garantit le cloisonnement par ses règles. Conditions : chaque modèle exposé a une règle Portail vérifiée par `npm run sonde-portail` (cloisonnement ✅) ; l'employé est retrouvé par `work_contact_id = partenaire de l'utilisateur`. Accès actuel du portail : présences (lecture), son utilisateur, son contact ; pas de fiche employé, heures supplémentaires ni congés.
+**Décision (validée le 23/10/2026)** : option 4 — écrans employé dédiés dans Leila (contrats métier, pas le moteur générique sans menus), appelés avec la **session portail** de l'employé ; Odoo garantit le cloisonnement par ses règles. Conditions : chaque modèle exposé a une règle Portail vérifiée par `npm run sonde-portail` (cloisonnement ✅) ; l'employé est retrouvé par `work_contact_id = partenaire de l'utilisateur`. Accès actuel du portail : présences (lecture), son utilisateur, son contact ; pas de fiche employé, heures supplémentaires ni congés.
 
 Options, à arbitrer (impact sécurité et licences) :
 1. **Comptes internes** pour les employés : le moteur générique s'applique tel quel, droits garantis par Odoo ; coût de licence par utilisateur interne.

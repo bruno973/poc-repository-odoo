@@ -30,7 +30,7 @@ const m2o = (id: number, name: string) => [id, name];
 const ACTIONS: Record<number, Record<string, unknown>> = {
   501: { id: 501, name: "Employés", res_model: "hr.employee", views: [[false, "list"], [false, "form"]], domain: false, context: "{'chat_icon': True}", search_view_id: false },
   502: { id: 502, name: "Présences", res_model: "hr.attendance", views: [[false, "list"], [false, "form"]], domain: "[]", context: "{'create': False}", search_view_id: false },
-  503: { id: 503, name: "Mon équipe", res_model: "hr.employee", views: [[false, "list"]], domain: "[('parent_id.user_id', '=', uid)]", context: "{}", search_view_id: false },
+  503: { id: 503, name: "Mon équipe", res_model: "hr.employee", views: [[false, "list"]], domain: "[('parent_id.user_id', '=', uid)]", context: "{'group_by': ['department_id', 'job_title']}", search_view_id: false },
 };
 
 const EMPLOYEE_FIELDS: Record<string, Meta> = {
@@ -53,6 +53,7 @@ const EMPLOYEE_FIELDS: Record<string, Meta> = {
   employee_type: { type: "selection", string: "Type", groups: "hr.group_hr_user", selection: [["employee", "Employé"], ["student", "Étudiant"]] },
   user_id: { type: "many2one", string: "Utilisateur", relation: "res.users", groups: "hr.group_hr_user" },
   category_ids: { type: "many2many", string: "Étiquettes", relation: "hr.employee.category" },
+  child_ids: { type: "one2many", string: "Subordonnés", relation: "hr.employee" },
   avatar_128: { type: "binary", string: "Avatar" },
   image_1920: { type: "binary", string: "Image" },
   hours_last_month: { type: "float", string: "Heures le mois dernier", readonly: true },
@@ -69,6 +70,12 @@ const ATTENDANCE_FIELDS: Record<string, Meta> = {
   boat_arrival: { type: "boolean", string: "Arrivé en transport" },
   overtime_status: { type: "selection", string: "Statut", readonly: true, selection: [["to_approve", "À approuver"], ["approved", "Approuvé"], ["refused", "Refusé"]] },
 };
+
+/** Image PNG 1×1 (contenu d'un champ image) et contenu non image (refusé par le BFF). */
+export const PNG_1PX = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+export const SVG_B64 = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>').toString("base64");
+
+const CATEGORIES: Record<number, string> = { 1: "Encadrement", 2: "Sécurité" };
 
 export interface UiState {
   archs: Record<string, string>;
@@ -90,10 +97,10 @@ export function uiState(): UiState {
     },
     fields: { "hr.employee": structuredClone(EMPLOYEE_FIELDS), "hr.attendance": structuredClone(ATTENDANCE_FIELDS) },
     employees: [
-      { id: 1, name: "Alice Admin", job_title: "DRH", work_email: "alice@exemple.gf", work_phone: "0594 01", mobile_phone: false, department_id: m2o(1, "Direction"), parent_id: false, coach_id: false, company_id: m2o(1, "Société A"), work_location_id: false, resource_calendar_id: false, tz: "America/Cayenne", private_email: "alice@perso.gf", ssnid: "2 85 01 973 001", marital: "married", spouse_complete_name: "Paul Admin", employee_type: "employee", user_id: m2o(2, "Admin RH"), category_ids: [], hours_last_month: 140, active: true },
-      { id: 5, name: "Manon Manager", job_title: "Cheffe d'atelier", work_email: "manon@exemple.gf", work_phone: false, mobile_phone: false, department_id: m2o(3, "Atelier"), parent_id: m2o(1, "Alice Admin"), coach_id: false, company_id: m2o(1, "Société A"), work_location_id: false, resource_calendar_id: false, tz: "America/Cayenne", private_email: "manon@perso.gf", ssnid: "2 90 05 973 002", marital: "single", spouse_complete_name: false, employee_type: "employee", user_id: m2o(7, "Manon Manager"), category_ids: [1], hours_last_month: 150, active: true },
-      { id: 6, name: "Émile Employé", job_title: false, work_email: "emile@exemple.gf", work_phone: "0594 06", mobile_phone: "0694 06", department_id: m2o(3, "Atelier"), parent_id: m2o(5, "Manon Manager"), coach_id: false, company_id: m2o(1, "Société A"), work_location_id: false, resource_calendar_id: false, tz: "America/Cayenne", private_email: "emile@perso.gf", ssnid: "1 95 06 973 003", marital: "married", spouse_complete_name: "Léa Employé", employee_type: "employee", user_id: m2o(9, "Émile Employé"), category_ids: [], hours_last_month: 160, active: true },
-      { id: 8, name: "Hugo Horséquipe", job_title: "Docker", work_email: "hugo@exemple.gf", work_phone: false, mobile_phone: false, department_id: m2o(4, "Quai"), parent_id: false, coach_id: false, company_id: m2o(1, "Société A"), work_location_id: false, resource_calendar_id: false, tz: "America/Cayenne", private_email: "hugo@perso.gf", ssnid: "1 80 08 973 004", marital: "single", spouse_complete_name: false, employee_type: "employee", user_id: false, category_ids: [], hours_last_month: 120, active: true },
+      { id: 1, name: "Alice Admin", job_title: "DRH", work_email: "alice@exemple.gf", work_phone: "0594 01", mobile_phone: false, department_id: m2o(1, "Direction"), parent_id: false, coach_id: false, company_id: m2o(1, "Société A"), work_location_id: false, resource_calendar_id: false, tz: "America/Cayenne", private_email: "alice@perso.gf", ssnid: "2 85 01 973 001", marital: "married", spouse_complete_name: "Paul Admin", employee_type: "employee", user_id: m2o(2, "Admin RH"), category_ids: [], child_ids: [5], image_1920: PNG_1PX, hours_last_month: 140, active: true },
+      { id: 5, name: "Manon Manager", job_title: "Cheffe d'atelier", work_email: "manon@exemple.gf", work_phone: false, mobile_phone: false, department_id: m2o(3, "Atelier"), parent_id: m2o(1, "Alice Admin"), coach_id: false, company_id: m2o(1, "Société A"), work_location_id: false, resource_calendar_id: false, tz: "America/Cayenne", private_email: "manon@perso.gf", ssnid: "2 90 05 973 002", marital: "single", spouse_complete_name: false, employee_type: "employee", user_id: m2o(7, "Manon Manager"), category_ids: [1, 2], child_ids: [6], image_1920: SVG_B64, hours_last_month: 150, active: true },
+      { id: 6, name: "Émile Employé", job_title: false, work_email: "emile@exemple.gf", work_phone: "0594 06", mobile_phone: "0694 06", department_id: m2o(3, "Atelier"), parent_id: m2o(5, "Manon Manager"), coach_id: false, company_id: m2o(1, "Société A"), work_location_id: false, resource_calendar_id: false, tz: "America/Cayenne", private_email: "emile@perso.gf", ssnid: "1 95 06 973 003", marital: "married", spouse_complete_name: "Léa Employé", employee_type: "employee", user_id: m2o(9, "Émile Employé"), category_ids: [], child_ids: [], hours_last_month: 160, active: true },
+      { id: 8, name: "Hugo Horséquipe", job_title: "Docker", work_email: "hugo@exemple.gf", work_phone: false, mobile_phone: false, department_id: m2o(4, "Quai"), parent_id: false, coach_id: false, company_id: m2o(1, "Société A"), work_location_id: false, resource_calendar_id: false, tz: "America/Cayenne", private_email: "hugo@perso.gf", ssnid: "1 80 08 973 004", marital: "single", spouse_complete_name: false, employee_type: "employee", user_id: false, category_ids: [], child_ids: [], hours_last_month: 120, active: true },
     ],
     attendances: [
       { id: 11, employee_id: m2o(6, "Émile Employé"), check_in: "2026-09-18 11:00:00", check_out: "2026-09-18 19:00:00", worked_hours: 8, meal_count: 1, break_entry: false, boat_arrival: false, overtime_status: "to_approve" },
@@ -228,6 +235,9 @@ export function uiHandler(state: UiState): Handler {
     const table = model === "hr.employee" ? state.employees : model === "hr.attendance" ? state.attendances : null;
     if (!table) {
       const departments = state.departments.map(([id, name, company]) => ({ id, name, company_id: m2o(company, `Société ${company}`) }));
+      if (model === "hr.employee.category" && method === "read") {
+        return (args[0] as number[]).filter((id) => CATEGORIES[id]).map((id) => ({ id, display_name: CATEGORIES[id] }));
+      }
       if (model === "hr.department" && method === "name_search") {
         const q = String(args[0] ?? "").toLowerCase();
         return departments.filter((d) => d.name.toLowerCase().includes(q) && matches(d, (args[1] as unknown[]) ?? [])).map((d) => [d.id, d.name]);
@@ -242,10 +252,33 @@ export function uiHandler(state: UiState): Handler {
     const pickFields = (row: Row, names: string[] | undefined) => {
       const allowed = fieldsFor(state.fields[model] ?? {}, allGroups);
       const wanted = names ?? Object.keys(allowed);
-      for (const n of wanted) if (!(n in allowed)) throw new OdooFault("odoo.exceptions.AccessError", `Champ ${n} non accessible.`);
-      return { id: row.id, ...Object.fromEntries(wanted.map((n) => [n, row[n] ?? false])) };
+      for (const n of wanted) if (!(n in allowed) && n !== "display_name") throw new OdooFault("odoo.exceptions.AccessError", `Champ ${n} non accessible.`);
+      // Comme Odoo : avec bin_size, un champ binaire renvoie sa taille, pas son contenu
+      const binSize = (kwargs["context"] as Record<string, unknown> | undefined)?.["bin_size"] === true;
+      const value = (n: string) => {
+        const v = n === "display_name" ? row["name"] : (row[n] ?? false);
+        return binSize && allowed[n]?.type === "binary" && typeof v === "string" ? `${v.length} bytes` : v;
+      };
+      return { id: row.id, ...Object.fromEntries(wanted.map((n) => [n, value(n)])) };
     };
 
+    if (method === "read_group") {
+      // Comme Odoo (lazy) : un groupe par valeur, compte « <champ>_count », domaine du groupe
+      const [domain, , groupby] = args as [unknown[], string[], string[]];
+      const spec = groupby[0] as string;
+      const field = spec.split(":")[0] as string;
+      const groups = new Map<string, { value: unknown; count: number }>();
+      for (const r of visible.filter((x) => matches(x, domain))) {
+        const v = r[field] ?? false;
+        const k = JSON.stringify(Array.isArray(v) ? v[0] : v);
+        groups.set(k, { value: v, count: (groups.get(k)?.count ?? 0) + 1 });
+      }
+      return [...groups.values()].map(({ value, count }) => ({
+        [spec]: value,
+        [`${field}_count`]: count,
+        __domain: [...domain, [field, "=", Array.isArray(value) ? value[0] : value]],
+      }));
+    }
     if (method === "search_read" || method === "search_count") {
       const rows = visible.filter((r) => matches(r, (args[0] as unknown[]) ?? []));
       if (method === "search_count") return rows.length;

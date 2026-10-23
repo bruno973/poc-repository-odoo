@@ -45,7 +45,7 @@ function ListMode({ action }: { action: ActionDescriptor }) {
     [action.actionKey],
   );
   // Filtres par défaut de l'action (search_default_* d'Odoo), modifiables ensuite
-  const [search, setSearch] = useState<SearchState>({ filters: action.defaultFilters ?? [], search: [] });
+  const [search, setSearch] = useState<SearchState>({ filters: action.defaultFilters ?? [], search: [], groupBy: action.defaultGroupBy });
   if (views.error) return <Banner>{views.error}</Banner>;
   if (!views.data) return <p className="muted">Chargement…</p>;
   const { list, search: searchView } = views.data;

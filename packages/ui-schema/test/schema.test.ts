@@ -29,6 +29,47 @@ const view: ViewSchema = {
   diagnostics: [{ code: "unsupported_node", severity: "warning", path: "root/sheet/notebook/page[0]/widget", message: "x" }],
 };
 
+describe("ViewSchema 1.1 : étiquettes, lignes liées, image, étapes, regroupement", () => {
+  it("valide les nouveaux descripteurs et nœuds", () => {
+    const v = {
+      ...view,
+      fields: {
+        tags: { key: "tags", label: "Étiquettes", type: "references", readonly: true, required: false },
+        lines: {
+          key: "lines",
+          label: "Lignes",
+          type: "lines",
+          readonly: true,
+          required: false,
+          lines: { columns: ["name"], fields: { name: { key: "name", label: "Nom", type: "text", readonly: true, required: false } } },
+        },
+        photo: { key: "photo", label: "Photo", type: "image", readonly: true, required: false },
+        state: { key: "state", label: "État", type: "selection", readonly: true, required: false, format: "steps", visibleOptions: ["a"], options: [{ value: "a", label: "A" }] },
+      },
+      root: [{ kind: "groupBy", groupKey: "g0", label: "Par état", available: true }],
+    };
+    assert.ok(ViewSchemaSchema.safeParse(v).success);
+  });
+  it("refuse des lignes imbriquées dans une ligne", () => {
+    const nested = { key: "x", label: "x", type: "lines", readonly: true, required: false, lines: { columns: [], fields: {} } };
+    const v = { ...view, fields: { l: { key: "l", label: "l", type: "lines", readonly: true, required: false, lines: { columns: ["x"], fields: { x: nested } } } } };
+    const parsed = ViewSchemaSchema.parse(v);
+    assert.equal("lines" in (parsed.fields["l"]?.lines?.fields["x"] ?? {}), false, "lignes imbriquées non conservées");
+  });
+  it("valeurs : étiquettes et lignes liées ; requête groupée", () => {
+    const rec = {
+      schemaVersion: SCHEMA_VERSION,
+      resourceKey: "r",
+      id: 1,
+      values: { tags: [{ id: 1, label: "A" }], lines: { lines: [{ id: 2, values: { name: "x", tags: [{ id: 1, label: "A" }] } }], total: 5 } },
+      access: { canEdit: false, readonlyFields: [] },
+      commands: {},
+    };
+    assert.ok(RecordPayloadSchema.safeParse(rec).success);
+    assert.equal(QueryRequestSchema.parse({ groupBy: "g0", group: "r:3" }).groupBy, "g0");
+  });
+});
+
 describe("ViewSchema", () => {
   it("valide un schéma complet et le relit à l'identique (sérialisation stable)", () => {
     const parsed = ViewSchemaSchema.parse(JSON.parse(JSON.stringify(view)));

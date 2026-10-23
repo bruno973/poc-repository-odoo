@@ -2,12 +2,13 @@
 // Les options viennent du BFF, qui applique le domaine du champ et les droits ;
 // l'id choisi est encore revérifié à l'écriture.
 
+import { asReference } from "@leila/ui-schema";
 import { useEffect, useState } from "react";
 import { ui } from "../client.js";
 import type { EditorProps } from "../FieldRegistry.js";
 
 export function ReferenceEditor({ id, descriptor, value, onChange, resourceKey, recordId }: EditorProps) {
-  const current = value && typeof value === "object" && !Array.isArray(value) ? value : null;
+  const current = asReference(value);
   const [q, setQ] = useState(current?.label ?? "");
   const [options, setOptions] = useState<{ id: number; label: string }[] | null>(null);
   const [error, setError] = useState<string | null>(null);

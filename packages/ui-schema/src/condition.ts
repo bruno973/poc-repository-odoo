@@ -52,7 +52,8 @@ type Value = Scalar | Value[] | typeof UNKNOWN;
 
 /**
  * Normalise une valeur Leila vers ce que voit une expression de condition :
- * vide → False, référence { id, label } → id, liste de références → liste d'ids.
+ * vide → False, référence { id, label } → id, liste de références → liste d'ids,
+ * lignes liées → ids des lignes (inconnu si elles ne sont pas toutes transmises).
  */
 function normalize(raw: unknown): Value {
   if (raw === undefined) return UNKNOWN;
@@ -64,6 +65,12 @@ function normalize(raw: unknown): Value {
   }
   if (typeof raw === "object" && raw !== null && "ids" in raw && Array.isArray((raw as { ids: unknown }).ids)) {
     return ((raw as { ids: unknown[] }).ids).map(normalize);
+  }
+  // Lignes liées : ids des lignes si toutes sont connues ; sinon seule la vacuité est sûre
+  if (typeof raw === "object" && raw !== null && "lines" in raw && "total" in raw && Array.isArray((raw as { lines: unknown }).lines)) {
+    const { lines, total } = raw as { lines: { id: number }[]; total: number };
+    if (total === 0) return [];
+    return lines.length === total ? lines.map((l) => l.id) : UNKNOWN;
   }
   return UNKNOWN;
 }

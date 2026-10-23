@@ -7,7 +7,7 @@ import { describe, it } from "node:test";
 import type { Node } from "@leila/ui-schema";
 import { domainRefs, evaluateDomain, parseDomain } from "../src/adapters/odoo18/ui/OdooDomain.js";
 import { asDomain, combineDomains, normalizeDomain, parseCondition, parseFlag, parseLiteral } from "../src/adapters/odoo18/ui/OdooExpressionParser.js";
-import { type OdooFieldMeta, parseArch } from "../src/adapters/odoo18/ui/OdooViewParser.js";
+import { groupSpec, type OdooFieldMeta, parseArch } from "../src/adapters/odoo18/ui/OdooViewParser.js";
 import { uiState } from "./fake-odoo-ui.js";
 
 const fixture = (name: string) => readFileSync(new URL(`./fixtures/odoo18/${name}`, import.meta.url), "utf8");
@@ -128,11 +128,13 @@ describe("Fiche employé (form)", () => {
     assert.equal(view.fields["work_email"]?.readonly, false);
     assert.equal(view.fields["work_email"]?.format, "email");
     assert.ok(!view.diagnostics.some((d) => d.code === "unsupported_widget" && (d.path.includes("work_email") || d.path.includes("parent_id"))));
-    assert.ok(view.diagnostics.some((d) => d.code === "unsupported_widget" && d.path.includes("image_1920")));
+    assert.ok(!view.diagnostics.some((d) => d.code === "unsupported_widget" && d.path.includes("image_1920")));
   });
-  it("types non pris en charge signalés (many2many, binaire)", () => {
-    assert.equal(view.fields["category_ids"]?.type, "unsupported");
-    assert.equal(view.fields["image_1920"]?.type, "unsupported");
+  it("étiquettes et image (lot 1) : pris en charge en lecture seule", () => {
+    assert.equal(view.fields["category_ids"]?.type, "references");
+    assert.equal(view.fields["category_ids"]?.readonly, true);
+    assert.equal(view.fields["image_1920"]?.type, "image");
+    assert.equal(view.fields["image_1920"]?.readonly, true);
   });
   it("sélection de référence : domaines constants ou dépendant de la fiche", () => {
     assert.equal(view.fields["coach_id"]?.relation?.lookup, true);
@@ -174,7 +176,8 @@ describe("Fiche employé (form)", () => {
     assert.ok(d.every((x) => !x.message.includes("ssnid") && !x.path.includes("ssnid")));
   });
   it("aucune chaîne XML ni HTML dans le schéma produit", () => {
-    const json = JSON.stringify(view);
+    // Ce qui est publié (le reste — relations, domaines, lignes — ne quitte pas le serveur)
+    const json = JSON.stringify({ fields: view.fields, root: view.root, diagnostics: view.diagnostics, decorations: view.decorations });
     assert.ok(!/<\/?[a-z]/i.test(json.replace(/"sourceTag":"[^"]*"/g, "")), "balise dans le schéma");
     assert.ok(!json.includes("oe_title") && !json.includes("hr.employee"));
   });
@@ -210,10 +213,85 @@ describe("Liste et recherche des présences", () => {
     assert.equal(emp.searchFields["name"]?.usable, true);
     assert.equal(emp.searchFields["department_id"]?.usable, true);
     assert.ok(!emp.root.some((n) => n.kind === "filter" && n.label === "Département"), "regroupement affiché comme filtre");
-    assert.ok(emp.diagnostics.some((d) => d.message.includes("Regroupement")));
+    const groupBy = emp.root.find((n) => n.kind === "groupBy" && n.label === "Département");
+    assert.ok(groupBy && groupBy.kind === "groupBy" && groupBy.available, "regroupement proposé à part");
+    assert.deepEqual(emp.groupBys.map((g) => [g.spec, g.name]), [["department_id", "group_department"]]);
     assert.ok(emp.diagnostics.some((d) => d.sourceTag === "searchpanel"));
   });
   it("refuse une architecture avec DOCTYPE/ENTITY", () => {
     assert.throws(() => parseArch('<!DOCTYPE x [<!ENTITY a "b">]><form/>', "form", ctx("hr.employee")));
+  });
+});
+
+describe("Lot 1 : lignes liées, étapes, regroupements", () => {
+  const fields: Record<string, OdooFieldMeta> = {
+    name: { type: "char", string: "Nom" },
+    state: { type: "selection", string: "État", selection: [["draft", "Brouillon"], ["open", "En cours"], ["close", "Clos"], ["cancel", "Annulé"]] },
+    line_ids: { type: "one2many", string: "Lignes", relation: "x.line" },
+    badge_ids: { type: "one2many", string: "Badges", relation: "x.badge" },
+    team_ids: { type: "one2many", string: "Équipe", relation: "x.member" },
+    stage_id: { type: "many2one", string: "Étape", relation: "x.stage" },
+    date_start: { type: "date", string: "Début" },
+    total: { type: "float", string: "Total", store: false },
+    file: { type: "binary", string: "Fichier" },
+  };
+  const models = {
+    "x.line": {
+      name: { type: "char", string: "Libellé" },
+      hours: { type: "float", string: "Heures" },
+      kind: { type: "selection", string: "Type", selection: [["a", "A"]] },
+      secret: { type: "char", string: "Secret" },
+      tags: { type: "many2many", string: "Étiquettes", relation: "x.tag" },
+    } as Record<string, OdooFieldMeta>,
+  };
+  const c = { model: "x", fields, models, commandFor: () => undefined };
+  const form = parseArch(
+    `<form><header><field name="state" widget="statusbar" statusbar_visible="draft,open,close"/><field name="stage_id" widget="statusbar"/></header>
+      <field name="line_ids"><list><field name="name"/><field name="hours" widget="float_time"/><field name="kind"/>
+        <field name="secret" column_invisible="parent.state == 'draft'"/><field name="tags" widget="many2many_tags"/><field name="ghost"/></list></field>
+      <field name="badge_ids"><kanban><field name="name"/></kanban></field>
+      <field name="team_ids"/>
+      <field name="file"/></form>`,
+    "form",
+    c,
+  );
+  it("sous-liste : colonnes simples et lisibles seulement, masquées exclues", () => {
+    assert.equal(form.fields["line_ids"]?.type, "lines");
+    assert.equal(form.fields["line_ids"]?.readonly, true);
+    assert.deepEqual(form.fields["line_ids"]?.lines?.columns, ["name", "hours", "kind"]);
+    assert.equal(form.fields["line_ids"]?.lines?.fields["hours"]?.format, "duration");
+    assert.deepEqual(form.lines["line_ids"]?.columns, ["name", "hours", "kind"]);
+    assert.equal(form.lines["line_ids"]?.relation, "x.line");
+  });
+  it("sans sous-liste ou en kanban : liste de noms (repli qui garde le sens)", () => {
+    assert.deepEqual(form.fields["team_ids"]?.lines?.columns, ["display_name"]);
+    assert.deepEqual(form.fields["badge_ids"]?.lines?.columns, ["display_name"]);
+    assert.ok(form.diagnostics.some((d) => d.message.includes("liste de noms")));
+  });
+  it("statusbar : étapes sur une sélection, rendu standard + diagnostic sur une référence", () => {
+    assert.equal(form.fields["state"]?.format, "steps");
+    assert.deepEqual(form.fields["state"]?.visibleOptions, ["draft", "open", "close"]);
+    assert.equal(form.fields["stage_id"]?.format, undefined);
+    assert.ok(form.diagnostics.some((d) => d.code === "unsupported_widget" && d.message.includes("statusbar")));
+  });
+  it("binaire sans widget image : toujours non pris en charge", () => {
+    assert.equal(form.fields["file"]?.type, "unsupported");
+  });
+  it("regroupements : granularité de date, champs non stockés et niveaux multiples refusés", () => {
+    assert.deepEqual(groupSpec("date_start", fields), { spec: "date_start:month", field: "date_start" });
+    assert.deepEqual(groupSpec("date_start:week", fields), { spec: "date_start:week", field: "date_start" });
+    assert.deepEqual(groupSpec(["state"], fields), { spec: "state", field: "state" });
+    assert.equal(groupSpec("state:month", fields), null);
+    assert.equal(groupSpec("total", fields), null, "champ non stocké");
+    assert.equal(groupSpec(["state", "stage_id"], fields), null, "plusieurs niveaux");
+    assert.equal(groupSpec("absent", fields), null);
+    const search = parseArch(
+      `<search><filter name="g_state" string="État" context="{'group_by': 'state'}"/><filter name="g_total" string="Total" context="{'group_by': 'total'}"/>
+        <filter name="g_hidden" string="Caché" context="{'group_by': 'stage_id'}" invisible="1"/></search>`,
+      "search",
+      c,
+    );
+    assert.deepEqual(search.root.map((n) => n.kind === "groupBy" && [n.label, n.available]), [["État", true], ["Total", false]]);
+    assert.deepEqual(search.groupBys.map((g) => g.name), ["g_state", "g_hidden"], "regroupement invisible utilisable par search_default_*");
   });
 });

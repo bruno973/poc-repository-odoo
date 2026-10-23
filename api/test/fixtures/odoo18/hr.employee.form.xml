@@ -35,6 +35,13 @@
           <field name="resource_calendar_id" domain="[('company_id', 'in', [company_id, False])]"/>
           <field name="tz" required="context.get('tz_required')"/>
         </group>
+        <field name="child_ids">
+          <list>
+            <field name="name"/>
+            <field name="job_title"/>
+            <field name="private_email" column_invisible="True"/>
+          </list>
+        </field>
       </page>
       <page name="personal_information" string="Informations privées" groups="hr.group_hr_user">
         <group>

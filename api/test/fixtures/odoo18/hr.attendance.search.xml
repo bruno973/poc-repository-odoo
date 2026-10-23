@@ -6,4 +6,6 @@
   <filter name="to_approve" string="À approuver" domain="[('overtime_status', '=', 'to_approve')]"/>
   <filter name="refused" string="Refusées" domain="[('overtime_status', '=', 'refused')]"/>
   <filter name="check_in_filter" string="Date d'arrivée" date="check_in"/>
+  <filter name="groupby_employee" string="Employé" context="{'group_by': 'employee_id'}"/>
+  <filter name="groupby_status" string="Statut" context="{'group_by': 'overtime_status'}"/>
 </search>

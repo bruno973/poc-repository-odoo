@@ -100,10 +100,26 @@ const CASES: [string, Condition, boolean | null][] = [
   ["champ parent inconnu", f("x", "parent"), null],
   ["imbrication", and(or(cmp("==", f("state"), c("draft")), f("no")), not(f("noDept"))), true],
   ["valeur objet non reconnue → indéterminé", f("weird"), null],
+  ["étiquettes : liste de références → ids", cmp("in", c(3), f("refTags")), true],
+  ["étiquettes vides → faux", f("noTags"), false],
+  ["lignes liées complètes → ids", cmp("in", c(7), f("allLines")), true],
+  ["lignes liées vides → faux", not(f("noLines")), true],
+  ["lignes liées partielles → indéterminé", f("someLines"), null],
 ];
 
 describe("evaluateCondition (sémantique Python)", () => {
-  const withWeird = { ...scope, values: { ...values, weird: { foo: 1 } } };
+  const withWeird = {
+    ...scope,
+    values: {
+      ...values,
+      weird: { foo: 1 },
+      refTags: [{ id: 3, label: "A" }, { id: 4, label: "B" }],
+      noTags: [],
+      allLines: { lines: [{ id: 7, values: {} }], total: 1 },
+      noLines: { lines: [], total: 0 },
+      someLines: { lines: [{ id: 7, values: {} }], total: 30 },
+    },
+  };
   for (const [name, cond, expected] of CASES) {
     it(name, () => assert.equal(evaluateCondition(cond, withWeird), expected));
   }

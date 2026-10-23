@@ -10,10 +10,10 @@ Lecture : un manque se traite **une fois** dans le moteur et disparaît de toute
 
 | Famille | Manques distincts | Transversaux | Occurrences |
 |---|---|---|---|
-| Types de champ | 5 | 4 | 45 |
-| Widgets | 25 | 5 | 58 |
+| Types de champ | 3 | 1 | 14 |
+| Widgets | 21 | 2 | 35 |
 | Éléments de vue | 10 | 6 | 85 |
-| Recherche | 3 | 3 | 67 |
+| Recherche | 3 | 3 | 28 |
 | Boutons | 2 | 1 | 58 |
 | Expressions | 1 | 1 | 4 |
 
@@ -21,21 +21,16 @@ Lecture : un manque se traite **une fois** dans le moteur et disparaît de toute
 
 | Manque | Niveau | Vues | Occurrences | Portée | Vues concernées |
 |---|---|---|---|---|---|
-| one2many | Attention | 9 | 19 | transversal (7 modèles) | gamification.badge.form, gamification.challenge.form, hr.department.form, hr.employee.form, … (+5) |
 | html | Attention | 5 | 6 | transversal (5 modèles) | gamification.badge.form, hr.contract.form, hr.employee.form, hr.job.form, … (+1) |
-| many2many | Attention | 4 | 9 | transversal (3 modèles) | gamification.badge.form, gamification.challenge.form, hr.employee.form, hr.employee.list |
-| binary | Attention | 2 | 9 | transversal (2 modèles) | gamification.badge.form, hr.employee.form |
+| binary | Attention | 1 | 6 | propre à `hr.employee` | hr.employee.form |
 | properties | Attention | 1 | 2 | propre à `hr.employee` | hr.employee.form |
 
 ## Widgets
 
 | Manque | Niveau | Vues | Occurrences | Portée | Vues concernées |
 |---|---|---|---|---|---|
-| many2many_tags | Info | 5 | 10 | transversal (4 modèles) | gamification.badge.form, gamification.challenge.form, hr.employee.form, hr.employee.list, … (+1) |
-| statusbar | Info | 4 | 9 | transversal (4 modèles) | gamification.challenge.form, gamification.goal.form, hr.attendance.form, hr.contract.form |
 | color_picker | Info | 4 | 4 | transversal (2 modèles) | hr.department.form, hr.department.list, hr.skill.type.form, hr.skill.type.list |
 | handle | Info | 3 | 3 | transversal (3 modèles) | hr.contract.type.list, hr.departure.reason.list, hr.job.list |
-| image | Info | 2 | 3 | transversal (2 modèles) | gamification.badge.form, hr.employee.form |
 | hr_homeworking_radio_image | Info | 2 | 2 | propre à `hr.work.location` | hr.work.location.form, hr.work.location.list |
 | state_selection | Info | 2 | 2 | propre à `hr.contract` | hr.contract.form, hr.contract.list |
 | hr_org_chart | Info | 1 | 2 | propre à `hr.employee` | hr.employee.form |
@@ -48,7 +43,6 @@ Lecture : un manque se traite **une fois** dans le moteur et disparaît de toute
 | auto_save_skill_type | Info | 1 | 1 | propre à `hr.skill.type` | hr.skill.type.form |
 | daterange | Info | 1 | 1 | propre à `hr.resume.line` | hr.resume.line.form |
 | domain | Info | 1 | 1 | propre à `gamification.challenge` | gamification.challenge.form |
-| many2many | Info | 1 | 1 | propre à `gamification.badge` | gamification.badge.form |
 | many2many_tags_skills | Info | 1 | 1 | propre à `hr.skill.type` | hr.skill.type.list |
 | monetary | Info | 1 | 1 | propre à `hr.contract` | hr.contract.list |
 | percentage | Info | 1 | 1 | propre à `hr.employee.skill.report` | hr.employee.skill.report.list |
@@ -64,7 +58,7 @@ Lecture : un manque se traite **une fois** dans le moteur et disparaît de toute
 | Texte libre de la vue non importé. | Info | 9 | 33 | transversal (9 modèles) | gamification.badge.form, gamification.challenge.form, gamification.goal.form, hr.attendance.form, … (+5) |
 | Élément visuel « web_ribbon » non pris en charge. | Info | 8 | 9 | transversal (8 modèles) | gamification.badge.form, hr.contract.form, hr.department.form, hr.employee.form, … (+4) |
 | « chatter » non pris en charge. | Attention | 5 | 8 | transversal (5 modèles) | gamification.challenge.form, hr.attendance.form, hr.contract.form, hr.department.form, … (+1) |
-| Sous-vue de relation ignorée. | Info | 4 | 9 | transversal (4 modèles) | gamification.challenge.form, hr.employee.form, hr.skill.type.form, mail.activity.plan.form |
+| Sous-vue de relation non tabulaire : affichée en liste de noms. | Info | 4 | 9 | transversal (4 modèles) | gamification.challenge.form, hr.employee.form, hr.skill.type.form, mail.activity.plan.form |
 | « header » de liste non pris en charge. | Info | 3 | 6 | transversal (3 modèles) | hr.attendance.closure.list, hr.attendance.list, hr.employee.list |
 | Élément visuel « contract_warning_tooltip » non pris en charge. | Info | 2 | 3 | transversal (2 modèles) | hr.contract.form, hr.employee.form |
 | « app » non pris en charge. | Attention | 1 | 12 | propre à `res.config.settings` | res.config.settings.form |
@@ -76,9 +70,9 @@ Lecture : un manque se traite **une fois** dans le moteur et disparaît de toute
 
 | Manque | Niveau | Vues | Occurrences | Portée | Vues concernées |
 |---|---|---|---|---|---|
-| Regroupement non pris en charge. | Info | 9 | 45 | transversal (9 modèles) | gamification.challenge.search, gamification.goal.search, hr.attendance.search, hr.contract.search, … (+5) |
 | Filtre non pris en charge : désactivé. | Info | 5 | 13 | transversal (5 modèles) | gamification.goal.search, hr.attendance.search, hr.attendance.ventilation.search, hr.contract.search, … (+1) |
 | Recherche sur ce champ non prise en charge : désactivée. | Info | 5 | 9 | transversal (5 modèles) | hr.attendance.search, hr.contract.search, hr.employee.search, hr.skill.type.search, … (+1) |
+| Regroupement non pris en charge. | Info | 2 | 6 | transversal (2 modèles) | hr.attendance.search, hr.employee.search |
 
 ## Boutons
 

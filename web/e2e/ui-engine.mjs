@@ -57,10 +57,27 @@ await manager.click("button:text-is('Enregistrer')");
 await manager.locator(".ui-status:text('Enregistré.')").waitFor();
 ok(true, "écriture autorisée (manager sur son équipe)");
 ok((await manager.locator("input#ui-work_email").getAttribute("type")) === "email", "widget de présentation (email) : saisie standard conservée");
-ok(await manager.locator("text=Non disponible dans Leila").first().isVisible(), "type non pris en charge (image, étiquettes) : signalé, pas masqué");
+ok(await manager.locator(".ui-field--lines").first().isVisible(), "lignes liées (lot 1) : tableau en lecture seule");
 await manager.click(".ui-diagnostics button");
 ok(await manager.locator(".ui-diagnostics__table tr").count() > 3, "diagnostics de compatibilité consultables");
 await shot(manager, "2-fiche-employe-manager");
+
+// 1 bis. Lot 1 (managers) : étiquettes, lignes liées, image refusée proprement, regroupement
+await openRecord(manager, "Employés", "Manon");
+ok(await manager.locator(".ui-tag:text-is('Encadrement')").isVisible(), "étiquettes : noms lus avec les droits du manager");
+ok(await manager.locator(".ui-lines td:has-text('Émile Employé')").isVisible(), "lignes liées : son équipe en tableau");
+ok(await manager.locator(".ui-image-missing").isVisible(), "image non matricielle (SVG) refusée : mention, pas d'image cassée");
+await shot(manager, "1b-fiche-manager-lot1");
+await manager.goto(B + "/app");
+await manager.click(`.apps a:text-is("Présences")`);
+await manager.waitForSelector("tr.ui-row");
+await manager.click(".ui-search__groups button:text-is('Employé')");
+await manager.waitForSelector("tr.ui-group-row");
+ok((await manager.locator("tr.ui-group-row").count()) === 2, "regroupement : groupes limités aux droits du manager");
+await manager.click("tr.ui-group-row:has-text('Émile') button");
+await manager.waitForSelector("tr.ui-row");
+ok((await manager.locator("tr.ui-row").count()) === 1, "groupe déplié : ses enregistrements seulement");
+await shot(manager, "1c-presences-groupees-manager");
 
 // 2. Employé : lecture seule (droits Odoo + décision Q-05)
 const employe = await session("p.employe", "employe-pw");
@@ -72,6 +89,10 @@ ok((await employe.locator(".ui-form input, .ui-form select, .ui-form textarea").
 const admin = await session("p.admin", "admin-pw");
 await openRecord(admin, "Employés", "Émile");
 ok(await admin.locator("button:text-is('Informations privées')").isVisible(), "admin : onglet privé (droits différents)");
+await openRecord(admin, "Employés", "Alice");
+await admin.waitForFunction(() => { const i = document.querySelector("img.ui-image"); return i && i.complete && i.naturalWidth > 0; });
+ok(true, "image (lot 1) : servie par la route dédiée et affichée");
+await openRecord(admin, "Employés", "Émile");
 ok(!(await admin.locator("text=Badge (leila_hr)").count()), "avant héritage : pas de champ badge");
 await fetch(`${CONTROL}/heritage`, { method: "POST" });
 const refreshed = await admin.evaluate(async () => (await fetch("/api/ui/v1/cache/refresh", { method: "POST", headers: { "X-Leila-Csrf": "1" } })).status);
@@ -84,12 +105,14 @@ await shot(admin, "3-fiche-apres-heritage-admin");
 
 // 4. Commandes du registre fermé : approbation par le manager
 await openRecord(manager, "Présences", "Émile");
+ok((await manager.locator(".ui-steps li[aria-current=step]").textContent()) === "À approuver", "barre d'étapes (lot 1) : étape courante");
 const approve = manager.locator(".ui-header button:text-is('Approuver')");
 ok(await approve.isEnabled(), "commande enregistrée disponible (droits + condition)");
 ok(await manager.locator(".ui-header button:text-is('Kiosque')").isDisabled(), "bouton hors registre désactivé");
 await approve.click();
 await manager.locator(".ui-status").waitFor();
 ok(!(await manager.locator(".ui-header button:text-is('Approuver')").count()), "après approbation : bouton masqué par sa condition");
+ok((await manager.locator(".ui-steps li[aria-current=step]").textContent()) === "Approuvé", "barre d'étapes à jour après la commande");
 await shot(manager, "4-presence-approuvee-manager");
 
 ok(errors.length === 0, "aucune erreur JavaScript" + (errors.length ? " : " + errors.join(" | ") : ""));

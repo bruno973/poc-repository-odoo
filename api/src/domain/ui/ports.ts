@@ -32,6 +32,8 @@ export interface RecordRepository {
   write(resourceKey: string, id: number, patch: WritePatch, viewer: ViewerContext): Promise<RecordPayload>;
   /** Sélection d'une référence ; recordId : fiche dont les valeurs entrent dans le domaine du champ. */
   lookup(resourceKey: string, field: string, request: { search: string; recordId?: number | undefined }, viewer: ViewerContext): Promise<LookupResult>;
+  /** Image d'un champ publié comme image (format matriciel vérifié) ; sinon not_found. */
+  image(resourceKey: string, id: number, field: string, viewer: ViewerContext): Promise<{ contentType: string; data: Buffer }>;
 }
 
 export interface CommandDispatcher {

@@ -40,12 +40,18 @@ export const FieldTypeSchema = z.enum([
   "date",
   "datetime",
   "reference",
+  /** Relation multiple affichée en étiquettes (lecture seule) */
+  "references",
+  /** Lignes liées affichées en tableau (lecture seule), colonnes décrites par `lines` */
+  "lines",
+  /** Image servie par une route dédiée (jamais dans les valeurs) */
+  "image",
   "money",
   "unsupported",
 ]);
 export type FieldType = z.infer<typeof FieldTypeSchema>;
 
-export const FieldDescriptorSchema = z.object({
+const BaseFieldDescriptorSchema = z.object({
   key: z.string().min(1),
   label: z.string(),
   type: FieldTypeSchema,
@@ -59,10 +65,25 @@ export const FieldDescriptorSchema = z.object({
    * Présentation : text → lien (email, phone, url) ; decimal → durée en heures
    * affichée et saisie en HH:MM (duration). N'ouvre ni ne restreint rien.
    */
-  format: z.enum(["email", "phone", "url", "duration"]).optional(),
+  format: z.enum(["email", "phone", "url", "duration", "steps"]).optional(),
+  /** steps : options affichées en étapes (les autres seulement si c'est la valeur courante) */
+  visibleOptions: z.array(z.string()).optional(),
   /** reference : sélection d'un enregistrement lié possible (domaine pris en charge, recherche autorisée) */
   relation: z.object({ lookup: z.boolean() }).optional(),
   help: z.string().optional(),
+});
+
+/** Champ d'une ligne liée : mêmes descripteurs, sans lignes imbriquées. */
+export const LineFieldDescriptorSchema = BaseFieldDescriptorSchema;
+
+export const FieldDescriptorSchema = BaseFieldDescriptorSchema.extend({
+  /** lines : colonnes et champs des lignes (sous-liste de la vue, ou nom seul) */
+  lines: z
+    .object({
+      columns: z.array(z.string()),
+      fields: z.record(z.string(), LineFieldDescriptorSchema),
+    })
+    .optional(),
 });
 export type FieldDescriptor = z.infer<typeof FieldDescriptorSchema>;
 
@@ -117,6 +138,13 @@ export interface FilterNode {
   available: boolean;
   group: number;
 }
+/** Regroupement proposé par la vue de recherche (un seul niveau appliqué à la fois). */
+export interface GroupByNode {
+  kind: "groupBy";
+  groupKey: string;
+  label: string;
+  available: boolean;
+}
 export interface SearchFieldNode {
   kind: "searchField";
   field: string;
@@ -144,6 +172,7 @@ export type Node =
   | UnsupportedNode
   | FilterNode
   | SearchFieldNode
+  | GroupByNode
   | ContainerNode
   | NotebookNode;
 
@@ -159,6 +188,7 @@ export const NodeSchema: z.ZodType<Node> = z.lazy(() =>
     z.object({ kind: z.literal("unsupported"), sourceTag: z.string(), reason: z.string(), label: opt(z.string()) }),
     z.object({ kind: z.literal("filter"), filterKey: z.string(), label: z.string(), available: z.boolean(), group: z.number().int() }),
     z.object({ kind: z.literal("searchField"), field: z.string(), label: z.string(), available: z.boolean() }),
+    z.object({ kind: z.literal("groupBy"), groupKey: z.string(), label: z.string(), available: z.boolean() }),
     ContainerSchema,
     z.object({ kind: z.literal("notebook"), pages: z.array(ContainerSchema) }),
   ]),

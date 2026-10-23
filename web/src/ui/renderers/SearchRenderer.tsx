@@ -1,6 +1,6 @@
 // ui/renderers/SearchRenderer.tsx — Recherche décrite par le schéma : champs de
-// recherche et filtres. Les filtres non pris en charge restent visibles mais
-// désactivés ; le navigateur n'envoie que des clés, jamais un domaine.
+// recherche, filtres et regroupements (un niveau). Les éléments non pris en charge
+// restent visibles mais désactivés ; le navigateur n'envoie que des clés, jamais un domaine.
 
 import type { ViewSchema } from "@leila/ui-schema";
 import { useState, type FormEvent } from "react";
@@ -8,11 +8,14 @@ import { useState, type FormEvent } from "react";
 export interface SearchState {
   filters: string[];
   search: { field: string; value: string }[];
+  /** Clé de regroupement (un niveau) */
+  groupBy?: string | undefined;
 }
 
 export function SearchRenderer({ view, value, onChange }: { view: ViewSchema; value: SearchState; onChange(next: SearchState): void }) {
   const fields = view.root.filter((n) => n.kind === "searchField" && n.available);
   const filters = view.root.filter((n) => n.kind === "filter");
+  const groupBys = view.root.filter((n) => n.kind === "groupBy");
   const [text, setText] = useState("");
   const [field, setField] = useState(fields[0]?.kind === "searchField" ? fields[0].field : "");
 
@@ -73,6 +76,26 @@ export function SearchRenderer({ view, value, onChange }: { view: ViewSchema; va
           ) : null,
         )}
       </div>
+      {groupBys.length > 0 && (
+        <div className="ui-search__chips ui-search__groups" role="group" aria-label="Regrouper par">
+          <span className="muted">Regrouper par :</span>
+          {groupBys.map((g) =>
+            g.kind === "groupBy" ? (
+              <button
+                key={g.groupKey}
+                type="button"
+                className={`chip${value.groupBy === g.groupKey ? " chip--active" : ""}`}
+                disabled={!g.available}
+                aria-pressed={value.groupBy === g.groupKey}
+                title={g.available ? undefined : "Regroupement non pris en charge par Leila"}
+                onClick={() => onChange({ ...value, groupBy: value.groupBy === g.groupKey ? undefined : g.groupKey })}
+              >
+                {g.label}
+              </button>
+            ) : null,
+          )}
+        </div>
+      )}
     </div>
   );
 }

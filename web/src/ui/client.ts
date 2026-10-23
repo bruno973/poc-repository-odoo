@@ -37,6 +37,11 @@ function validate<T>(schema: Validator<T>, data: unknown): T {
   return parsed.data;
 }
 
+/** Image d'un champ : même origine (cookie de session), jeton de version contre le cache périmé. */
+export function imageUrl(resourceKey: string, recordId: number, field: string, version: string): string {
+  return `${BASE}/resources/${enc(resourceKey)}/records/${recordId}/images/${enc(field)}?v=${enc(version)}`;
+}
+
 export const ui = {
   navigation: async (signal?: AbortSignal): Promise<Navigation> => validate(NavigationSchema, await api.get(`${BASE}/navigation`, {}, signal)),
   action: async (key: string, signal?: AbortSignal): Promise<ActionDescriptor> => validate(ActionDescriptorSchema, await api.get(`${BASE}/actions/${enc(key)}`, {}, signal)),

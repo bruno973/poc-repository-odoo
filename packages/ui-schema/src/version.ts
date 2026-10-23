@@ -1,7 +1,8 @@
 // version.ts — Version du Leila UI Schema.
 // Majeure : rupture (le client refuse). Mineure : ajout compatible.
 
-export const SCHEMA_VERSION = "1.0" as const;
+// 1.1 : étiquettes (references), lignes liées (lines), images, étapes, regroupement
+export const SCHEMA_VERSION = "1.1" as const;
 export type SchemaVersion = typeof SCHEMA_VERSION;
 
 /** Un client écrit pour SCHEMA_VERSION peut-il lire cette réponse ? */

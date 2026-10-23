@@ -7,7 +7,8 @@
 //  - aucun HTML ni texte libre n'est transmis au client ;
 //  - un champ absent des métadonnées (non lisible pour ce compte) est exclu et
 //    seulement compté (diagnostic « excluded_by_rights », sans libellé) ;
-//  - aucun widget n'est interprété en MVP : diagnostic + lecture seule ;
+//  - widgets : présentation pure (liste fermée) ou diagnostic + lecture seule ;
+//  - relations multiples, lignes liées et images : lecture seule (lot 1) ;
 //  - parité contrôlable : champs/boutons du XML = importés + exclus + non pris en charge.
 
 import { XMLParser } from "fast-xml-parser";
@@ -47,6 +48,44 @@ export interface ParseContext {
   commandFor(button: { name: string; type: string }): string | undefined;
   /** Contexte littéral de l'action (lu par `context.get(…)` dans les conditions) */
   actionContext?: Readonly<Record<string, Literal>> | undefined;
+  /** Champs des modèles liés renvoyés par get_views (colonnes des sous-listes) */
+  models?: Readonly<Record<string, Readonly<Record<string, OdooFieldMeta>>>> | undefined;
+}
+
+/** Lignes liées : colonnes publiées et métadonnées pour la lecture côté serveur. */
+export interface ServerLines {
+  relation: string;
+  columns: string[];
+  meta: Record<string, OdooFieldMeta>;
+}
+
+/** Regroupement de la vue de recherche : la clé est publiée, la spécification reste côté BFF. */
+export interface ServerGroupBy {
+  key: string;
+  /** Nom technique (search_default_<name> du contexte d'action) */
+  name: string;
+  /** Spécification Odoo : « champ » ou « champ:granularité » */
+  spec: string;
+  field: string;
+  label: string;
+}
+
+/** Granularités de date d'Odoo. */
+const GRANULARITIES = new Set(["day", "week", "month", "quarter", "year"]);
+/** Types regroupables par le moteur (un niveau). */
+const GROUPABLE = new Set(["many2one", "selection", "char", "boolean", "date", "datetime", "integer"]);
+
+/** Spécification de regroupement si elle est utilisable avec ces champs, sinon null. */
+export function groupSpec(raw: unknown, fields: Readonly<Record<string, OdooFieldMeta>>): { spec: string; field: string } | null {
+  const value = Array.isArray(raw) ? (raw.length === 1 ? raw[0] : null) : raw;
+  if (typeof value !== "string") return null;
+  const [field, granularity, extra] = value.split(":");
+  if (!field || extra !== undefined) return null;
+  const meta = fields[field];
+  if (!meta || !GROUPABLE.has(meta.type) || meta.store === false) return null;
+  const dated = meta.type === "date" || meta.type === "datetime";
+  if (granularity !== undefined && (!dated || !GRANULARITIES.has(granularity))) return null;
+  return { spec: dated && !granularity ? `${field}:month` : value, field };
 }
 
 /** Filtre de recherche : la clé est publiée, le domaine reste côté BFF. */
@@ -79,6 +118,12 @@ export interface ParsedView {
    * valeurs de la fiche, substituées côté serveur), ou null.
    */
   fieldDomains: Record<string, DomainExpr | null>;
+  /** Lignes liées (type « lines ») : relation, colonnes et métadonnées */
+  lines: Record<string, ServerLines>;
+  /** Recherche : regroupements proposés */
+  groupBys: ServerGroupBy[];
+  /** Regroupement à appliquer à l'ouverture (contexte group_by de l'action) */
+  defaultGroupKey?: string | undefined;
   /**
    * Parité (champs et boutons) : fieldsInArch + buttonsInArch = fieldsImported +
    * buttonsImported + excluded + unsupported. unsupportedNodes : autres éléments non pris en charge.
@@ -110,8 +155,12 @@ const TYPE_MAP: Record<string, FieldDescriptor["type"]> = {
   date: "date",
   datetime: "datetime",
   many2one: "reference",
+  many2many: "references",
+  one2many: "lines",
   monetary: "money",
 };
+/** Colonnes de sous-liste : types simples seulement (pas de lignes ni d'images imbriquées). */
+const LINE_TYPES = new Set<FieldDescriptor["type"]>(["text", "multiline", "integer", "decimal", "boolean", "selection", "date", "datetime", "reference"]);
 /**
  * Widgets de pure présentation : le rendu standard du type en préserve le sens et les
  * restrictions (arbitrage ADR-001 § 3.2). Constatés sur la fiche employé de amg.
@@ -131,6 +180,18 @@ const PRESENTATION_WIDGETS: Record<string, FieldDescriptor["format"] | null> = {
   many2one_avatar: null,
   many2one_avatar_user: null,
   many2one_avatar_employee: null,
+  // Relations multiples : étiquettes (lot 1, lecture seule)
+  many2many_tags: null,
+  many2many_tags_avatar: null,
+  many2many_avatar_user: null,
+  many2many_avatar_employee: null,
+  many2many_checkboxes: null,
+  // one2many affiché « comme un many2many » : même liste de lignes
+  many2many: null,
+  one2many: null,
+  // Images et étapes : rendus dédiés (voir describe)
+  image: null,
+  statusbar: "steps",
 };
 
 const DECORATIONS: Record<string, DecorationStyle> = {
@@ -171,6 +232,8 @@ export function parseArch(arch: string, viewType: "list" | "form" | "search", ct
     filters: [],
     searchFields: {},
     fieldDomains: {},
+    lines: {},
+    groupBys: [],
     stats: { fieldsInArch: 0, buttonsInArch: 0, fieldsImported: 0, buttonsImported: 0, excluded: 0, unsupported: 0, unsupportedNodes: 0 },
   };
   if (!rootEl || !rootTag || !expected.includes(rootTag)) {
@@ -190,10 +253,11 @@ export function parseArch(arch: string, viewType: "list" | "form" | "search", ct
     return f;
   };
 
-  const describe = (name: string, attrs: Record<string, string>, path: string): FieldDescriptor | null => {
+  const describe = (name: string, attrs: Record<string, string>, path: string, sub?: XmlNode[]): FieldDescriptor | null => {
     const meta = ctx.fields[name];
     if (!meta) return null;
-    let type = TYPE_MAP[meta.type] ?? "unsupported";
+    // Image : champ binaire affiché par le widget image (la donnée passe par une route dédiée)
+    let type = meta.type === "binary" && attrs["widget"] === "image" ? "image" : (TYPE_MAP[meta.type] ?? "unsupported");
     let readonly = Boolean(meta.readonly);
     if (type === "unsupported") {
       diag({ code: "unsupported_field_type", severity: "warning", path, message: `Type de champ « ${meta.type} » non pris en charge : affiché comme indisponible.` });
@@ -208,7 +272,8 @@ export function parseArch(arch: string, viewType: "list" | "form" | "search", ct
       readonly = true; // MVP : affichage seulement
     }
     const widget = attrs["widget"];
-    const presentation = widget !== undefined && widget in PRESENTATION_WIDGETS;
+    // statusbar : étapes d'une sélection seulement ; sur une référence, rendu standard + diagnostic
+    const presentation = widget !== undefined && widget in PRESENTATION_WIDGETS && !(widget === "statusbar" && type !== "selection");
     const format = presentation ? PRESENTATION_WIDGETS[widget] : null;
     if (widget && !presentation) {
       diag({ code: "unsupported_widget", severity: "info", path, message: `Widget « ${widget} » non pris en charge : rendu standard en lecture seule.` });
@@ -225,8 +290,13 @@ export function parseArch(arch: string, viewType: "list" | "form" | "search", ct
       ...(Array.isArray(meta.digits) ? { digits: meta.digits } : {}),
       ...(type === "money" ? { currencyField: meta.currency_field ?? "currency_id" } : {}),
       ...(meta.help ? { help: meta.help } : {}),
-      ...(format && ((type === "text" && format !== "duration") || (type === "decimal" && format === "duration")) ? { format } : {}),
+      ...(format && ((type === "text" && format !== "duration" && format !== "steps") || (type === "decimal" && format === "duration") || (type === "selection" && format === "steps"))
+        ? { format }
+        : {}),
+      ...(format === "steps" && attrs["statusbar_visible"] ? { visibleOptions: attrs["statusbar_visible"].split(",").map((v) => v.trim()).filter(Boolean) } : {}),
     };
+    if (type === "references" || type === "lines" || type === "image") descriptor.readonly = true; // lot 1 : lecture seule
+    if (type === "lines") describeLines(name, meta, descriptor, path, sub ?? []);
     if (type === "selection" && !Array.isArray(meta.selection)) {
       descriptor.type = "unsupported";
       descriptor.readonly = true;
@@ -249,6 +319,76 @@ export function parseArch(arch: string, viewType: "list" | "form" | "search", ct
     }
     out.fields[name] = descriptor;
     return descriptor;
+  };
+
+  /**
+   * Lignes liées : colonnes de la sous-liste embarquée (<list>), limitées aux types simples et
+   * aux champs lisibles du modèle lié. Sans sous-liste (ou kanban, fiche) : le nom seul, rendu
+   * de secours qui garde le sens (la liste des lignes) sans rien ouvrir.
+   */
+  const describeLines = (name: string, meta: OdooFieldMeta, descriptor: FieldDescriptor, path: string, sub: XmlNode[]) => {
+    const relation = meta.relation;
+    const related = relation ? ctx.models?.[relation] : undefined;
+    const listEl = sub.find((k) => tagOf(k) === "list" || tagOf(k) === "tree");
+    const columns: string[] = [];
+    const lineFields: Record<string, FieldDescriptor> = {};
+    const lineMeta: Record<string, OdooFieldMeta> = {};
+    if (listEl && related) {
+      for (const el of childrenOf(listEl, tagOf(listEl) as string)) {
+        const tag = tagOf(el);
+        if (tag === "button") {
+          out.stats.buttonsInArch++;
+          out.stats.unsupported++;
+          continue;
+        }
+        if (tag !== "field") {
+          if (tag && tag !== "#text" && tag !== "#comment") countNested(childrenOf(el, tag));
+          continue;
+        }
+        out.stats.fieldsInArch++;
+        const a = attrsOf(el);
+        const col = a["name"] ?? "";
+        const m = related[col];
+        // Colonne masquée (quelle qu'en soit la condition) : non publiée, comme le repli column_invisible
+        const hidden = [a["column_invisible"], a["invisible"]].some((x) => x !== undefined && x !== "0" && x !== "False" && x !== "false");
+        const t = m ? TYPE_MAP[m.type] : undefined;
+        if (!m) {
+          out.stats.excluded++;
+          continue;
+        }
+        if (hidden || !t || !LINE_TYPES.has(t) || (t === "selection" && !Array.isArray(m.selection))) {
+          out.stats.unsupported++;
+          continue;
+        }
+        out.stats.fieldsImported++;
+        columns.push(col);
+        lineMeta[col] = m;
+        lineFields[col] = {
+          key: col,
+          label: a["string"] ?? m.string ?? col,
+          type: t,
+          readonly: true,
+          required: false,
+          ...(t === "selection" && Array.isArray(m.selection) ? { options: m.selection.map(([value, label]) => ({ value, label })) } : {}),
+          ...(Array.isArray(m.digits) ? { digits: m.digits } : {}),
+          ...(a["widget"] === "float_time" && t === "decimal" ? { format: "duration" as const } : {}),
+        };
+      }
+    } else if (sub.some((k) => tagOf(k) !== "#text")) {
+      countNested(sub);
+      diag({ code: "unsupported_node", severity: "info", path, message: "Sous-vue de relation non tabulaire : affichée en liste de noms." });
+    }
+    if (columns.length === 0) {
+      columns.push("display_name");
+      lineMeta["display_name"] = { type: "char", string: "Nom" };
+      lineFields["display_name"] = { key: "display_name", label: "Nom", type: "text", readonly: true, required: false };
+    }
+    if (!relation) {
+      descriptor.type = "unsupported";
+      return;
+    }
+    descriptor.lines = { columns, fields: lineFields };
+    out.lines[name] = { relation, columns, meta: lineMeta };
   };
 
   // ─── form ───────────────────────────────────────────────────────────────────
@@ -311,12 +451,14 @@ export function parseArch(arch: string, viewType: "list" | "form" | "search", ct
         case "field": {
           out.stats.fieldsInArch++;
           const name = attrs["name"] ?? "";
-          if (!describe(name, attrs, here)) {
+          const described = describe(name, attrs, here, kids);
+          if (!described) {
             out.stats.excluded++;
             diag({ code: "excluded_by_rights", severity: "info", path: `${path}/field`, message: "Champ non lisible pour ce compte : exclu." });
             break;
           }
-          if (kids.some((k) => tagOf(k) !== "#text")) {
+          if (described.type !== "lines" && kids.some((k) => tagOf(k) !== "#text")) {
+            countNested(kids);
             diag({ code: "unsupported_node", severity: "info", path: here, message: "Sous-vue de relation ignorée." });
           }
           out.stats.fieldsImported++;
@@ -475,8 +617,21 @@ export function parseArch(arch: string, viewType: "list" | "form" | "search", ct
           const context = attrs["context"] ? parseLiteral(attrs["context"]) : null;
           const groupBy = context !== null && typeof context === "object" && !Array.isArray(context) && "group_by" in context;
           if (groupBy) {
-            // Regroupement (hors MVP) : ce n'est pas un filtre, il n'est pas proposé comme tel
-            diag({ code: "unsupported_domain", severity: "info", path: here, message: "Regroupement non pris en charge." });
+            // Regroupement : proposé à part (un niveau) si le champ est lisible et regroupable
+            const spec = groupSpec((context as Record<string, Literal>)["group_by"], ctx.fields);
+            const label = attrs["string"] ?? attrs["name"] ?? "";
+            if (attrs["invisible"] === "1" || attrs["invisible"] === "True") {
+              if (spec) out.groupBys.push({ key: `g${out.groupBys.length}`, name: attrs["name"] ?? "", ...spec, label });
+              continue;
+            }
+            if (!spec) {
+              diag({ code: "unsupported_domain", severity: "info", path: here, message: "Regroupement non pris en charge." });
+              out.root.push({ kind: "groupBy", groupKey: `x${index}`, label, available: false });
+              continue;
+            }
+            const key = `g${out.groupBys.length}`;
+            out.groupBys.push({ key, name: attrs["name"] ?? "", ...spec, label });
+            out.root.push({ kind: "groupBy", groupKey: key, label, available: true });
             continue;
           }
           const domain = attrs["date"] ? null : parseDomain(attrs["domain"] ?? "[]");
